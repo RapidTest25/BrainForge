@@ -1,0 +1,438 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ==========================================
+// ENUMS
+// ==========================================
+
+enum TeamRole {
+  OWNER
+  ADMIN
+  MEMBER
+}
+
+enum InvitationStatus {
+  PENDING
+  ACCEPTED
+  EXPIRED
+  REVOKED
+}
+
+enum AIProviderEnum {
+  OPENAI
+  CLAUDE
+  GEMINI
+  GROQ
+  MISTRAL
+  DEEPSEEK
+  OPENROUTER
+  OLLAMA
+  CUSTOM
+}
+
+enum BrainstormMode {
+  BRAINSTORM
+  DEBATE
+  ANALYSIS
+  FREEFORM
+}
+
+enum MessageRole {
+  USER
+  ASSISTANT
+  SYSTEM
+}
+
+enum TaskStatus {
+  TODO
+  IN_PROGRESS
+  IN_REVIEW
+  DONE
+  CANCELLED
+}
+
+enum TaskPriority {
+  URGENT
+  HIGH
+  MEDIUM
+  LOW
+}
+
+enum SprintStatus {
+  DRAFT
+  ACTIVE
+  COMPLETED
+  ARCHIVED
+}
+
+enum DiagramType {
+  ERD
+  FLOWCHART
+  ARCHITECTURE
+  SEQUENCE
+  MINDMAP
+  USERFLOW
+  FREEFORM
+  COMPONENT
+}
+
+enum EventType {
+  TASK_DEADLINE
+  SPRINT_MILESTONE
+  BRAINSTORM_SESSION
+  CUSTOM_EVENT
+  MEETING
+}
+
+// ==========================================
+// USER & AUTH
+// ==========================================
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+  name         String
+  avatarUrl    String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  ownedTeams         Team[]
+  teamMemberships    TeamMember[]
+  aiKeys             UserAIKey[]
+  brainstormSessions BrainstormSession[]
+  sentInvitations    TeamInvitation[]    @relation("inviter")
+  createdTasks       Task[]              @relation("taskCreator")
+  taskAssignments    TaskAssignee[]
+  taskComments       TaskComment[]
+  notes              Note[]
+  diagrams           Diagram[]
+  calendarEvents     CalendarEvent[]
+  aiUsageLogs        AIUsageLog[]
+  sprintPlans        SprintPlan[]
+  noteHistories      NoteHistory[]
+}
+
+// ==========================================
+// TEAM
+// ==========================================
+
+model Team {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  ownerId     String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  owner              User               @relation(fields: [ownerId], references: [id])
+  members            TeamMember[]
+  invitations        TeamInvitation[]
+  tasks              Task[]
+  brainstormSessions BrainstormSession[]
+  sprintPlans        SprintPlan[]
+  notes              Note[]
+  diagrams           Diagram[]
+  calendarEvents     CalendarEvent[]
+  labels             Label[]
+}
+
+model TeamMember {
+  id       String   @id @default(cuid())
+  teamId   String
+  userId   String
+  role     TeamRole @default(MEMBER)
+  joinedAt DateTime @default(now())
+
+  team Team @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([teamId, userId])
+}
+
+model TeamInvitation {
+  id        String           @id @default(cuid())
+  teamId    String
+  email     String
+  invitedBy String
+  role      TeamRole         @default(MEMBER)
+  status    InvitationStatus @default(PENDING)
+  token     String           @unique
+  expiresAt DateTime
+  createdAt DateTime         @default(now())
+
+  team    Team @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  inviter User @relation("inviter", fields: [invitedBy], references: [id])
+}
+
+// ==========================================
+// AI KEY (BYOK)
+// ==========================================
+
+model UserAIKey {
+  id           String         @id @default(cuid())
+  userId       String
+  provider     AIProviderEnum
+  encryptedKey String
+  label        String?
+  isActive     Boolean        @default(true)
+  lastUsedAt   DateTime?
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// ==========================================
+// TASKS (ClickUp-inspired)
+// ==========================================
+
+model Task {
+  id          String       @id @default(cuid())
+  teamId      String
+  sprintId    String?
+  title       String
+  description String?      @db.Text
+  status      TaskStatus   @default(TODO)
+  priority    TaskPriority @default(MEDIUM)
+  startDate   DateTime?
+  dueDate     DateTime?
+  completedAt DateTime?
+  createdBy   String
+  estimation  Int?
+  timeSpent   Int?
+  orderIndex  Int          @default(0)
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  team         Team             @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  sprint       SprintPlan?      @relation(fields: [sprintId], references: [id])
+  creator      User             @relation("taskCreator", fields: [createdBy], references: [id])
+  assignees    TaskAssignee[]
+  labels       TaskLabel[]
+  comments     TaskComment[]
+  dependencies TaskDependency[] @relation("dependentTask")
+  dependents   TaskDependency[] @relation("dependencyTask")
+  activities   TaskActivity[]
+}
+
+model TaskAssignee {
+  id     String @id @default(cuid())
+  taskId String
+  userId String
+
+  task Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id])
+
+  @@unique([taskId, userId])
+}
+
+model Label {
+  id     String @id @default(cuid())
+  teamId String
+  name   String
+  color  String
+
+  team  Team        @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  tasks TaskLabel[]
+
+  @@unique([teamId, name])
+}
+
+model TaskLabel {
+  taskId  String
+  labelId String
+
+  task  Task  @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  label Label @relation(fields: [labelId], references: [id], onDelete: Cascade)
+
+  @@id([taskId, labelId])
+}
+
+model TaskDependency {
+  id               String @id @default(cuid())
+  dependentTaskId  String
+  dependencyTaskId String
+
+  dependentTask  Task @relation("dependentTask", fields: [dependentTaskId], references: [id], onDelete: Cascade)
+  dependencyTask Task @relation("dependencyTask", fields: [dependencyTaskId], references: [id], onDelete: Cascade)
+
+  @@unique([dependentTaskId, dependencyTaskId])
+}
+
+model TaskComment {
+  id        String   @id @default(cuid())
+  taskId    String
+  userId    String
+  content   String   @db.Text
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  task Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id])
+}
+
+model TaskActivity {
+  id        String   @id @default(cuid())
+  taskId    String
+  userId    String
+  action    String
+  oldValue  String?
+  newValue  String?
+  createdAt DateTime @default(now())
+
+  task Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+}
+
+// ==========================================
+// BRAINSTORM
+// ==========================================
+
+model BrainstormSession {
+  id        String         @id @default(cuid())
+  teamId    String
+  createdBy String
+  title     String
+  mode      BrainstormMode
+  context   String?        @db.Text
+  isActive  Boolean        @default(true)
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+
+  team     Team               @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  creator  User               @relation(fields: [createdBy], references: [id])
+  messages BrainstormMessage[]
+}
+
+model BrainstormMessage {
+  id        String      @id @default(cuid())
+  sessionId String
+  role      MessageRole
+  content   String      @db.Text
+  isPinned  Boolean     @default(false)
+  createdAt DateTime    @default(now())
+
+  session BrainstormSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+}
+
+// ==========================================
+// SPRINT
+// ==========================================
+
+model SprintPlan {
+  id        String       @id @default(cuid())
+  teamId    String
+  createdBy String
+  title     String
+  goal      String       @db.Text
+  deadline  DateTime
+  teamSize  Int          @default(1)
+  status    SprintStatus @default(DRAFT)
+  data      Json         @default("{}")
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+
+  team    Team @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  creator User @relation(fields: [createdBy], references: [id])
+  tasks   Task[]
+}
+
+// ==========================================
+// DIAGRAMS
+// ==========================================
+
+model Diagram {
+  id          String      @id @default(cuid())
+  teamId      String
+  createdBy   String
+  title       String
+  description String?
+  type        DiagramType
+  data        Json        @default("{\"nodes\":[],\"edges\":[]}")
+  thumbnail   String?
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  team    Team @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  creator User @relation(fields: [createdBy], references: [id])
+}
+
+// ==========================================
+// CALENDAR
+// ==========================================
+
+model CalendarEvent {
+  id          String    @id @default(cuid())
+  teamId      String
+  createdBy   String
+  title       String
+  description String?
+  type        EventType
+  startDate   DateTime
+  endDate     DateTime?
+  allDay      Boolean   @default(false)
+  color       String?
+  taskId      String?
+  sprintId    String?
+  sessionId   String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  team    Team @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  creator User @relation(fields: [createdBy], references: [id])
+}
+
+// ==========================================
+// NOTES
+// ==========================================
+
+model Note {
+  id        String   @id @default(cuid())
+  teamId    String
+  createdBy String
+  title     String
+  content   String   @db.Text @default("")
+  version   Int      @default(1)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  team    Team          @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  creator User          @relation(fields: [createdBy], references: [id])
+  history NoteHistory[]
+}
+
+model NoteHistory {
+  id        String   @id @default(cuid())
+  noteId    String
+  content   String   @db.Text
+  version   Int
+  editedBy  String
+  createdAt DateTime @default(now())
+
+  note   Note @relation(fields: [noteId], references: [id], onDelete: Cascade)
+  editor User @relation(fields: [editedBy], references: [id])
+}
+
+// ==========================================
+// AI USAGE TRACKING
+// ==========================================
+
+model AIUsageLog {
+  id               String   @id @default(cuid())
+  userId           String
+  provider         String
+  model            String
+  promptTokens     Int
+  completionTokens Int
+  estimatedCost    Float
+  feature          String
+  createdAt        DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+}

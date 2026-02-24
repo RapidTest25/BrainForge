@@ -41,7 +41,8 @@ export default function RegisterPage() {
 
     try {
       const res = await api.post<{ data: { user: any; tokens: any } }>('/auth/register', { name, email, password }, { skipAuthRetry: true });
-      setAuth(res.data.user, res.data.tokens);
+      const userData = { ...res.data.user, avatar: res.data.user.avatarUrl || undefined };
+      setAuth(userData, res.data.tokens);
       setSuccess('Account created! Redirecting...');
       setTimeout(() => router.push('/dashboard'), 800);
     } catch (err: any) {

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { Bell, Search, Plus, ChevronDown, X, Loader2 } from 'lucide-react';
+import { Bell, Search, Plus, ChevronDown, X, Loader2, Menu, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -9,11 +9,12 @@ import {
   DropdownMenuTrigger, DropdownMenuSeparator, DropdownMenuLabel,
 } from '@/components/ui/dropdown-menu';
 import { useAuthStore } from '@/stores/auth-store';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useRouter, usePathname } from 'next/navigation';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { useTeamStore } from '@/stores/team-store';
+import { AIGenerateDialog } from '@/components/ai-generate-dialog';
 
 const PAGE_TITLES: Record<string, string> = {
   '/dashboard': 'Home',
@@ -24,6 +25,7 @@ const PAGE_TITLES: Record<string, string> = {
   '/sprints': 'Sprints',
   '/notes': 'Notes',
   '/settings': 'Settings',
+  '/profile': 'Profile',
   '/settings/ai-keys': 'AI Keys',
   '/settings/team': 'Team',
   '/notifications': 'Notifications',
@@ -46,7 +48,11 @@ const SEARCH_PAGES = [
   { label: 'Dashboard', href: '/dashboard', icon: '🏠' },
 ];
 
-export function Header() {
+interface HeaderProps {
+  onMobileMenuToggle?: () => void;
+}
+
+export function Header({ onMobileMenuToggle }: HeaderProps) {
   const { user, logout } = useAuthStore();
   const { activeTeam } = useTeamStore();
   const teamId = activeTeam?.id;
@@ -56,6 +62,7 @@ export function Header() {
   const [searchQuery, setSearchQuery] = useState('');
   const [showSearch, setShowSearch] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
+  const [showAIGenerate, setShowAIGenerate] = useState(false);
   const searchRef = useRef<HTMLDivElement>(null);
   const notifRef = useRef<HTMLDivElement>(null);
 
@@ -102,15 +109,22 @@ export function Header() {
   };
 
   return (
-    <header className="h-12 border-b border-border bg-white flex items-center justify-between px-4">
-      {/* Page title */}
-      <div className="flex items-center gap-3">
+    <header className="h-12 border-b border-border bg-white flex items-center justify-between px-3 md:px-4">
+      {/* Left side */}
+      <div className="flex items-center gap-2">
+        {/* Mobile hamburger menu */}
+        <button
+          onClick={onMobileMenuToggle}
+          className="md:hidden h-8 w-8 flex items-center justify-center rounded-md hover:bg-accent transition-colors"
+        >
+          <Menu className="h-5 w-5 text-muted-foreground" />
+        </button>
         <h2 className="text-sm font-semibold text-foreground">{pageTitle}</h2>
       </div>
 
       {/* Right side */}
-      <div className="flex items-center gap-1.5">
-        {/* Search */}
+      <div className="flex items-center gap-1 md:gap-1.5">
+        {/* Search (desktop only) */}
         <div ref={searchRef} className="relative hidden md:block">
           <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
           <Input
@@ -149,12 +163,23 @@ export function Header() {
           )}
         </div>
 
+        {/* AI Generate */}
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={() => setShowAIGenerate(true)}
+          className="h-7 px-2 md:px-2.5 text-xs gap-1 rounded-md border-[#7b68ee]/20 text-[#7b68ee] hover:bg-[#7b68ee]/5 hover:text-[#7b68ee]"
+        >
+          <Sparkles className="h-3.5 w-3.5" />
+          <span className="hidden sm:inline">AI</span>
+        </Button>
+
         {/* Quick create */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button size="sm" className="h-7 px-2.5 text-xs gap-1 rounded-md">
+            <Button size="sm" className="h-7 px-2 md:px-2.5 text-xs gap-1 rounded-md">
               <Plus className="h-3.5 w-3.5" />
-              New
+              <span className="hidden sm:inline">New</span>
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-40">
@@ -233,13 +258,14 @@ export function Header() {
         {/* User */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <button className="flex items-center gap-1.5 rounded-md px-1.5 py-1 hover:bg-accent transition-colors">
+            <button className="flex items-center gap-1 md:gap-1.5 rounded-md px-1 md:px-1.5 py-1 hover:bg-accent transition-colors">
               <Avatar className="h-6 w-6">
+                {user?.avatar && <AvatarImage src={user.avatar} alt={user?.name || 'User'} />}
                 <AvatarFallback className="bg-[#7b68ee]/15 text-[#7b68ee] text-[10px] font-semibold">
                   {user?.name?.charAt(0).toUpperCase() || 'U'}
                 </AvatarFallback>
               </Avatar>
-              <ChevronDown className="h-3 w-3 text-muted-foreground" />
+              <ChevronDown className="h-3 w-3 text-muted-foreground hidden sm:block" />
             </button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-48">
@@ -255,6 +281,8 @@ export function Header() {
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
+
+      <AIGenerateDialog open={showAIGenerate} onOpenChange={setShowAIGenerate} />
     </header>
   );
 }

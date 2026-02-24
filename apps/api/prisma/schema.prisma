@@ -117,6 +117,8 @@ model User {
   aiUsageLogs        AIUsageLog[]
   sprintPlans        SprintPlan[]
   noteHistories      NoteHistory[]
+  discussions        Discussion[]
+  discussionReplies  DiscussionReply[]
 }
 
 // ==========================================
@@ -141,6 +143,7 @@ model Team {
   diagrams           Diagram[]
   calendarEvents     CalendarEvent[]
   labels             Label[]
+  discussions        Discussion[]
 }
 
 model TeamMember {
@@ -417,6 +420,39 @@ model NoteHistory {
 
   note   Note @relation(fields: [noteId], references: [id], onDelete: Cascade)
   editor User @relation(fields: [editedBy], references: [id])
+}
+
+// ==========================================
+// DISCUSSIONS
+// ==========================================
+
+model Discussion {
+  id        String   @id @default(cuid())
+  teamId    String
+  createdBy String
+  title     String
+  content   String   @db.Text
+  category  String   @default("general")
+  isPinned  Boolean  @default(false)
+  isClosed  Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  team    Team              @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  creator User              @relation(fields: [createdBy], references: [id])
+  replies DiscussionReply[]
+}
+
+model DiscussionReply {
+  id           String   @id @default(cuid())
+  discussionId String
+  userId       String
+  content      String   @db.Text
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  discussion Discussion @relation(fields: [discussionId], references: [id], onDelete: Cascade)
+  user       User       @relation(fields: [userId], references: [id])
 }
 
 // ==========================================

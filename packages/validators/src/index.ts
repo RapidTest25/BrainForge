@@ -7,3 +7,4 @@ export * from './diagram';
 export * from './calendar';
 export * from './sprint';
 export * from './note';
+export * from './discussion';

@@ -9,6 +9,8 @@ import { diagramRoutes } from './modules/diagram/diagram.routes.js';
 import { calendarRoutes } from './modules/calendar/calendar.routes.js';
 import { sprintRoutes } from './modules/sprint/sprint.routes.js';
 import { noteRoutes } from './modules/note/note.routes.js';
+import { discussionRoutes } from './modules/discussion/discussion.routes.js';
+import { aiGenerateRoutes } from './modules/ai-generate/ai-generate.routes.js';
 import { aiService } from './ai/ai.service.js';
 import { AppError } from './lib/errors.js';
 
@@ -78,6 +80,8 @@ export async function buildApp() {
   app.register(calendarRoutes, { prefix: '/api/teams' });
   app.register(sprintRoutes, { prefix: '/api/teams' });
   app.register(noteRoutes, { prefix: '/api/teams' });
+  app.register(discussionRoutes, { prefix: '/api/teams' });
+  app.register(aiGenerateRoutes, { prefix: '/api/teams' });
 
   return app;
 }

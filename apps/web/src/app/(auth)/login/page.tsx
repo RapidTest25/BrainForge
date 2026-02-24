@@ -37,7 +37,8 @@ export default function LoginPage() {
 
     try {
       const res = await api.post<{ data: { user: any; tokens: any } }>('/auth/login', { email, password }, { skipAuthRetry: true });
-      setAuth(res.data.user, res.data.tokens);
+      const userData = { ...res.data.user, avatar: res.data.user.avatarUrl || undefined };
+      setAuth(userData, res.data.tokens);
 
       if (rememberMe) {
         localStorage.setItem('brainforge_remember_email', email);

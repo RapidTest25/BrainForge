@@ -6,10 +6,10 @@ import {
   Brain, LayoutDashboard, CheckSquare, MessageSquare,
   GitBranch, Calendar, Zap, FileText, Key, Settings,
   ChevronDown, Users, Home, Bell, Target, Star,
-  PanelLeftClose, BookOpen
+  PanelLeftClose, BookOpen, X
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useTeamStore } from '@/stores/team-store';
 import { useAuthStore } from '@/stores/auth-store';
 import { useState } from 'react';
@@ -43,7 +43,14 @@ const BOTTOM_NAV = [
 
 type SectionState = { favorites: boolean; spaces: boolean };
 
-export function Sidebar({ collapsed, onToggle }: { collapsed: boolean; onToggle: () => void }) {
+interface SidebarProps {
+  collapsed: boolean;
+  onToggle: () => void;
+  mobile?: boolean;
+  onMobileClose?: () => void;
+}
+
+export function Sidebar({ collapsed, onToggle, mobile, onMobileClose }: SidebarProps) {
   const [sections, setSections] = useState<SectionState>({ favorites: true, spaces: true });
   const pathname = usePathname();
   const { activeTeam } = useTeamStore();
@@ -58,10 +65,14 @@ export function Sidebar({ collapsed, onToggle }: { collapsed: boolean; onToggle:
     return pathname === href || pathname.startsWith(href + '/');
   };
 
-  // ── Collapsed sidebar ──
-  if (collapsed) {
+  const handleNavClick = () => {
+    if (mobile && onMobileClose) onMobileClose();
+  };
+
+  // ── Collapsed sidebar (desktop only) ──
+  if (collapsed && !mobile) {
     return (
-      <aside className="flex flex-col h-screen w-13 border-r border-border bg-sidebar shrink-0 items-center">
+      <aside className="hidden md:flex flex-col h-screen w-13 border-r border-border bg-sidebar shrink-0 items-center">
         <div className="flex items-center justify-center h-12 border-b border-border w-full">
           <button onClick={onToggle} className="h-7 w-7 rounded-lg bg-linear-to-br from-[#7b68ee] to-[#a78bfa] flex items-center justify-center" title="Expand sidebar">
             <Brain className="h-4 w-4 text-white" />
@@ -94,6 +105,7 @@ export function Sidebar({ collapsed, onToggle }: { collapsed: boolean; onToggle:
         {user && (
           <div className="py-2.5 border-t border-border">
             <Avatar className="h-7 w-7">
+              {user.avatar && <AvatarImage src={user.avatar} alt={user.name} />}
               <AvatarFallback className="bg-[#7b68ee]/15 text-[#7b68ee] text-xs font-medium">
                 {user.name.charAt(0).toUpperCase()}
               </AvatarFallback>
@@ -106,20 +118,32 @@ export function Sidebar({ collapsed, onToggle }: { collapsed: boolean; onToggle:
 
   // ── Expanded sidebar ──
   return (
-    <aside className="flex flex-col h-screen w-60 border-r border-border bg-sidebar shrink-0">
+    <aside className={cn(
+      'flex flex-col h-screen border-r border-border bg-sidebar shrink-0',
+      mobile ? 'w-72' : 'hidden md:flex w-60'
+    )}>
       <div className="flex items-center gap-2 px-3 h-12 border-b border-border">
         <div className="h-7 w-7 rounded-lg bg-linear-to-br from-[#7b68ee] to-[#a78bfa] flex items-center justify-center shrink-0">
           <Brain className="h-4 w-4 text-white" />
         </div>
         <span className="text-sm font-semibold text-foreground truncate flex-1">{activeTeam?.name || 'BrainForge'}</span>
-        <button onClick={onToggle} className="p-1 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors" title="Collapse sidebar">
-          <PanelLeftClose className="h-4 w-4" />
-        </button>
+        {mobile ? (
+          <button
+            onClick={onMobileClose}
+            className="p-1 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        ) : (
+          <button onClick={onToggle} className="p-1 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors" title="Collapse sidebar">
+            <PanelLeftClose className="h-4 w-4" />
+          </button>
+        )}
       </div>
 
       <div className="px-2 pt-3 pb-1 space-y-0.5">
         {MAIN_NAV.map(({ label, href, icon: Icon }) => (
-          <Link key={href} href={href} className={cn('flex items-center gap-2.5 px-2.5 py-1.5 rounded-md text-[13px] transition-colors', checkActive(href) ? 'bg-primary/8 text-[#7b68ee] font-medium' : 'text-muted-foreground hover:bg-accent hover:text-foreground')}>
+          <Link key={href} href={href} onClick={handleNavClick} className={cn('flex items-center gap-2.5 px-2.5 py-1.5 rounded-md text-[13px] transition-colors', checkActive(href) ? 'bg-primary/8 text-[#7b68ee] font-medium' : 'text-muted-foreground hover:bg-accent hover:text-foreground')}>
             <Icon className="h-4 w-4 shrink-0" />
             <span>{label}</span>
           </Link>
@@ -136,7 +160,7 @@ export function Sidebar({ collapsed, onToggle }: { collapsed: boolean; onToggle:
           {sections.favorites && (
             <div className="mt-1 space-y-0.5">
               {FAVORITES.map(({ label, href, icon: Icon, color }) => (
-                <Link key={`fav-${label}`} href={href} className={cn('flex items-center gap-2.5 px-3 py-1.5 rounded-md text-[13px] transition-colors', checkActive(href) ? 'bg-primary/8 text-foreground font-medium' : 'text-muted-foreground hover:bg-accent hover:text-foreground')}>
+                <Link key={`fav-${label}`} href={href} onClick={handleNavClick} className={cn('flex items-center gap-2.5 px-3 py-1.5 rounded-md text-[13px] transition-colors', checkActive(href) ? 'bg-primary/8 text-foreground font-medium' : 'text-muted-foreground hover:bg-accent hover:text-foreground')}>
                   <div className="h-5 w-5 rounded flex items-center justify-center shrink-0" style={{ backgroundColor: `${color}18` }}><Icon className="h-3 w-3" style={{ color }} /></div>
                   <span className="truncate">{label}</span>
                 </Link>
@@ -154,7 +178,7 @@ export function Sidebar({ collapsed, onToggle }: { collapsed: boolean; onToggle:
           {sections.spaces && (
             <div className="mt-1 space-y-0.5">
               {SPACE_NAV.map(({ label, href, icon: Icon, color }) => (
-                <Link key={`space-${label}`} href={href} className={cn('flex items-center gap-2.5 px-3 py-1.5 rounded-md text-[13px] transition-colors', checkActive(href) ? 'bg-primary/8 text-foreground font-medium' : 'text-muted-foreground hover:bg-accent hover:text-foreground')}>
+                <Link key={`space-${label}`} href={href} onClick={handleNavClick} className={cn('flex items-center gap-2.5 px-3 py-1.5 rounded-md text-[13px] transition-colors', checkActive(href) ? 'bg-primary/8 text-foreground font-medium' : 'text-muted-foreground hover:bg-accent hover:text-foreground')}>
                   <div className="h-5 w-5 rounded flex items-center justify-center shrink-0" style={{ backgroundColor: `${color}18` }}><Icon className="h-3 w-3" style={{ color }} /></div>
                   <span className="truncate">{label}</span>
                 </Link>
@@ -166,7 +190,7 @@ export function Sidebar({ collapsed, onToggle }: { collapsed: boolean; onToggle:
 
       <div className="px-2 py-2 border-t border-border space-y-0.5">
         {BOTTOM_NAV.map(({ label, href, icon: Icon }) => (
-          <Link key={href} href={href} className={cn('flex items-center gap-2.5 px-2.5 py-1.5 rounded-md text-[13px] transition-colors', checkActive(href) ? 'bg-primary/8 text-[#7b68ee] font-medium' : 'text-muted-foreground hover:bg-accent hover:text-foreground')}>
+          <Link key={href} href={href} onClick={handleNavClick} className={cn('flex items-center gap-2.5 px-2.5 py-1.5 rounded-md text-[13px] transition-colors', checkActive(href) ? 'bg-primary/8 text-[#7b68ee] font-medium' : 'text-muted-foreground hover:bg-accent hover:text-foreground')}>
             <Icon className="h-4 w-4 shrink-0" />
             <span>{label}</span>
           </Link>
@@ -177,10 +201,12 @@ export function Sidebar({ collapsed, onToggle }: { collapsed: boolean; onToggle:
         <div className="px-3 py-2.5 border-t border-border">
           <div className="flex items-center gap-2">
             <Avatar className="h-7 w-7">
+              {user.avatar && <AvatarImage src={user.avatar} alt={user.name} />}
               <AvatarFallback className="bg-[#7b68ee]/15 text-[#7b68ee] text-xs font-medium">{user.name.charAt(0).toUpperCase()}</AvatarFallback>
             </Avatar>
             <div className="flex-1 min-w-0">
               <p className="text-[13px] font-medium truncate text-foreground">{user.name}</p>
+              <p className="text-[11px] text-muted-foreground truncate">{user.email}</p>
             </div>
           </div>
         </div>

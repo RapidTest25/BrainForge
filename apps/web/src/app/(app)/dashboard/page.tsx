@@ -45,10 +45,16 @@ export default function DashboardPage() {
   const taskList = tasks?.data || [];
   const todoCount = taskList.filter((t: any) => t.status === 'TODO').length;
   const inProgressCount = taskList.filter((t: any) => t.status === 'IN_PROGRESS').length;
+  const inReviewCount = taskList.filter((t: any) => t.status === 'IN_REVIEW').length;
   const doneCount = taskList.filter((t: any) => t.status === 'DONE').length;
   const totalTasks = taskList.length;
+  const completionPct = totalTasks > 0 ? Math.round((doneCount / totalTasks) * 100) : 0;
 
   const recentTasks = taskList.slice(0, 5);
+
+  const now = new Date();
+  const hour = now.getHours();
+  const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
 
   const statusLabel: Record<string, { text: string; color: string; bg: string }> = {
     TODO: { text: 'To Do', color: '#6b7280', bg: '#f3f4f6' },
@@ -67,21 +73,32 @@ export default function DashboardPage() {
   return (
     <div className="max-w-6xl mx-auto space-y-5">
       {/* Welcome header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-xl font-semibold text-[#1a1a2e]">
-            Welcome back, {user?.name?.split(' ')[0] || 'User'}
-          </h1>
-          <p className="text-sm text-gray-400 mt-0.5">
-            {activeTeam ? `${activeTeam.name} workspace` : 'Create a team to get started'}
-          </p>
+      <div className="bg-gradient-to-r from-[#7b68ee] via-[#8b7cf6] to-[#a78bfa] rounded-2xl p-5 md:p-6 text-white relative overflow-hidden">
+        <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiNmZmZmZmYiIGZpbGwtb3BhY2l0eT0iMC4wNSI+PGNpcmNsZSBjeD0iMzAiIGN5PSIzMCIgcj0iMiIvPjwvZz48L2c+PC9zdmc+')] opacity-50" />
+        <div className="relative flex items-center justify-between">
+          <div>
+            <h1 className="text-xl md:text-2xl font-bold">
+              {greeting}, {user?.name?.split(' ')[0] || 'User'} 👋
+            </h1>
+            <p className="text-sm text-white/70 mt-1">
+              {activeTeam ? `${activeTeam.name} workspace` : 'Create a team to get started'}
+              {totalTasks > 0 && ` · ${completionPct}% tasks completed`}
+            </p>
+          </div>
+          <button
+            onClick={() => router.push('/tasks?new=true')}
+            className="flex items-center gap-1.5 px-4 py-2 bg-white/20 backdrop-blur-sm text-white text-sm font-medium rounded-xl hover:bg-white/30 transition-colors border border-white/10"
+          >
+            <Plus className="h-3.5 w-3.5" /> New Task
+          </button>
         </div>
-        <button
-          onClick={() => router.push('/tasks?new=true')}
-          className="flex items-center gap-1.5 px-3.5 py-1.5 bg-[#7b68ee] text-white text-sm rounded-lg hover:bg-[#6c5ce7] transition-colors"
-        >
-          <Plus className="h-3.5 w-3.5" /> New Task
-        </button>
+        {totalTasks > 0 && (
+          <div className="relative mt-4">
+            <div className="flex h-1.5 rounded-full overflow-hidden bg-white/20">
+              <div className="bg-white/90 transition-all rounded-full" style={{ width: `${completionPct}%` }} />
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Stats row */}
@@ -120,6 +137,9 @@ export default function DashboardPage() {
             {inProgressCount > 0 && (
               <div className="bg-[#3b82f6] transition-all" style={{ width: `${(inProgressCount / totalTasks) * 100}%` }} />
             )}
+            {inReviewCount > 0 && (
+              <div className="bg-[#f59e0b] transition-all" style={{ width: `${(inReviewCount / totalTasks) * 100}%` }} />
+            )}
             {doneCount > 0 && (
               <div className="bg-[#22c55e] transition-all" style={{ width: `${(doneCount / totalTasks) * 100}%` }} />
             )}
@@ -132,6 +152,10 @@ export default function DashboardPage() {
             <div className="flex items-center gap-1.5">
               <div className="h-2 w-2 rounded-full bg-[#3b82f6]" />
               <span className="text-[11px] text-gray-500">In Progress ({inProgressCount})</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <div className="h-2 w-2 rounded-full bg-[#f59e0b]" />
+              <span className="text-[11px] text-gray-500">In Review ({inReviewCount})</span>
             </div>
             <div className="flex items-center gap-1.5">
               <div className="h-2 w-2 rounded-full bg-[#22c55e]" />

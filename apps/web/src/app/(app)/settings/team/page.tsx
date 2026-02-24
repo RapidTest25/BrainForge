@@ -33,6 +33,7 @@ export default function TeamSettingsPage() {
   const [teamName, setTeamName] = useState(activeTeam?.name || '');
 
   const [inviteMode, setInviteMode] = useState<'email' | 'link'>('email');
+  const [removingMember, setRemovingMember] = useState<any>(null);
 
   const { data: team } = useQuery({
     queryKey: ['team', teamId],
@@ -153,7 +154,7 @@ export default function TeamSettingsPage() {
                     </Select>
                     <button
                       className="text-gray-300 hover:text-red-500 transition-colors"
-                      onClick={() => { if (confirm('Remove this member?')) removeMutation.mutate(member.id); }}
+                      onClick={() => setRemovingMember(member)}
                     >
                       <Trash2 className="h-4 w-4" />
                     </button>
@@ -262,6 +263,35 @@ export default function TeamSettingsPage() {
                 {generateLinkMutation.isPending ? 'Generating...' : 'Generate Link'}
               </button>
             )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Remove Member Confirmation Dialog */}
+      <Dialog open={!!removingMember} onOpenChange={(o) => { if (!o) setRemovingMember(null); }}>
+        <DialogContent className="bg-white max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="text-[#1a1a2e]">Remove Member</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <p className="text-sm text-gray-500">
+              Are you sure you want to remove <span className="font-medium text-[#1a1a2e]">{removingMember?.user?.name || removingMember?.user?.email}</span> from this team?
+            </p>
+            <p className="text-xs text-gray-400">This action cannot be undone. The member will lose access to all team resources.</p>
+          </div>
+          <DialogFooter>
+            <button
+              onClick={() => setRemovingMember(null)}
+              className="px-4 py-2 text-sm font-medium text-gray-500 hover:text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={() => { removeMutation.mutate(removingMember.id); setRemovingMember(null); }}
+              className="px-4 py-2 bg-red-500 text-white text-sm font-medium rounded-lg hover:bg-red-600 transition-colors"
+            >
+              Remove Member
+            </button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

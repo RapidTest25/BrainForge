@@ -164,6 +164,25 @@ class BrainstormService {
     }
     return markdown;
   }
+
+  async updateSession(sessionId: string, data: { title?: string }) {
+    return prisma.brainstormSession.update({
+      where: { id: sessionId },
+      data,
+      include: { creator: { select: { id: true, name: true, avatarUrl: true } } },
+    });
+  }
+
+  async updateCanvasData(sessionId: string, whiteboardData?: any, flowData?: any) {
+    const updateData: any = {};
+    if (whiteboardData !== undefined) updateData.whiteboardData = whiteboardData;
+    if (flowData !== undefined) updateData.flowData = flowData;
+    
+    return prisma.brainstormSession.update({
+      where: { id: sessionId },
+      data: updateData,
+    });
+  }
 }
 
 export const brainstormService = new BrainstormService();

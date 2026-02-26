@@ -97,7 +97,8 @@ enum EventType {
 model User {
   id           String   @id @default(cuid())
   email        String   @unique
-  passwordHash String
+  passwordHash String?
+  googleId     String?  @unique
   name         String
   avatarUrl    String?
   createdAt    DateTime @default(now())
@@ -298,15 +299,17 @@ model TaskActivity {
 // ==========================================
 
 model BrainstormSession {
-  id        String         @id @default(cuid())
-  teamId    String
-  createdBy String
-  title     String
-  mode      BrainstormMode
-  context   String?        @db.Text
-  isActive  Boolean        @default(true)
-  createdAt DateTime       @default(now())
-  updatedAt DateTime       @updatedAt
+  id             String         @id @default(cuid())
+  teamId         String
+  createdBy      String
+  title          String
+  mode           BrainstormMode
+  context        String?        @db.Text
+  isActive       Boolean        @default(true)
+  whiteboardData Json?
+  flowData       Json?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
 
   team     Team               @relation(fields: [teamId], references: [id], onDelete: Cascade)
   creator  User               @relation(fields: [createdBy], references: [id])

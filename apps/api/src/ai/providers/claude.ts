@@ -52,22 +52,24 @@ export class ClaudeProvider implements AIProviderInterface {
 
   async validateKey(apiKey: string): Promise<boolean> {
     try {
-      const client = this.getClient(apiKey);
-      await client.messages.create({
-        model: 'claude-3-haiku-20240307',
-        max_tokens: 10,
-        messages: [{ role: 'user', content: 'hi' }],
+      // Use lightweight models list endpoint — no tokens consumed, just validates the key
+      const res = await fetch('https://api.anthropic.com/v1/models', {
+        headers: {
+          'x-api-key': apiKey,
+          'anthropic-version': '2023-06-01',
+        },
       });
-      return true;
+      return res.ok;
     } catch { return false; }
   }
 
   listModels(): ModelDef[] {
     return [
-      { id: 'claude-sonnet-4-20250514', name: 'Claude Sonnet 4', contextWindow: 200000, costPer1kInput: 0.003, costPer1kOutput: 0.015 },
-      { id: 'claude-3-5-sonnet-20241022', name: 'Claude 3.5 Sonnet', contextWindow: 200000, costPer1kInput: 0.003, costPer1kOutput: 0.015 },
-      { id: 'claude-3-5-haiku-20241022', name: 'Claude 3.5 Haiku', contextWindow: 200000, costPer1kInput: 0.001, costPer1kOutput: 0.005 },
-      { id: 'claude-3-opus-20240229', name: 'Claude 3 Opus', contextWindow: 200000, costPer1kInput: 0.015, costPer1kOutput: 0.075 },
+      { id: 'claude-sonnet-4-20250514', name: 'Claude Sonnet 4', contextWindow: 200000, costPer1kInput: 0.003, costPer1kOutput: 0.015, description: 'Best balance of speed & intelligence' },
+      { id: 'claude-opus-4-20250514', name: 'Claude Opus 4', contextWindow: 200000, costPer1kInput: 0.015, costPer1kOutput: 0.075, description: 'Most capable model' },
+      { id: 'claude-3-5-haiku-20241022', name: 'Claude 3.5 Haiku', contextWindow: 200000, costPer1kInput: 0.001, costPer1kOutput: 0.005, description: 'Fastest & cheapest' },
+      { id: 'claude-3-5-sonnet-20241022', name: 'Claude 3.5 Sonnet', contextWindow: 200000, costPer1kInput: 0.003, costPer1kOutput: 0.015, description: 'Previous gen flagship' },
+      { id: 'claude-3-opus-20240229', name: 'Claude 3 Opus', contextWindow: 200000, costPer1kInput: 0.015, costPer1kOutput: 0.075, description: 'Previous gen most capable' },
     ];
   }
 }

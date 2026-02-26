@@ -4,7 +4,7 @@ import { GeminiProvider } from './providers/gemini.js';
 import { GroqProvider } from './providers/groq.js';
 import { OpenRouterProvider } from './providers/openrouter.js';
 import { aiKeyService } from '../modules/ai-key/ai-key.service.js';
-import type { AIProviderInterface, ChatMsg, ChatOptions, ChatResult, ModelDef } from './providers/base.js';
+import type { AIProviderInterface, ChatMsg, ChatOptions, ChatResult, ModelDef, BalanceInfo } from './providers/base.js';
 
 const providers: Record<string, AIProviderInterface> = {
   OPENAI: new OpenAIProvider(),
@@ -64,6 +64,14 @@ class AIService {
   async validateKey(providerName: string, apiKey: string): Promise<boolean> {
     const provider = this.getProvider(providerName);
     return provider.validateKey(apiKey);
+  }
+
+  async getBalance(providerName: string, apiKey: string): Promise<BalanceInfo | null> {
+    const provider = this.getProvider(providerName);
+    if (provider.getBalance) {
+      return provider.getBalance(apiKey);
+    }
+    return null;
   }
 }
 

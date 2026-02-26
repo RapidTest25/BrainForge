@@ -1,5 +1,7 @@
 @import "tailwindcss";
 
+@custom-variant dark (&:where(.dark, .dark *));
+
 @theme {
   --color-background: #ffffff;
   --color-foreground: #1a1a2e;
@@ -31,6 +33,33 @@
   --font-mono: "JetBrains Mono", ui-monospace, monospace;
 }
 
+/* Dark mode variable overrides */
+.dark {
+  --color-background: #0f1117;
+  --color-foreground: #e4e5e9;
+  --color-card: #181a20;
+  --color-card-foreground: #e4e5e9;
+  --color-popover: #1c1e26;
+  --color-popover-foreground: #e4e5e9;
+  --color-primary: #7b68ee;
+  --color-primary-foreground: #ffffff;
+  --color-secondary: #23252f;
+  --color-secondary-foreground: #e4e5e9;
+  --color-muted: #23252f;
+  --color-muted-foreground: #9ca3af;
+  --color-accent: #23252f;
+  --color-accent-foreground: #e4e5e9;
+  --color-destructive: #ef4444;
+  --color-destructive-foreground: #ffffff;
+  --color-border: #2d303a;
+  --color-input: #2d303a;
+  --color-ring: #7b68ee;
+  --color-sidebar: #13141a;
+  --color-sidebar-foreground: #e4e5e9;
+  --color-sidebar-border: #2d303a;
+  color-scheme: dark;
+}
+
 @layer base {
   * {
     @apply border-border;
@@ -39,6 +68,25 @@
     @apply bg-background text-foreground antialiased;
   }
 }
+
+/* Dark mode overrides for common hardcoded light-mode patterns */
+.dark .bg-white { background-color: #181a20 !important; }
+.dark .bg-gray-50 { background-color: #1c1e26 !important; }
+.dark .bg-gray-100 { background-color: #23252f !important; }
+.dark .bg-\[#f8f9fb\] { background-color: #0f1117 !important; }
+.dark .border-gray-100 { border-color: #2d303a !important; }
+.dark .border-gray-200 { border-color: #2d303a !important; }
+.dark .border-gray-50 { border-color: #23252f !important; }
+.dark .text-\[#1a1a2e\] { color: #e4e5e9 !important; }
+.dark .text-gray-300 { color: #6b7280 !important; }
+.dark .text-gray-400 { color: #9ca3af !important; }
+.dark .text-gray-500 { color: #9ca3af !important; }
+.dark .text-gray-600 { color: #d1d5db !important; }
+.dark .hover\:bg-gray-50:hover { background-color: #23252f !important; }
+.dark .hover\:bg-gray-100:hover { background-color: #2d303a !important; }
+.dark .hover\:bg-gray-200:hover { background-color: #2d303a !important; }
+.dark .bg-gray-50\/50 { background-color: rgba(28, 30, 38, 0.5) !important; }
+.dark .bg-gray-100\/80 { background-color: rgba(35, 37, 47, 0.8) !important; }
 
 /* Scrollbar */
 ::-webkit-scrollbar {

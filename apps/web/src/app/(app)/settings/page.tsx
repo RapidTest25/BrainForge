@@ -3,12 +3,14 @@
 import { useState, useRef } from 'react';
 import { useMutation } from '@tanstack/react-query';
 import {
-  User, Lock, Camera, Loader2, CheckCircle2, Mail, Shield, Sparkles
+  User, Lock, Camera, Loader2, CheckCircle2, Mail, Shield, Sparkles, Link2, Unlink
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { useAuthStore } from '@/stores/auth-store';
 import { api } from '@/lib/api';
 import { cn } from '@/lib/utils';
+import { useGoogleLogin } from '@react-oauth/google';
+import { toast } from 'sonner';
 
 export default function SettingsPage() {
   const { user, updateUser } = useAuthStore();
@@ -19,7 +21,67 @@ export default function SettingsPage() {
   const [avatarFile, setAvatarFile] = useState<string | null>(null);
   const [profileSaved, setProfileSaved] = useState(false);
   const [passwordSaved, setPasswordSaved] = useState(false);
+  const [setPasswordValue, setSetPasswordValue] = useState('');
+  const [setPasswordConfirm, setSetPasswordConfirm] = useState('');
+  const [googleLinking, setGoogleLinking] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const isGoogleLinked = !!user?.googleId;
+  const hasPassword = user?.hasPassword !== false;
+
+  const linkGoogleMutation = useMutation({
+    mutationFn: (data: { credential: string; userInfo: any }) =>
+      api.post('/auth/me/link-google', data),
+    onSuccess: (data: any) => {
+      if (data?.data) {
+        updateUser({ googleId: data.data.googleId });
+      }
+      toast.success('Google account linked successfully!');
+    },
+    onError: (err: any) => {
+      toast.error(err.message || 'Failed to link Google account');
+    },
+  });
+
+  const unlinkGoogleMutation = useMutation({
+    mutationFn: () => api.delete('/auth/me/link-google'),
+    onSuccess: () => {
+      updateUser({ googleId: null });
+      toast.success('Google account unlinked');
+    },
+    onError: (err: any) => {
+      toast.error(err.message || 'Failed to unlink Google account');
+    },
+  });
+
+  const googleLink = useGoogleLogin({
+    flow: 'implicit',
+    onSuccess: async (tokenResponse) => {
+      setGoogleLinking(true);
+      try {
+        const userInfoRes = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+          headers: { Authorization: `Bearer ${tokenResponse.access_token}` },
+        });
+        const userInfo = await userInfoRes.json();
+        linkGoogleMutation.mutate({
+          credential: tokenResponse.access_token,
+          userInfo: {
+            email: userInfo.email,
+            name: userInfo.name,
+            picture: userInfo.picture,
+            sub: userInfo.sub,
+          },
+        });
+      } catch {
+        toast.error('Failed to get Google account info');
+      } finally {
+        setGoogleLinking(false);
+      }
+    },
+    onError: () => {
+      toast.error('Google authentication was cancelled or failed.');
+    },
+  });
 
   const profileMutation = useMutation({
     mutationFn: (data: any) => api.patch('/auth/me', data),
@@ -43,6 +105,24 @@ export default function SettingsPage() {
       setNewPassword('');
       setPasswordSaved(true);
       setTimeout(() => setPasswordSaved(false), 3000);
+    },
+    onError: (err: any) => {
+      toast.error(err.message || 'Failed to update password');
+    },
+  });
+
+  const setPasswordMutation = useMutation({
+    mutationFn: (data: { newPassword: string }) => api.post('/auth/me/set-password', data),
+    onSuccess: () => {
+      setSetPasswordValue('');
+      setSetPasswordConfirm('');
+      updateUser({ hasPassword: true });
+      setPasswordSaved(true);
+      toast.success('Password set successfully!');
+      setTimeout(() => setPasswordSaved(false), 3000);
+    },
+    onError: (err: any) => {
+      toast.error(err.message || 'Failed to set password');
     },
   });
 
@@ -205,46 +285,170 @@ export default function SettingsPage() {
           </div>
           Security
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div className="space-y-1.5">
-            <label className="text-[13px] font-medium text-gray-600">Current Password</label>
-            <Input
-              type="password"
-              value={currentPassword}
-              onChange={(e) => setCurrentPassword(e.target.value)}
-              className="border-gray-200 focus:border-[#7b68ee] rounded-xl h-10"
-              placeholder="Enter current password"
-            />
+
+        {hasPassword ? (
+          /* Change Password - for users who already have a password */
+          <>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <label className="text-[13px] font-medium text-gray-600">Current Password</label>
+                <Input
+                  type="password"
+                  value={currentPassword}
+                  onChange={(e) => setCurrentPassword(e.target.value)}
+                  className="border-gray-200 focus:border-[#7b68ee] rounded-xl h-10"
+                  placeholder="Enter current password"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-[13px] font-medium text-gray-600">New Password</label>
+                <Input
+                  type="password"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  className="border-gray-200 focus:border-[#7b68ee] rounded-xl h-10"
+                  placeholder="Enter new password"
+                />
+              </div>
+            </div>
+            <button
+              onClick={() => passwordMutation.mutate({ currentPassword, newPassword })}
+              disabled={!currentPassword || !newPassword || passwordMutation.isPending}
+              className={cn(
+                'px-5 py-2.5 text-sm font-medium rounded-xl transition-all',
+                passwordSaved
+                  ? 'bg-green-500 text-white'
+                  : 'bg-gradient-to-r from-red-500 to-rose-500 text-white hover:shadow-lg hover:shadow-red-500/25 disabled:opacity-50'
+              )}
+            >
+              {passwordMutation.isPending ? (
+                <span className="flex items-center gap-2"><Loader2 className="h-3.5 w-3.5 animate-spin" /> Updating...</span>
+              ) : passwordSaved ? (
+                <span className="flex items-center gap-2"><CheckCircle2 className="h-3.5 w-3.5" /> Updated!</span>
+              ) : (
+                'Update Password'
+              )}
+            </button>
+          </>
+        ) : (
+          /* Set Password - for Google-only users who don't have a password yet */
+          <>
+            <div className="p-3 rounded-xl bg-amber-50 border border-amber-100">
+              <p className="text-xs text-amber-700">
+                Your account uses Google sign-in and doesn&apos;t have a password yet. Set one to also be able to log in with email &amp; password.
+              </p>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <label className="text-[13px] font-medium text-gray-600">New Password</label>
+                <Input
+                  type="password"
+                  value={setPasswordValue}
+                  onChange={(e) => setSetPasswordValue(e.target.value)}
+                  className="border-gray-200 focus:border-[#7b68ee] rounded-xl h-10"
+                  placeholder="Minimum 8 characters"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-[13px] font-medium text-gray-600">Confirm Password</label>
+                <Input
+                  type="password"
+                  value={setPasswordConfirm}
+                  onChange={(e) => setSetPasswordConfirm(e.target.value)}
+                  className="border-gray-200 focus:border-[#7b68ee] rounded-xl h-10"
+                  placeholder="Repeat password"
+                />
+              </div>
+            </div>
+            {setPasswordValue && setPasswordConfirm && setPasswordValue !== setPasswordConfirm && (
+              <p className="text-xs text-red-500">Passwords do not match</p>
+            )}
+            <button
+              onClick={() => setPasswordMutation.mutate({ newPassword: setPasswordValue })}
+              disabled={
+                !setPasswordValue ||
+                setPasswordValue.length < 8 ||
+                setPasswordValue !== setPasswordConfirm ||
+                setPasswordMutation.isPending
+              }
+              className={cn(
+                'px-5 py-2.5 text-sm font-medium rounded-xl transition-all',
+                passwordSaved
+                  ? 'bg-green-500 text-white'
+                  : 'bg-gradient-to-r from-[#7b68ee] to-[#6c5ce7] text-white hover:shadow-lg hover:shadow-[#7b68ee]/25 disabled:opacity-50'
+              )}
+            >
+              {setPasswordMutation.isPending ? (
+                <span className="flex items-center gap-2"><Loader2 className="h-3.5 w-3.5 animate-spin" /> Setting...</span>
+              ) : passwordSaved ? (
+                <span className="flex items-center gap-2"><CheckCircle2 className="h-3.5 w-3.5" /> Password Set!</span>
+              ) : (
+                'Set Password'
+              )}
+            </button>
+          </>
+        )}
+      </div>
+
+      {/* Connected Accounts */}
+      <div className="bg-white border border-gray-100 rounded-2xl p-6 space-y-4">
+        <div className="flex items-center gap-2 text-sm font-semibold text-[#1a1a2e]">
+          <div className="h-7 w-7 rounded-lg flex items-center justify-center bg-blue-50">
+            <Link2 className="h-3.5 w-3.5 text-blue-500" />
           </div>
-          <div className="space-y-1.5">
-            <label className="text-[13px] font-medium text-gray-600">New Password</label>
-            <Input
-              type="password"
-              value={newPassword}
-              onChange={(e) => setNewPassword(e.target.value)}
-              className="border-gray-200 focus:border-[#7b68ee] rounded-xl h-10"
-              placeholder="Enter new password"
-            />
-          </div>
+          Connected Accounts
         </div>
-        <button
-          onClick={() => passwordMutation.mutate({ currentPassword, newPassword })}
-          disabled={!currentPassword || !newPassword || passwordMutation.isPending}
-          className={cn(
-            'px-5 py-2.5 text-sm font-medium rounded-xl transition-all',
-            passwordSaved
-              ? 'bg-green-500 text-white'
-              : 'bg-gradient-to-r from-red-500 to-rose-500 text-white hover:shadow-lg hover:shadow-red-500/25 disabled:opacity-50'
-          )}
-        >
-          {passwordMutation.isPending ? (
-            <span className="flex items-center gap-2"><Loader2 className="h-3.5 w-3.5 animate-spin" /> Updating...</span>
-          ) : passwordSaved ? (
-            <span className="flex items-center gap-2"><CheckCircle2 className="h-3.5 w-3.5" /> Updated!</span>
+
+        <div className="flex items-center justify-between p-4 rounded-xl bg-gray-50/80 border border-gray-100">
+          <div className="flex items-center gap-3">
+            <div className="h-10 w-10 rounded-xl bg-white border border-gray-200 flex items-center justify-center shadow-sm">
+              <svg className="h-5 w-5" viewBox="0 0 24 24">
+                <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 01-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" fill="#4285F4" />
+                <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853" />
+                <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05" />
+                <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335" />
+              </svg>
+            </div>
+            <div>
+              <p className="text-sm font-medium text-[#1a1a2e]">Google</p>
+              {isGoogleLinked ? (
+                <p className="text-xs text-green-600 flex items-center gap-1">
+                  <CheckCircle2 className="h-3 w-3" /> Connected
+                </p>
+              ) : (
+                <p className="text-xs text-gray-400">Not connected</p>
+              )}
+            </div>
+          </div>
+
+          {isGoogleLinked ? (
+            <button
+              onClick={() => unlinkGoogleMutation.mutate()}
+              disabled={unlinkGoogleMutation.isPending}
+              className="flex items-center gap-1.5 px-4 py-2 text-xs font-medium text-red-600 bg-red-50 hover:bg-red-100 rounded-lg transition-colors disabled:opacity-50"
+            >
+              {unlinkGoogleMutation.isPending ? (
+                <Loader2 className="h-3 w-3 animate-spin" />
+              ) : (
+                <Unlink className="h-3 w-3" />
+              )}
+              Disconnect
+            </button>
           ) : (
-            'Update Password'
+            <button
+              onClick={() => googleLink()}
+              disabled={googleLinking || linkGoogleMutation.isPending}
+              className="flex items-center gap-1.5 px-4 py-2 text-xs font-medium text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors disabled:opacity-50"
+            >
+              {googleLinking || linkGoogleMutation.isPending ? (
+                <Loader2 className="h-3 w-3 animate-spin" />
+              ) : (
+                <Link2 className="h-3 w-3" />
+              )}
+              Connect
+            </button>
           )}
-        </button>
+        </div>
       </div>
 
       {/* About */}

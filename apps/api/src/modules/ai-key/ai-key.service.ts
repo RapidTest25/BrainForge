@@ -70,6 +70,19 @@ class AIKeyService {
     });
   }
 
+  async markKeyValid(userId: string, provider: string) {
+    await prisma.userAIKey.updateMany({
+      where: { userId, provider: provider as any },
+      data: { isActive: true },
+    });
+  }
+
+  async getKeyForValidation(userId: string, keyId: string) {
+    const key = await prisma.userAIKey.findFirst({ where: { id: keyId, userId } });
+    if (!key) return null;
+    return { provider: key.provider, decryptedKey: decrypt(key.encryptedKey) };
+  }
+
   async logUsage(userId: string, provider: string, model: string, inputTokens: number, outputTokens: number, cost: number) {
     return prisma.aIUsageLog.create({
       data: {

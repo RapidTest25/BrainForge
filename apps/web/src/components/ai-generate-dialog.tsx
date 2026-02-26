@@ -1,10 +1,10 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   Sparkles, Loader2, CheckSquare, Brain, FileText,
-  Wand2, Check, X, AlertCircle
+  Wand2, Check, X, AlertCircle, Zap, ChevronDown
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -18,12 +18,21 @@ import { useTeamStore } from '@/stores/team-store';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { cn } from '@/lib/utils';
+import { toast } from 'sonner';
 
 const GENERATE_OPTIONS = [
   { key: 'tasks', label: 'Tasks', icon: CheckSquare, color: '#7b68ee', desc: 'Auto-create tasks with priorities' },
   { key: 'brainstorm', label: 'Brainstorm', icon: Brain, color: '#22c55e', desc: 'Start an AI brainstorm session' },
   { key: 'notes', label: 'Notes', icon: FileText, color: '#8b5cf6', desc: 'Generate notes & documentation' },
 ];
+
+const PROVIDER_INFO: Record<string, { label: string; icon: string; color: string }> = {
+  OPENAI: { label: 'OpenAI', icon: '🟢', color: '#10a37f' },
+  CLAUDE: { label: 'Anthropic', icon: '🟠', color: '#d4a574' },
+  GEMINI: { label: 'Google Gemini', icon: '🔵', color: '#4285f4' },
+  GROQ: { label: 'Groq', icon: '🔴', color: '#f55036' },
+  OPENROUTER: { label: 'OpenRouter', icon: '🟣', color: '#6366f1' },
+};
 
 interface AIGenerateDialogProps {
   open: boolean;
@@ -37,7 +46,7 @@ export function AIGenerateDialog({ open, onOpenChange }: AIGenerateDialogProps) 
   const [prompt, setPrompt] = useState('');
   const [selectedTypes, setSelectedTypes] = useState<string[]>(['tasks']);
   const [provider, setProvider] = useState('GEMINI');
-  const [model, setModel] = useState('gemini-2.0-flash');
+  const [model, setModel] = useState('gemini-2.5-flash');
   const [result, setResult] = useState<any>(null);
 
   const { data: modelsData } = useQuery({
@@ -45,14 +54,45 @@ export function AIGenerateDialog({ open, onOpenChange }: AIGenerateDialogProps) 
     queryFn: () => api.get<{ data: Record<string, any[]> }>('/ai/models'),
   });
 
+  const { data: keysData } = useQuery({
+    queryKey: ['ai-keys'],
+    queryFn: () => api.get<{ data: any[] }>('/ai/keys'),
+  });
+
+  const connectedProviders = new Set((keysData?.data || []).map((k: any) => k.provider.toUpperCase()));
+
+  // Auto-select first connected provider if current one isn't connected
+  useEffect(() => {
+    if (modelsData?.data && connectedProviders.size > 0 && !connectedProviders.has(provider)) {
+      const firstConnected = Object.keys(modelsData.data).find(p => connectedProviders.has(p));
+      if (firstConnected) {
+        setProvider(firstConnected);
+        const firstModel = modelsData.data[firstConnected]?.[0];
+        if (firstModel) setModel(firstModel.id);
+      }
+    }
+  }, [modelsData, keysData]);
+
+  // When provider changes, auto-select first model
+  useEffect(() => {
+    const providerModels = modelsData?.data?.[provider];
+    if (providerModels?.length && !providerModels.find((m: any) => m.id === model)) {
+      setModel(providerModels[0].id);
+    }
+  }, [provider, modelsData]);
+
   const generateMutation = useMutation({
     mutationFn: (data: any) => api.post(`/teams/${teamId}/ai-generate`, data),
     onSuccess: (res: any) => {
       setResult(res.data);
+      toast.success('AI generation complete!');
       // Invalidate all relevant queries
       queryClient.invalidateQueries({ queryKey: ['tasks', teamId] });
       queryClient.invalidateQueries({ queryKey: ['brainstorm-sessions', teamId] });
       queryClient.invalidateQueries({ queryKey: ['notes', teamId] });
+    },
+    onError: (error: any) => {
+      toast.error(error?.message || 'AI generation failed. Check your API key and try again.');
     },
   });
 
@@ -146,33 +186,78 @@ export function AIGenerateDialog({ open, onOpenChange }: AIGenerateDialogProps) 
               </div>
 
               {/* AI Model selection */}
-              <div className="flex gap-2">
-                <div className="flex-1 space-y-1.5">
-                  <label className="text-[13px] font-semibold text-gray-600">Provider</label>
-                  <Select value={provider} onValueChange={setProvider}>
-                    <SelectTrigger className="rounded-xl h-10">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {Object.keys(modelsData?.data || {}).map(p => (
-                        <SelectItem key={p} value={p}>{p}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+              <div className="space-y-3">
+                <label className="text-[13px] font-semibold text-gray-600">AI Model</label>
+                
+                {/* Provider pills — only show providers with connected keys */}
+                <div className="flex flex-wrap gap-1.5">
+                  {connectedProviders.size === 0 ? (
+                    <div className="w-full flex items-center gap-2 px-3 py-2.5 rounded-xl bg-amber-50 border border-amber-100 text-amber-700 text-[12px]">
+                      <AlertCircle className="h-3.5 w-3.5 shrink-0" />
+                      No API keys connected. Go to Settings → AI Integration to add one.
+                    </div>
+                  ) : (
+                    Object.keys(modelsData?.data || {}).filter(p => connectedProviders.has(p)).map(p => {
+                      const info = PROVIDER_INFO[p];
+                      const isSelected = provider === p;
+                      return (
+                        <button
+                          key={p}
+                          onClick={() => setProvider(p)}
+                          className={cn(
+                            'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-medium transition-all border',
+                            isSelected
+                              ? 'border-[#7b68ee] bg-[#7b68ee]/5 text-[#7b68ee]'
+                              : 'border-gray-200 bg-white text-gray-600 hover:bg-gray-50'
+                          )}
+                        >
+                          <span className="text-sm">{info?.icon || '⚪'}</span>
+                          {info?.label || p}
+                        </button>
+                      );
+                    })
+                  )}
                 </div>
-                <div className="flex-1 space-y-1.5">
-                  <label className="text-[13px] font-semibold text-gray-600">Model</label>
-                  <Select value={model} onValueChange={setModel}>
-                    <SelectTrigger className="rounded-xl h-10">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {(modelsData?.data?.[provider] || []).map((m: any) => (
-                        <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+
+                {/* Model selector */}
+                <div className="space-y-1.5">
+                  {(modelsData?.data?.[provider] || []).map((m: any) => {
+                    const isSelected = model === m.id;
+                    const isFree = m.costPer1kInput === 0 && m.costPer1kOutput === 0;
+                    return (
+                      <button
+                        key={m.id}
+                        onClick={() => setModel(m.id)}
+                        className={cn(
+                          'w-full flex items-center gap-3 px-3 py-2 rounded-xl border transition-all text-left',
+                          isSelected
+                            ? 'border-[#7b68ee] bg-[#7b68ee]/5'
+                            : 'border-gray-100 hover:border-gray-200 hover:bg-gray-50'
+                        )}
+                      >
+                        <div className={cn(
+                          'h-4 w-4 rounded-full border-2 flex items-center justify-center shrink-0',
+                          isSelected ? 'border-[#7b68ee]' : 'border-gray-300'
+                        )}>
+                          {isSelected && <div className="h-2 w-2 rounded-full bg-[#7b68ee]" />}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-[13px] font-medium text-[#1a1a2e]">{m.name}</span>
+                            {isFree && <span className="text-[8px] font-bold px-1 py-0 rounded bg-green-50 text-green-600">FREE</span>}
+                          </div>
+                          {m.description && <p className="text-[10px] text-gray-400 truncate">{m.description}</p>}
+                        </div>
+                        <div className="text-right text-[10px] text-gray-400 shrink-0">
+                          <p>{(m.contextWindow / 1000).toFixed(0)}K ctx</p>
+                          {!isFree && <p>${m.costPer1kInput}/1K</p>}
+                        </div>
+                      </button>
+                    );
+                  })}
                 </div>
+
+
               </div>
             </div>
 
@@ -180,7 +265,7 @@ export function AIGenerateDialog({ open, onOpenChange }: AIGenerateDialogProps) 
               <button onClick={handleClose} className="px-4 py-2.5 text-sm font-medium text-gray-500 hover:text-gray-700 rounded-xl hover:bg-gray-50 transition-colors">Cancel</button>
               <button
                 onClick={handleGenerate}
-                disabled={!prompt.trim() || !selectedTypes.length || generateMutation.isPending}
+                disabled={!prompt.trim() || !selectedTypes.length || generateMutation.isPending || connectedProviders.size === 0}
                 className="px-6 py-2.5 bg-gradient-to-r from-[#7b68ee] to-[#6c5ce7] text-white text-sm font-medium rounded-xl hover:shadow-lg hover:shadow-[#7b68ee]/25 disabled:opacity-50 transition-all flex items-center gap-2"
               >
                 {generateMutation.isPending ? (

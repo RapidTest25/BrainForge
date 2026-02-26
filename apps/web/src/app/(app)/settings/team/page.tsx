@@ -15,6 +15,7 @@ import {
 } from '@/components/ui/select';
 import { useTeamStore } from '@/stores/team-store';
 import { api } from '@/lib/api';
+import { toast } from 'sonner';
 
 const ROLES = [
   { value: 'OWNER', label: 'Owner', icon: Crown },
@@ -63,7 +64,13 @@ export default function TeamSettingsPage() {
 
   const removeMutation = useMutation({
     mutationFn: (memberId: string) => api.delete(`/teams/${teamId}/members/${memberId}`),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['team', teamId] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['team', teamId] });
+      toast.success('Member removed');
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || 'Failed to remove member');
+    },
   });
 
   const updateRoleMutation = useMutation({

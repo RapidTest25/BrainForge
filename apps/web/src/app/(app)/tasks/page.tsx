@@ -7,6 +7,7 @@ import {
   List, LayoutGrid, Plus, Search, MoreHorizontal, Calendar as CalendarIcon,
   Trash2, ArrowUpCircle, ArrowRightCircle, CheckCircle2, X, Loader2
 } from 'lucide-react';
+import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -87,6 +88,10 @@ export default function TasksPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['tasks', teamId] });
       setSelectedTask(null);
+      toast.success('Task deleted');
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || 'Failed to delete task');
     },
   });
 

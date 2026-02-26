@@ -93,4 +93,20 @@ export async function brainstormRoutes(app: FastifyInstance) {
     await brainstormService.deleteSession(sessionId);
     return reply.send({ success: true, data: { message: 'Session deleted' } });
   });
+
+  // PATCH /api/teams/:teamId/brainstorm/:sessionId — update session (e.g. title)
+  app.patch('/:teamId/brainstorm/:sessionId', { preHandler: [teamGuard()] }, async (request, reply) => {
+    const { sessionId } = request.params as { sessionId: string };
+    const { title } = request.body as { title?: string };
+    const session = await brainstormService.updateSession(sessionId, { title });
+    return reply.send({ success: true, data: session });
+  });
+
+  // PATCH /api/teams/:teamId/brainstorm/:sessionId/canvas — save whiteboard & flow data
+  app.patch('/:teamId/brainstorm/:sessionId/canvas', { preHandler: [teamGuard()] }, async (request, reply) => {
+    const { sessionId } = request.params as { sessionId: string };
+    const { whiteboardData, flowData } = request.body as { whiteboardData?: any; flowData?: any };
+    const session = await brainstormService.updateCanvasData(sessionId, whiteboardData, flowData);
+    return reply.send({ success: true, data: session });
+  });
 }

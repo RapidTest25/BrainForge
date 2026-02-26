@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { Bell, Search, Plus, ChevronDown, X, Loader2, Menu, Sparkles } from 'lucide-react';
+import { Bell, Search, Plus, ChevronDown, X, Loader2, Menu, Sparkles, User, Key, LogOut, Moon, Sun } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -15,6 +15,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { useTeamStore } from '@/stores/team-store';
 import { AIGenerateDialog } from '@/components/ai-generate-dialog';
+import { useTheme } from 'next-themes';
 
 const PAGE_TITLES: Record<string, string> = {
   '/dashboard': 'Home',
@@ -24,8 +25,7 @@ const PAGE_TITLES: Record<string, string> = {
   '/calendar': 'Calendar',
   '/sprints': 'Sprints',
   '/notes': 'Notes',
-  '/settings': 'Settings',
-  '/profile': 'Profile',
+  '/settings': 'Profile & Settings',
   '/settings/ai-keys': 'AI Keys',
   '/settings/team': 'Team',
   '/notifications': 'Notifications',
@@ -65,6 +65,7 @@ export function Header({ onMobileMenuToggle }: HeaderProps) {
   const [showAIGenerate, setShowAIGenerate] = useState(false);
   const searchRef = useRef<HTMLDivElement>(null);
   const notifRef = useRef<HTMLDivElement>(null);
+  const { theme, setTheme } = useTheme();
 
   const pageTitle = PAGE_TITLES[pathname] || 'BrainForge';
 
@@ -109,7 +110,7 @@ export function Header({ onMobileMenuToggle }: HeaderProps) {
   };
 
   return (
-    <header className="h-12 border-b border-border bg-white flex items-center justify-between px-3 md:px-4">
+    <header className="h-12 border-b border-border bg-background flex items-center justify-between px-3 md:px-4">
       {/* Left side */}
       <div className="flex items-center gap-2">
         {/* Mobile hamburger menu */}
@@ -268,16 +269,42 @@ export function Header({ onMobileMenuToggle }: HeaderProps) {
               <ChevronDown className="h-3 w-3 text-muted-foreground hidden sm:block" />
             </button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-48">
-            <DropdownMenuLabel className="text-[13px] font-normal">
-              <p className="font-medium">{user?.name}</p>
-              <p className="text-xs text-muted-foreground">{user?.email}</p>
+          <DropdownMenuContent align="end" className="w-52">
+            <DropdownMenuLabel className="text-[13px] font-normal pb-2">
+              <div className="flex items-center gap-2.5">
+                <Avatar className="h-8 w-8">
+                  {user?.avatar && <AvatarImage src={user.avatar} alt={user?.name || 'User'} />}
+                  <AvatarFallback className="bg-[#7b68ee]/15 text-[#7b68ee] text-xs font-semibold">
+                    {user?.name?.charAt(0).toUpperCase() || 'U'}
+                  </AvatarFallback>
+                </Avatar>
+                <div className="min-w-0">
+                  <p className="font-medium truncate">{user?.name}</p>
+                  <p className="text-xs text-muted-foreground truncate">{user?.email}</p>
+                </div>
+              </div>
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={() => router.push('/settings')} className="text-[13px]">Settings</DropdownMenuItem>
-            <DropdownMenuItem onClick={() => router.push('/settings/ai-keys')} className="text-[13px]">AI Keys</DropdownMenuItem>
+            <DropdownMenuItem onClick={() => router.push('/settings')} className="text-[13px] gap-2">
+              <User className="h-3.5 w-3.5" />
+              Profile
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => router.push('/settings/ai-keys')} className="text-[13px] gap-2">
+              <Key className="h-3.5 w-3.5" />
+              AI Keys
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={(e) => { e.preventDefault(); setTheme(theme === 'dark' ? 'light' : 'dark'); }}
+              className="text-[13px] gap-2"
+            >
+              {theme === 'dark' ? <Sun className="h-3.5 w-3.5" /> : <Moon className="h-3.5 w-3.5" />}
+              {theme === 'dark' ? 'Light Mode' : 'Dark Mode'}
+            </DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={handleLogout} className="text-[13px] text-destructive">Log out</DropdownMenuItem>
+            <DropdownMenuItem onClick={handleLogout} className="text-[13px] text-destructive gap-2">
+              <LogOut className="h-3.5 w-3.5" />
+              Log out
+            </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       </div>

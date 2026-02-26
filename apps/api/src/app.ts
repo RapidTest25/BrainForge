@@ -53,6 +53,14 @@ export async function buildApp() {
       });
     }
 
+    // Fastify empty JSON body (e.g. DELETE with Content-Type: application/json)
+    if ((error as any).code === 'FST_ERR_CTP_EMPTY_JSON_BODY') {
+      return reply.status(400).send({
+        success: false,
+        error: { message: 'Empty body with JSON content-type', code: 'EMPTY_BODY' },
+      });
+    }
+
     request.log.error(error);
     return reply.status(500).send({
       success: false,

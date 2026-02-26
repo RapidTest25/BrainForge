@@ -4,8 +4,11 @@ import type { AIProviderInterface, ChatMsg, ChatOptions, ChatResult, ModelDef } 
 export class GeminiProvider implements AIProviderInterface {
   async chat(apiKey: string, model: string, messages: ChatMsg[], options?: ChatOptions): Promise<ChatResult> {
     const genAI = new GoogleGenerativeAI(apiKey);
-    const genModel = genAI.getGenerativeModel({ model });
     const systemMsg = messages.find(m => m.role === 'system')?.content || '';
+    const genModel = genAI.getGenerativeModel({
+      model,
+      ...(systemMsg ? { systemInstruction: { role: 'user', parts: [{ text: systemMsg }] } } : {}),
+    });
     const history = messages
       .filter(m => m.role !== 'system')
       .slice(0, -1)
@@ -13,7 +16,6 @@ export class GeminiProvider implements AIProviderInterface {
     const lastMsg = messages[messages.length - 1];
     const chat = genModel.startChat({
       history: history as any,
-      ...(systemMsg ? { systemInstruction: systemMsg } : {}),
       generationConfig: { temperature: options?.temperature ?? 0.7, maxOutputTokens: options?.maxTokens ?? 4096 },
     });
     const result = await chat.sendMessage(lastMsg.content);
@@ -28,8 +30,11 @@ export class GeminiProvider implements AIProviderInterface {
 
   async *stream(apiKey: string, model: string, messages: ChatMsg[], options?: ChatOptions): AsyncGenerator<string> {
     const genAI = new GoogleGenerativeAI(apiKey);
-    const genModel = genAI.getGenerativeModel({ model });
     const systemMsg = messages.find(m => m.role === 'system')?.content || '';
+    const genModel = genAI.getGenerativeModel({
+      model,
+      ...(systemMsg ? { systemInstruction: { role: 'user', parts: [{ text: systemMsg }] } } : {}),
+    });
     const history = messages
       .filter(m => m.role !== 'system')
       .slice(0, -1)
@@ -37,7 +42,6 @@ export class GeminiProvider implements AIProviderInterface {
     const lastMsg = messages[messages.length - 1];
     const chat = genModel.startChat({
       history: history as any,
-      ...(systemMsg ? { systemInstruction: systemMsg } : {}),
       generationConfig: { temperature: options?.temperature ?? 0.7, maxOutputTokens: options?.maxTokens ?? 4096 },
     });
     const result = await chat.sendMessageStream(lastMsg.content);
@@ -48,18 +52,17 @@ export class GeminiProvider implements AIProviderInterface {
 
   async validateKey(apiKey: string): Promise<boolean> {
     try {
-      const genAI = new GoogleGenerativeAI(apiKey);
-      const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
-      await model.generateContent('hi');
-      return true;
+      // Use the lightweight ListModels endpoint — no quota consumed, just validates the key
+      const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`);
+      return res.ok;
     } catch { return false; }
   }
 
   listModels(): ModelDef[] {
     return [
+      { id: 'gemini-2.5-flash', name: 'Gemini 2.5 Flash', contextWindow: 1048576, costPer1kInput: 0.0, costPer1kOutput: 0.0, description: 'Latest — thinking + free tier' },
+      { id: 'gemini-2.5-pro', name: 'Gemini 2.5 Pro', contextWindow: 1048576, costPer1kInput: 0.00125, costPer1kOutput: 0.01, description: 'Most capable Gemini' },
       { id: 'gemini-2.0-flash', name: 'Gemini 2.0 Flash', contextWindow: 1048576, costPer1kInput: 0.0, costPer1kOutput: 0.0, description: 'Free tier available' },
-      { id: 'gemini-1.5-pro', name: 'Gemini 1.5 Pro', contextWindow: 2097152, costPer1kInput: 0.00125, costPer1kOutput: 0.005 },
-      { id: 'gemini-1.5-flash', name: 'Gemini 1.5 Flash', contextWindow: 1048576, costPer1kInput: 0.0, costPer1kOutput: 0.0, description: 'Free tier available' },
     ];
   }
 }

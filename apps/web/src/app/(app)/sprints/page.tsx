@@ -17,6 +17,7 @@ import {
 } from '@/components/ui/select';
 import { useTeamStore } from '@/stores/team-store';
 import { api } from '@/lib/api';
+import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 
 const PROVIDERS = ['openai', 'claude', 'gemini', 'groq', 'openrouter'];
@@ -80,6 +81,10 @@ export default function SprintsPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['sprints', teamId] });
       setSelectedSprint(null);
+      toast.success('Sprint deleted');
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || 'Failed to delete sprint');
     },
   });
 

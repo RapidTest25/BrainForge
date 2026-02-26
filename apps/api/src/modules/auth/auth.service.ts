@@ -1,10 +1,13 @@
 import bcrypt from 'bcryptjs';
 import { randomBytes } from 'crypto';
+import { OAuth2Client } from 'google-auth-library';
 import { prisma } from '../../lib/prisma.js';
 import { generateTokens, verifyRefreshToken } from '../../lib/jwt.js';
 import { redis } from '../../lib/redis.js';
 import { AppError, ConflictError, UnauthorizedError } from '../../lib/errors.js';
 import type { RegisterInput, LoginInput } from '@brainforge/validators';
+
+const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
 export class AuthService {
   async register(input: RegisterInput) {
@@ -28,6 +31,7 @@ export class AuthService {
         email: true,
         name: true,
         avatarUrl: true,
+        googleId: true,
         createdAt: true,
         updatedAt: true,
       },
@@ -49,9 +53,8 @@ export class AuthService {
 
     const tokens = await generateTokens(user.id, user.email);
 
-    return { user, tokens };
+    return { user: { ...user, hasPassword: true }, tokens };
   }
-
   async login(input: LoginInput) {
     const user = await prisma.user.findUnique({
       where: { email: input.email },
@@ -59,6 +62,10 @@ export class AuthService {
 
     if (!user) {
       throw new UnauthorizedError('Invalid email or password');
+    }
+
+    if (!user.passwordHash) {
+      throw new UnauthorizedError('This account uses Google sign-in. Please login with Google.');
     }
 
     const validPassword = await bcrypt.compare(input.password, user.passwordHash);
@@ -74,6 +81,109 @@ export class AuthService {
         email: user.email,
         name: user.name,
         avatarUrl: user.avatarUrl,
+        googleId: (user as any).googleId || null,
+        hasPassword: true,
+        createdAt: user.createdAt,
+        updatedAt: user.updatedAt,
+      },
+      tokens,
+    };
+  }
+
+  async googleLogin(credential: string, userInfo?: { email: string; name: string; picture?: string; sub: string }) {
+    let email: string;
+    let googleId: string;
+    let name: string;
+    let picture: string | undefined;
+
+    if (userInfo?.email && userInfo?.sub) {
+      // Implicit flow: frontend already fetched user info with access token
+      // Verify the access token is valid by calling Google's tokeninfo
+      const tokenInfoRes = await fetch(`https://oauth2.googleapis.com/tokeninfo?access_token=${credential}`);
+      if (!tokenInfoRes.ok) {
+        throw new UnauthorizedError('Invalid Google access token');
+      }
+      const tokenInfo = await tokenInfoRes.json();
+      if (tokenInfo.email !== userInfo.email) {
+        throw new UnauthorizedError('Token email mismatch');
+      }
+
+      email = userInfo.email;
+      googleId = userInfo.sub;
+      name = userInfo.name || email.split('@')[0];
+      picture = userInfo.picture;
+    } else {
+      // ID token flow (Google One Tap / credential response)
+      const ticket = await googleClient.verifyIdToken({
+        idToken: credential,
+        audience: process.env.GOOGLE_CLIENT_ID,
+      });
+
+      const payload = ticket.getPayload();
+      if (!payload || !payload.email) {
+        throw new UnauthorizedError('Invalid Google token');
+      }
+
+      email = payload.email;
+      googleId = payload.sub!;
+      name = payload.name || email.split('@')[0];
+      picture = payload.picture;
+    }
+
+    // Check if user exists by googleId or email
+    let user = await prisma.user.findFirst({
+      where: {
+        OR: [
+          { googleId },
+          { email },
+        ],
+      },
+    });
+
+    if (user) {
+      // Link Google account if not already linked
+      if (!user.googleId) {
+        user = await prisma.user.update({
+          where: { id: user.id },
+          data: { googleId, avatarUrl: user.avatarUrl || picture },
+        });
+      }
+    } else {
+      // Create new user (no password needed for Google-only users)
+      user = await prisma.user.create({
+        data: {
+          email,
+          name: name || email.split('@')[0],
+          googleId,
+          avatarUrl: picture,
+        },
+      });
+
+      // Auto-create a personal team
+      await prisma.team.create({
+        data: {
+          name: `${user.name}'s Team`,
+          ownerId: user.id,
+          members: {
+            create: {
+              userId: user.id,
+              role: 'OWNER',
+            },
+          },
+        },
+      });
+    }
+
+    const tokens = await generateTokens(user.id, user.email);
+
+    return {
+      user: {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        avatarUrl: user.avatarUrl,
+        googleId: user.googleId || null,
+        hasPassword: !!user.passwordHash,
         createdAt: user.createdAt,
         updatedAt: user.updatedAt,
       },
@@ -118,6 +228,8 @@ export class AuthService {
         email: true,
         name: true,
         avatarUrl: true,
+        googleId: true,
+        passwordHash: true,
         createdAt: true,
         updatedAt: true,
       },
@@ -127,7 +239,8 @@ export class AuthService {
       throw new UnauthorizedError('User not found');
     }
 
-    return user;
+    const { passwordHash, ...rest } = user;
+    return { ...rest, hasPassword: !!passwordHash };
   }
 
   async updateProfile(userId: string, input: { name?: string; avatarUrl?: string }) {
@@ -142,6 +255,7 @@ export class AuthService {
         email: true,
         name: true,
         avatarUrl: true,
+        googleId: true,
         createdAt: true,
         updatedAt: true,
       },
@@ -153,12 +267,33 @@ export class AuthService {
     const user = await prisma.user.findUnique({ where: { id: userId } });
     if (!user) throw new UnauthorizedError('User not found');
 
+    if (!user.passwordHash) {
+      throw new AppError(400, 'NO_PASSWORD', 'This account does not have a password. Use "Set Password" instead.');
+    }
+
     const valid = await bcrypt.compare(input.currentPassword, user.passwordHash);
     if (!valid) throw new UnauthorizedError('Current password is incorrect');
 
     const passwordHash = await bcrypt.hash(input.newPassword, 12);
     await prisma.user.update({ where: { id: userId }, data: { passwordHash } });
     return { message: 'Password updated successfully' };
+  }
+
+  async setPassword(userId: string, newPassword: string) {
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    if (!user) throw new UnauthorizedError('User not found');
+
+    if (user.passwordHash) {
+      throw new AppError(400, 'HAS_PASSWORD', 'This account already has a password. Use "Change Password" instead.');
+    }
+
+    if (!newPassword || newPassword.length < 8) {
+      throw new AppError(422, 'VALIDATION_ERROR', 'Password must be at least 8 characters');
+    }
+
+    const passwordHash = await bcrypt.hash(newPassword, 12);
+    await prisma.user.update({ where: { id: userId }, data: { passwordHash } });
+    return { message: 'Password set successfully' };
   }
 
   async requestPasswordReset(email: string) {
@@ -189,6 +324,74 @@ export class AuthService {
     await redis.del(`reset:${token}`);
 
     return { message: 'Password has been reset successfully' };
+  }
+
+  async linkGoogle(userId: string, credential: string, userInfo?: { email: string; name: string; picture?: string; sub: string }) {
+    const currentUser = await prisma.user.findUnique({ where: { id: userId } });
+    if (!currentUser) throw new UnauthorizedError('User not found');
+    if (currentUser.googleId) {
+      throw new AppError(409, 'ALREADY_LINKED', 'Google account is already linked');
+    }
+
+    let googleId: string;
+    let email: string;
+
+    if (userInfo?.email && userInfo?.sub) {
+      const tokenInfoRes = await fetch(`https://oauth2.googleapis.com/tokeninfo?access_token=${credential}`);
+      if (!tokenInfoRes.ok) throw new UnauthorizedError('Invalid Google access token');
+      const tokenInfo = await tokenInfoRes.json();
+      if (tokenInfo.email !== userInfo.email) throw new UnauthorizedError('Token email mismatch');
+      googleId = userInfo.sub;
+      email = userInfo.email;
+    } else {
+      const ticket = await googleClient.verifyIdToken({
+        idToken: credential,
+        audience: process.env.GOOGLE_CLIENT_ID,
+      });
+      const payload = ticket.getPayload();
+      if (!payload || !payload.email) throw new UnauthorizedError('Invalid Google token');
+      googleId = payload.sub!;
+      email = payload.email;
+    }
+
+    // Check email matches
+    if (email !== currentUser.email) {
+      throw new AppError(400, 'EMAIL_MISMATCH', 'Google account email must match your account email');
+    }
+
+    // Check if this Google ID is already used by another account
+    const existingGoogle = await prisma.user.findFirst({ where: { googleId } });
+    if (existingGoogle && existingGoogle.id !== userId) {
+      throw new AppError(409, 'GOOGLE_ALREADY_USED', 'This Google account is already linked to another user');
+    }
+
+    const user = await prisma.user.update({
+      where: { id: userId },
+      data: { googleId },
+      select: { id: true, email: true, name: true, avatarUrl: true, googleId: true, createdAt: true, updatedAt: true },
+    });
+
+    return user;
+  }
+
+  async unlinkGoogle(userId: string) {
+    const currentUser = await prisma.user.findUnique({ where: { id: userId } });
+    if (!currentUser) throw new UnauthorizedError('User not found');
+    if (!currentUser.googleId) {
+      throw new AppError(400, 'NOT_LINKED', 'No Google account is linked');
+    }
+    // Can't unlink if no password (would lock out the user)
+    if (!currentUser.passwordHash) {
+      throw new AppError(400, 'NO_PASSWORD', 'Please set a password before unlinking Google. You would be locked out otherwise.');
+    }
+
+    const user = await prisma.user.update({
+      where: { id: userId },
+      data: { googleId: null },
+      select: { id: true, email: true, name: true, avatarUrl: true, googleId: true, createdAt: true, updatedAt: true },
+    });
+
+    return user;
   }
 }
 

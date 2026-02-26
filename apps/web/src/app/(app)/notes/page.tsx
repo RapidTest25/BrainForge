@@ -19,6 +19,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { useTeamStore } from '@/stores/team-store';
 import { api } from '@/lib/api';
+import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 
 const AI_ACTIONS = [
@@ -115,6 +116,10 @@ export default function NotesPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['notes', teamId] });
       setSelectedNote(null);
+      toast.success('Note deleted');
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || 'Failed to delete note');
     },
   });
 

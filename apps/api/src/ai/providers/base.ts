@@ -1,7 +1,16 @@
+export interface BalanceInfo {
+  hasBalance: boolean;
+  remaining?: number;
+  total?: number;
+  currency?: string;
+  message?: string;
+}
+
 export interface AIProviderInterface {
   chat(apiKey: string, model: string, messages: ChatMsg[], options?: ChatOptions): Promise<ChatResult>;
   stream(apiKey: string, model: string, messages: ChatMsg[], options?: ChatOptions): AsyncGenerator<string>;
   validateKey(apiKey: string): Promise<boolean>;
+  getBalance?(apiKey: string): Promise<BalanceInfo>;
   listModels(): ModelDef[];
 }
 

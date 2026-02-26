@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useAuthStore } from '@/stores/auth-store';
 import { api } from '@/lib/api';
+import { GoogleAuthButton } from '@/components/google-auth-button';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
@@ -37,7 +38,7 @@ export default function LoginPage() {
 
     try {
       const res = await api.post<{ data: { user: any; tokens: any } }>('/auth/login', { email, password }, { skipAuthRetry: true });
-      const userData = { ...res.data.user, avatar: res.data.user.avatarUrl || undefined };
+      const userData = { ...res.data.user, avatar: res.data.user.avatarUrl || undefined, googleId: res.data.user.googleId || null, hasPassword: res.data.user.hasPassword ?? true };
       setAuth(userData, res.data.tokens);
 
       if (rememberMe) {
@@ -206,6 +207,21 @@ export default function LoginPage() {
               )}
             </Button>
           </form>
+
+          <div className="relative my-6">
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t border-gray-200" />
+            </div>
+            <div className="relative flex justify-center text-xs">
+              <span className="bg-white px-3 text-gray-400">or</span>
+            </div>
+          </div>
+
+          <GoogleAuthButton
+            onError={(msg) => setError(msg)}
+            onSuccess={(msg) => setSuccess(msg)}
+            label="Sign in with Google"
+          />
 
           <p className="mt-6 text-center text-sm text-gray-500">
             Don&apos;t have an account?{' '}

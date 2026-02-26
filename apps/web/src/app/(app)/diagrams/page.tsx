@@ -17,6 +17,7 @@ import {
 } from '@/components/ui/select';
 import { useTeamStore } from '@/stores/team-store';
 import { api } from '@/lib/api';
+import { toast } from 'sonner';
 
 const DIAGRAM_TYPES = [
   { value: 'FLOWCHART', label: 'Flowchart', desc: 'Process flows & decisions', icon: Workflow, color: '#f59e0b' },
@@ -40,7 +41,7 @@ export default function DiagramsPage() {
     if (searchParams.get('new') === 'true') setShowCreate(true);
   }, [searchParams]);
   const [newDiagram, setNewDiagram] = useState({ title: '', type: 'FLOWCHART', description: '' });
-  const [aiForm, setAiForm] = useState({ title: '', type: 'FLOWCHART', description: '', provider: 'GEMINI', model: 'gemini-2.0-flash' });
+  const [aiForm, setAiForm] = useState({ title: '', type: 'FLOWCHART', description: '', provider: 'GEMINI', model: 'gemini-2.5-flash' });
   const [search, setSearch] = useState('');
 
   const { data: diagrams } = useQuery({
@@ -74,6 +75,10 @@ export default function DiagramsPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['diagrams', teamId] });
       setActiveDiagram(null);
+      toast.success('Diagram deleted');
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || 'Failed to delete diagram');
     },
   });
 

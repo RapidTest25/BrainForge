@@ -52,6 +52,29 @@ export async function authRoutes(app: FastifyInstance) {
     }
   });
 
+  // POST /api/auth/google
+  app.post('/google', async (request, reply) => {
+    try {
+      const { credential, userInfo } = request.body as { credential: string; userInfo?: { email: string; name: string; picture?: string; sub: string } };
+      if (!credential) {
+        return reply.status(422).send({
+          success: false,
+          error: { code: 'VALIDATION_ERROR', message: 'Google credential is required' },
+        });
+      }
+      const result = await authService.googleLogin(credential, userInfo);
+      return reply.send({ success: true, data: result });
+    } catch (error) {
+      if (error instanceof AppError) {
+        return reply.status(error.statusCode).send({
+          success: false,
+          error: { code: error.code, message: error.message },
+        });
+      }
+      throw error;
+    }
+  });
+
   // POST /api/auth/refresh
   app.post('/refresh', async (request, reply) => {
     try {
@@ -123,6 +146,29 @@ export async function authRoutes(app: FastifyInstance) {
     }
   });
 
+  // POST /api/auth/me/set-password (for Google-only users)
+  app.post('/me/set-password', { preHandler: [authGuard] }, async (request, reply) => {
+    try {
+      const { newPassword } = request.body as { newPassword: string };
+      if (!newPassword) {
+        return reply.status(422).send({
+          success: false,
+          error: { code: 'VALIDATION_ERROR', message: 'newPassword is required' },
+        });
+      }
+      const result = await authService.setPassword(request.user.id, newPassword);
+      return reply.send({ success: true, data: result });
+    } catch (error) {
+      if (error instanceof AppError) {
+        return reply.status(error.statusCode).send({
+          success: false,
+          error: { code: error.code, message: error.message },
+        });
+      }
+      throw error;
+    }
+  });
+
   // POST /api/auth/forgot-password
   app.post('/forgot-password', async (request, reply) => {
     try {
@@ -158,6 +204,45 @@ export async function authRoutes(app: FastifyInstance) {
       }
       const result = await authService.resetPassword(token, newPassword);
       return reply.send({ success: true, data: result });
+    } catch (error) {
+      if (error instanceof AppError) {
+        return reply.status(error.statusCode).send({
+          success: false,
+          error: { code: error.code, message: error.message },
+        });
+      }
+      throw error;
+    }
+  });
+
+  // POST /api/auth/me/link-google
+  app.post('/me/link-google', { preHandler: [authGuard] }, async (request, reply) => {
+    try {
+      const { credential, userInfo } = request.body as { credential: string; userInfo?: { email: string; name: string; picture?: string; sub: string } };
+      if (!credential) {
+        return reply.status(422).send({
+          success: false,
+          error: { code: 'VALIDATION_ERROR', message: 'Google credential is required' },
+        });
+      }
+      const user = await authService.linkGoogle(request.user.id, credential, userInfo);
+      return reply.send({ success: true, data: user });
+    } catch (error) {
+      if (error instanceof AppError) {
+        return reply.status(error.statusCode).send({
+          success: false,
+          error: { code: error.code, message: error.message },
+        });
+      }
+      throw error;
+    }
+  });
+
+  // DELETE /api/auth/me/link-google
+  app.delete('/me/link-google', { preHandler: [authGuard] }, async (request, reply) => {
+    try {
+      const user = await authService.unlinkGoogle(request.user.id);
+      return reply.send({ success: true, data: user });
     } catch (error) {
       if (error instanceof AppError) {
         return reply.status(error.statusCode).send({

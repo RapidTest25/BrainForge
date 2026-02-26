@@ -3,6 +3,81 @@ import { authGuard } from '../../middleware/auth.middleware.js';
 import { aiService } from '../../ai/ai.service.js';
 import { prisma } from '../../lib/prisma.js';
 
+// ── Enum safety sets ────────────────────────────────────────────────
+const VALID_PRIORITIES = new Set(['URGENT', 'HIGH', 'MEDIUM', 'LOW']);
+const VALID_STATUSES = new Set(['TODO', 'IN_PROGRESS', 'IN_REVIEW', 'DONE', 'CANCELLED']);
+const VALID_BRAINSTORM_MODES = new Set(['BRAINSTORM', 'DEBATE', 'ANALYSIS', 'FREEFORM']);
+const ALLOWED_TYPES = new Set(['tasks', 'brainstorm', 'notes']);
+
+// ── JSON parser with markdown-fence stripping ───────────────────────
+const tryParseJson = (raw: string) => {
+  let content = raw.trim();
+  // Strip markdown code fences
+  if (content.startsWith('```')) {
+    content = content.replace(/^```(?:json)?\s*\n?/, '').replace(/\n?```\s*$/, '');
+  }
+  // Extract first JSON object if surrounded by text
+  const match = content.match(/\{[\s\S]*\}/);
+  if (match) content = match[0];
+  return JSON.parse(content);
+};
+
+// ── Build strict system prompt ──────────────────────────────────────
+function buildSystemPrompt(requestedKeys: string[]) {
+  return `
+You are a Project Management AI assistant that must output ONLY strict JSON.
+
+ABSOLUTE OUTPUT RULES (must follow):
+- Output must be exactly ONE JSON object, and nothing else.
+- No markdown, no code fences, no comments, no explanations.
+- Use double quotes for all keys and string values.
+- No trailing commas.
+- Do not include any keys other than the requested top-level keys.
+
+REQUESTED TOP-LEVEL KEYS:
+${requestedKeys.map((k) => `"${k}"`).join(', ')}
+
+LANGUAGE:
+- Write all text in the same language as the user.
+
+SCHEMAS (only include requested keys):
+${requestedKeys.includes('tasks') ? `
+"tasks": an array of 3 to 8 objects. Each object must include:
+- "title": string, 5-70 chars, starts with a verb, actionable
+- "description": string, includes: steps + deliverable + acceptance criteria (use \\n for new lines)
+- "priority": one of ["URGENT","HIGH","MEDIUM","LOW"]
+- "status": exactly "TODO"
+
+TASK QUALITY RULES:
+- Tasks must be practical and implementable.
+- Avoid duplicates.
+- Prefer measurable outcomes (e.g., "Add Zod validation for AI output").
+- If user input lacks details, create reasonable assumptions inside "description" (do not ask questions).
+` : ''}
+${requestedKeys.includes('brainstorm') ? `
+"brainstorm": an object with:
+- "title": string, max 80 chars
+- "mode": exactly "BRAINSTORM"
+- "initialMessage": string, a facilitator opener that includes:
+  - goal of the session
+  - 3-6 guiding questions using \\n- bullet format
+  - timebox suggestion (e.g., "10 minutes diverge, 10 minutes converge")
+BRAINSTORM RULES:
+- Make it engaging but focused on the user's prompt.
+` : ''}
+${requestedKeys.includes('notes') ? `
+"notes": an array of 1 to 3 objects. Each object must include:
+- "title": string, max 80 chars
+- "content": string, structured with \\n and '-' bullets where helpful.
+NOTES RULES:
+- Include decisions, assumptions, and next steps.
+- Actionable, no filler.
+` : ''}
+IMPORTANT:
+- Return ONLY valid JSON now.
+`.trim();
+}
+
 export const aiGenerateRoutes: FastifyPluginAsync = async (app) => {
   // AI Generate endpoint — generates tasks, brainstorm ideas, notes based on user prompt
   app.post<{
@@ -27,17 +102,19 @@ export const aiGenerateRoutes: FastifyPluginAsync = async (app) => {
       });
     }
 
-    const systemPrompt = `You are a project management AI assistant. Based on the user's description, generate structured output in JSON format.
-The user wants to generate: ${generateTypes.join(', ')}.
+    // ── Normalize generateTypes ───────────────────────────────────
+    const normalizedTypes = (generateTypes || [])
+      .map((t) => (t || '').toLowerCase().trim())
+      .filter((t) => ALLOWED_TYPES.has(t));
 
-Return a JSON object with these keys (only include keys the user requested):
-${generateTypes.includes('tasks') ? `- "tasks": Array of objects with { "title": string, "description": string, "priority": "URGENT"|"HIGH"|"MEDIUM"|"LOW", "status": "TODO" }` : ''}
-${generateTypes.includes('brainstorm') ? `- "brainstorm": Object with { "title": string, "mode": "BRAINSTORM", "initialMessage": string } — a brainstorm session starter` : ''}
-${generateTypes.includes('notes') ? `- "notes": Array of objects with { "title": string, "content": string }` : ''}
+    if (!normalizedTypes.length) {
+      return reply.status(400).send({
+        success: false,
+        error: { message: 'No valid generateTypes provided. Allowed: tasks, brainstorm, notes' },
+      });
+    }
 
-Generate practical, actionable items. For tasks, create 3-8 well-defined tasks with clear titles and descriptions.
-For brainstorm, create an engaging session topic. For notes, create 1-3 detailed notes.
-ONLY return valid JSON, no markdown formatting, no code blocks.`;
+    const systemPrompt = buildSystemPrompt(normalizedTypes);
 
     try {
       const result = await aiService.chat(userId, provider, model, [
@@ -45,55 +122,71 @@ ONLY return valid JSON, no markdown formatting, no code blocks.`;
         { role: 'user', content: prompt },
       ]);
 
+      // ── Parse JSON with repair pass ─────────────────────────────
       let parsed: any;
       try {
-        // Try to extract JSON from the response
-        let content = result.content.trim();
-        // Remove potential markdown code blocks
-        if (content.startsWith('```')) {
-          content = content.replace(/^```(?:json)?\s*\n?/, '').replace(/\n?```\s*$/, '');
-        }
-        parsed = JSON.parse(content);
+        parsed = tryParseJson(result.content);
       } catch {
-        return reply.status(422).send({
-          success: false,
-          error: { message: 'AI returned invalid JSON. Try again.' },
-          raw: result.content,
-        });
+        // Repair attempt — ask AI to fix its own broken output
+        const repairPrompt = `Fix the following text into a SINGLE valid JSON object that follows the required schema.
+Rules:
+- Output ONLY JSON (no markdown, no extra text)
+- Keep the same meaning
+- Remove any non-JSON text
+Text to fix:
+${result.content}`;
+
+        try {
+          const repaired = await aiService.chat(userId, provider, model, [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: repairPrompt },
+          ]);
+          parsed = tryParseJson(repaired.content);
+        } catch {
+          return reply.status(422).send({
+            success: false,
+            error: { message: 'AI returned invalid JSON even after repair attempt. Please try again.' },
+            raw: result.content,
+          });
+        }
       }
 
       const created: any = { tasks: [], brainstorm: null, notes: [] };
 
-      // Create tasks
-      if (parsed.tasks && Array.isArray(parsed.tasks)) {
+      // ── Create tasks with enum safety ───────────────────────────
+      if (normalizedTypes.includes('tasks') && parsed.tasks && Array.isArray(parsed.tasks)) {
         for (const task of parsed.tasks) {
+          if (!task.title) continue;
+          const safePriority = VALID_PRIORITIES.has(task.priority) ? task.priority : 'MEDIUM';
+          const safeStatus = VALID_STATUSES.has(task.status) ? task.status : 'TODO';
           try {
             const t = await prisma.task.create({
               data: {
-                title: task.title,
+                title: task.title.slice(0, 200),
                 description: task.description || '',
-                priority: task.priority || 'MEDIUM',
-                status: task.status || 'TODO',
+                priority: safePriority,
+                status: safeStatus,
                 teamId,
-                creatorId: userId,
+                createdBy: userId,
               },
             });
             created.tasks.push(t);
-          } catch (e) {
-            // skip invalid tasks
+          } catch (e: any) {
+            console.error('Failed to create task:', e.message);
           }
         }
       }
 
-      // Create brainstorm session
-      if (parsed.brainstorm) {
+      // ── Create brainstorm session with enum safety ──────────────
+      if (normalizedTypes.includes('brainstorm') && parsed.brainstorm) {
+        const safeMode = VALID_BRAINSTORM_MODES.has(parsed.brainstorm.mode) ? parsed.brainstorm.mode : 'BRAINSTORM';
         try {
           const session = await prisma.brainstormSession.create({
             data: {
-              title: parsed.brainstorm.title || 'AI Generated Session',
-              mode: parsed.brainstorm.mode || 'BRAINSTORM',
+              title: (parsed.brainstorm.title || 'AI Generated Session').slice(0, 200),
+              mode: safeMode,
               teamId,
-              userId,
+              createdBy: userId,
               context: prompt,
               messages: parsed.brainstorm.initialMessage ? {
                 create: {
@@ -105,26 +198,27 @@ ONLY return valid JSON, no markdown formatting, no code blocks.`;
             include: { messages: true },
           });
           created.brainstorm = session;
-        } catch (e) {
-          // skip
+        } catch (e: any) {
+          console.error('Failed to create brainstorm:', e.message);
         }
       }
 
-      // Create notes
-      if (parsed.notes && Array.isArray(parsed.notes)) {
+      // ── Create notes ────────────────────────────────────────────
+      if (normalizedTypes.includes('notes') && parsed.notes && Array.isArray(parsed.notes)) {
         for (const note of parsed.notes) {
+          if (!note.title) continue;
           try {
             const n = await prisma.note.create({
               data: {
-                title: note.title,
+                title: note.title.slice(0, 200),
                 content: note.content || '',
                 teamId,
-                userId,
+                createdBy: userId,
               },
             });
             created.notes.push(n);
-          } catch (e) {
-            // skip invalid notes
+          } catch (e: any) {
+            console.error('Failed to create note:', e.message);
           }
         }
       }

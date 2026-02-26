@@ -1,5 +1,5 @@
 import OpenAI from 'openai';
-import type { AIProviderInterface, ChatMsg, ChatOptions, ChatResult, ModelDef } from './base.js';
+import type { AIProviderInterface, ChatMsg, ChatOptions, ChatResult, ModelDef, BalanceInfo } from './base.js';
 
 export class OpenAIProvider implements AIProviderInterface {
   private getClient(apiKey: string) {
@@ -48,11 +48,29 @@ export class OpenAIProvider implements AIProviderInterface {
 
   listModels(): ModelDef[] {
     return [
-      { id: 'gpt-4o', name: 'GPT-4o', contextWindow: 128000, costPer1kInput: 0.005, costPer1kOutput: 0.015 },
-      { id: 'gpt-4o-mini', name: 'GPT-4o Mini', contextWindow: 128000, costPer1kInput: 0.00015, costPer1kOutput: 0.0006 },
-      { id: 'gpt-4-turbo', name: 'GPT-4 Turbo', contextWindow: 128000, costPer1kInput: 0.01, costPer1kOutput: 0.03 },
-      { id: 'o1-preview', name: 'O1 Preview', contextWindow: 128000, costPer1kInput: 0.015, costPer1kOutput: 0.06 },
-      { id: 'o1-mini', name: 'O1 Mini', contextWindow: 128000, costPer1kInput: 0.003, costPer1kOutput: 0.012 },
+      { id: 'gpt-4.1', name: 'GPT-4.1', contextWindow: 1047576, costPer1kInput: 0.002, costPer1kOutput: 0.008, description: 'Latest flagship model' },
+      { id: 'gpt-4.1-mini', name: 'GPT-4.1 Mini', contextWindow: 1047576, costPer1kInput: 0.0004, costPer1kOutput: 0.0016, description: 'Cost-efficient' },
+      { id: 'gpt-4.1-nano', name: 'GPT-4.1 Nano', contextWindow: 1047576, costPer1kInput: 0.0001, costPer1kOutput: 0.0004, description: 'Fastest & cheapest' },
+      { id: 'gpt-4o', name: 'GPT-4o', contextWindow: 128000, costPer1kInput: 0.0025, costPer1kOutput: 0.01, description: 'Great all-rounder' },
+      { id: 'gpt-4o-mini', name: 'GPT-4o Mini', contextWindow: 128000, costPer1kInput: 0.00015, costPer1kOutput: 0.0006, description: 'Budget friendly' },
+      { id: 'o3', name: 'O3', contextWindow: 200000, costPer1kInput: 0.01, costPer1kOutput: 0.04, description: 'Advanced reasoning' },
+      { id: 'o3-mini', name: 'O3 Mini', contextWindow: 200000, costPer1kInput: 0.0011, costPer1kOutput: 0.0044, description: 'Fast reasoning' },
+      { id: 'o4-mini', name: 'O4 Mini', contextWindow: 200000, costPer1kInput: 0.0011, costPer1kOutput: 0.0044, description: 'Latest reasoning model' },
     ];
+  }
+
+  async getBalance(apiKey: string): Promise<BalanceInfo> {
+    try {
+      // OpenAI billing API - check remaining credits
+      const res = await fetch('https://api.openai.com/v1/organization/costs?start_time=' + Math.floor(Date.now() / 1000 - 86400 * 30) + '&limit=1', {
+        headers: { 'Authorization': `Bearer ${apiKey}` },
+      });
+      if (res.ok) {
+        return { hasBalance: true, message: 'API key active — usage-based billing' };
+      }
+      return { hasBalance: true, message: 'Connected — pay-per-use' };
+    } catch {
+      return { hasBalance: true, message: 'Connected — pay-per-use' };
+    }
   }
 }

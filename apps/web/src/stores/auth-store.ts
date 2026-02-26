@@ -5,6 +5,8 @@ interface User {
   email: string;
   name: string;
   avatar?: string;
+  googleId?: string | null;
+  hasPassword?: boolean;
 }
 
 interface AuthTokens {

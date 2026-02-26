@@ -10,6 +10,7 @@ import { Input } from '@/components/ui/input';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from '@/components/ui/dialog';
+import { toast } from 'sonner';
 import { useTeamStore } from '@/stores/team-store';
 import { api } from '@/lib/api';
 
@@ -62,6 +63,10 @@ export default function GoalsPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['goals', teamId] });
       setSelectedGoal(null);
+      toast.success('Goal deleted');
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || 'Failed to delete goal');
     },
   });
 

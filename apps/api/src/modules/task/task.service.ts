@@ -1,5 +1,6 @@
 import { prisma } from '../../lib/prisma.js';
 import { NotFoundError } from '../../lib/errors.js';
+import { notificationService } from '../notification/notification.service.js';
 import type { CreateTaskInput, UpdateTaskInput, TaskFiltersInput } from '@brainforge/validators';
 import type { Prisma } from '@prisma/client';
 
@@ -46,6 +47,16 @@ export class TaskService {
     await prisma.taskActivity.create({
       data: { taskId: task.id, userId, action: 'created', newValue: task.title },
     });
+
+    // Notify team members
+    try {
+      await notificationService.createForTeam(teamId, userId, {
+        title: 'New Task Created',
+        message: `"${task.title}" was created`,
+        type: 'task',
+        link: `/tasks?task=${task.id}`,
+      });
+    } catch {}
 
     return task;
   }
@@ -149,6 +160,19 @@ export class TaskService {
       await prisma.taskActivity.createMany({
         data: activities.map((a) => ({ taskId, userId, ...a })),
       });
+
+      // Notify team about important changes
+      try {
+        const statusChange = activities.find((a) => a.action === 'status_changed');
+        if (statusChange) {
+          await notificationService.createForTeam(existing.teamId, userId, {
+            title: 'Task Updated',
+            message: `"${task.title}" status changed to ${statusChange.newValue}`,
+            type: 'task',
+            link: `/tasks?task=${taskId}`,
+          });
+        }
+      } catch {}
     }
 
     return task;
@@ -177,8 +201,21 @@ export class TaskService {
     });
 
     await prisma.taskActivity.create({
-      data: { taskId, userId, action: 'comment_added' },
+      data: { taskId, userId, action: 'comment_added', newValue: content.slice(0, 200) },
     });
+
+    // Notify team about comment
+    try {
+      const task = await prisma.task.findUnique({ where: { id: taskId }, select: { teamId: true, title: true } });
+      if (task) {
+        await notificationService.createForTeam(task.teamId, userId, {
+          title: 'New Comment',
+          message: `Comment on "${task.title}": ${content.slice(0, 100)}`,
+          type: 'comment',
+          link: `/tasks?task=${taskId}`,
+        });
+      }
+    } catch {}
 
     return comment;
   }

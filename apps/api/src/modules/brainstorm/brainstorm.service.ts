@@ -1,14 +1,7 @@
 import { prisma } from '../../lib/prisma.js';
-import { aiService } from '../../ai/ai.service.js';
 import { NotFoundError } from '../../lib/errors.js';
-import type { ChatMsg } from '../../ai/providers/base.js';
 
-const MODE_PROMPTS: Record<string, string> = {
-  BRAINSTORM: `You are a creative brainstorming partner. Help generate ideas, explore possibilities, and think outside the box. Be enthusiastic and build on the user's ideas. Use bullet points and organize thoughts clearly.`,
-  DEBATE: `You are a critical thinking partner who challenges ideas constructively. Present counter-arguments, identify weaknesses, and play devil's advocate. Be respectful but thorough in your analysis. Always provide alternative perspectives.`,
-  ANALYSIS: `You are an analytical assistant. Break down complex topics into components, identify patterns, create frameworks, and provide data-driven insights. Use structured formats like tables, lists, and clear categorizations.`,
-  FREEFORM: `You are a helpful AI assistant. Engage naturally with the user's questions and ideas. Adapt your communication style to match the conversation context.`,
-};
+const USER_SELECT = { id: true, name: true, avatarUrl: true };
 
 class BrainstormService {
   async createSession(teamId: string, userId: string, data: { title: string; mode: string; context?: string }) {
@@ -20,7 +13,7 @@ class BrainstormService {
         mode: data.mode as any,
         context: data.context,
       },
-      include: { creator: { select: { id: true, name: true, avatarUrl: true } } },
+      include: { creator: { select: USER_SELECT } },
     });
   }
 
@@ -28,7 +21,7 @@ class BrainstormService {
     return prisma.brainstormSession.findMany({
       where: { teamId },
       include: {
-        creator: { select: { id: true, name: true, avatarUrl: true } },
+        creator: { select: USER_SELECT },
         _count: { select: { messages: true } },
       },
       orderBy: { updatedAt: 'desc' },
@@ -39,9 +32,10 @@ class BrainstormService {
     const session = await prisma.brainstormSession.findUnique({
       where: { id: sessionId },
       include: {
-        creator: { select: { id: true, name: true, avatarUrl: true } },
+        creator: { select: USER_SELECT },
         messages: {
           orderBy: { createdAt: 'asc' },
+          include: { user: { select: USER_SELECT } },
         },
       },
     });
@@ -49,82 +43,43 @@ class BrainstormService {
     return session;
   }
 
-  async sendMessage(sessionId: string, userId: string, content: string, provider?: string, model?: string) {
+  async sendMessage(sessionId: string, userId: string, content: string) {
     const session = await prisma.brainstormSession.findUnique({
       where: { id: sessionId },
-      include: { messages: { orderBy: { createdAt: 'asc' }, take: 50 } },
     });
     if (!session) throw new NotFoundError('Brainstorm session not found');
 
-    // Save user message
+    // Save user message (no AI — pure team discussion)
     const userMessage = await prisma.brainstormMessage.create({
-      data: { sessionId, role: 'USER', content },
-    });
-
-    // Build conversation context
-    const systemPrompt = MODE_PROMPTS[session.mode] || MODE_PROMPTS.FREEFORM;
-    const contextAddition = session.context ? `\n\nProject context: ${session.context}` : '';
-    const messages: ChatMsg[] = [
-      { role: 'system', content: systemPrompt + contextAddition },
-      ...session.messages.map(m => ({
-        role: (m.role === 'USER' ? 'user' : 'assistant') as 'user' | 'assistant',
-        content: m.content,
-      })),
-      { role: 'user' as const, content },
-    ];
-
-    // Get AI response
-    const result = await aiService.chat(userId, provider || '', model || '', messages);
-
-    // Save AI message
-    const aiMessage = await prisma.brainstormMessage.create({
-      data: {
-        sessionId,
-        role: 'ASSISTANT',
-        content: result.content,
-      },
+      data: { sessionId, userId, role: 'USER', content },
+      include: { user: { select: USER_SELECT } },
     });
 
     // Update session timestamp
     await prisma.brainstormSession.update({ where: { id: sessionId }, data: { updatedAt: new Date() } });
 
-    return { userMessage, aiMessage };
+    return userMessage;
   }
 
-  async *streamMessage(sessionId: string, userId: string, content: string, provider?: string, model?: string) {
-    const session = await prisma.brainstormSession.findUnique({
-      where: { id: sessionId },
-      include: { messages: { orderBy: { createdAt: 'asc' }, take: 50 } },
+  async editMessage(messageId: string, userId: string, content: string) {
+    const msg = await prisma.brainstormMessage.findUnique({ where: { id: messageId } });
+    if (!msg) throw new NotFoundError('Message not found');
+    if (msg.userId !== userId) throw new Error('You can only edit your own messages');
+
+    return prisma.brainstormMessage.update({
+      where: { id: messageId },
+      data: { content, isEdited: true },
+      include: { user: { select: USER_SELECT } },
     });
-    if (!session) throw new NotFoundError('Brainstorm session not found');
+  }
 
-    // Save user message
-    await prisma.brainstormMessage.create({
-      data: { sessionId, role: 'USER', content },
-    });
+  async deleteMessage(messageId: string, userId: string) {
+    const msg = await prisma.brainstormMessage.findUnique({ where: { id: messageId } });
+    if (!msg) throw new NotFoundError('Message not found');
+    if (msg.userId !== userId) throw new Error('You can only delete your own messages');
 
-    const systemPrompt = MODE_PROMPTS[session.mode] || MODE_PROMPTS.FREEFORM;
-    const contextAddition = session.context ? `\n\nProject context: ${session.context}` : '';
-    const messages: ChatMsg[] = [
-      { role: 'system', content: systemPrompt + contextAddition },
-      ...session.messages.map(m => ({
-        role: (m.role === 'USER' ? 'user' : 'assistant') as 'user' | 'assistant',
-        content: m.content,
-      })),
-      { role: 'user' as const, content },
-    ];
-
-    let fullContent = '';
-    for await (const chunk of aiService.stream(userId, provider || '', model || '', messages)) {
-      fullContent += chunk;
-      yield chunk;
-    }
-
-    // Save complete AI message
-    await prisma.brainstormMessage.create({
-      data: { sessionId, role: 'ASSISTANT', content: fullContent },
-    });
-    await prisma.brainstormSession.update({ where: { id: sessionId }, data: { updatedAt: new Date() } });
+    await prisma.brainstormMessage.delete({ where: { id: messageId } });
+    return { success: true };
   }
 
   async pinMessage(messageId: string) {
@@ -145,6 +100,7 @@ class BrainstormService {
     return prisma.brainstormMessage.findMany({
       where: { sessionId, isPinned: true },
       orderBy: { createdAt: 'asc' },
+      include: { user: { select: USER_SELECT } },
     });
   }
 
@@ -159,8 +115,8 @@ class BrainstormService {
     markdown += `**Mode:** ${session.mode}\n`;
     markdown += `**Created:** ${session.createdAt}\n\n---\n\n`;
     for (const msg of session.messages) {
-      const role = msg.role === 'USER' ? '**User**' : '**AI**';
-      markdown += `### ${role}\n\n${msg.content}\n\n---\n\n`;
+      const name = msg.user?.name || (msg.role === 'USER' ? 'User' : 'AI');
+      markdown += `### ${name}\n\n${msg.content}\n\n---\n\n`;
     }
     return markdown;
   }
@@ -169,7 +125,7 @@ class BrainstormService {
     return prisma.brainstormSession.update({
       where: { id: sessionId },
       data,
-      include: { creator: { select: { id: true, name: true, avatarUrl: true } } },
+      include: { creator: { select: USER_SELECT } },
     });
   }
 

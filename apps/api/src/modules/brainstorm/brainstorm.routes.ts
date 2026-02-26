@@ -3,6 +3,10 @@ import { brainstormService } from './brainstorm.service.js';
 import { createSessionSchema, sendMessageSchema } from '@brainforge/validators';
 import { authGuard } from '../../middleware/auth.middleware.js';
 import { teamGuard } from '../../middleware/team.middleware.js';
+import { prisma } from '../../lib/prisma.js';
+import path from 'path';
+import fs from 'fs';
+import { randomUUID } from 'crypto';
 
 export async function brainstormRoutes(app: FastifyInstance) {
   app.addHook('preHandler', authGuard);
@@ -33,30 +37,23 @@ export async function brainstormRoutes(app: FastifyInstance) {
   app.post('/:teamId/brainstorm/:sessionId/messages', { preHandler: [teamGuard()] }, async (request, reply) => {
     const { sessionId } = request.params as { sessionId: string };
     const body = sendMessageSchema.parse(request.body);
-    const result = await brainstormService.sendMessage(sessionId, request.user.id, body.content, body.provider, body.model);
+    const result = await brainstormService.sendMessage(sessionId, request.user.id, body.content);
     return reply.send({ success: true, data: result });
   });
 
-  // POST /api/teams/:teamId/brainstorm/:sessionId/stream — SSE streaming
-  app.post('/:teamId/brainstorm/:sessionId/stream', { preHandler: [teamGuard()] }, async (request, reply) => {
-    const { sessionId } = request.params as { sessionId: string };
-    const body = sendMessageSchema.parse(request.body);
+  // PATCH /api/teams/:teamId/brainstorm/messages/:messageId — edit message
+  app.patch('/:teamId/brainstorm/messages/:messageId', { preHandler: [teamGuard()] }, async (request, reply) => {
+    const { messageId } = request.params as { messageId: string };
+    const { content } = request.body as { content: string };
+    const msg = await brainstormService.editMessage(messageId, request.user.id, content);
+    return reply.send({ success: true, data: msg });
+  });
 
-    reply.raw.writeHead(200, {
-      'Content-Type': 'text/event-stream',
-      'Cache-Control': 'no-cache',
-      'Connection': 'keep-alive',
-    });
-
-    try {
-      for await (const chunk of brainstormService.streamMessage(sessionId, request.user.id, body.content, body.provider, body.model)) {
-        reply.raw.write(`data: ${JSON.stringify({ content: chunk })}\n\n`);
-      }
-      reply.raw.write(`data: [DONE]\n\n`);
-    } catch (error: any) {
-      reply.raw.write(`data: ${JSON.stringify({ error: error.message })}\n\n`);
-    }
-    reply.raw.end();
+  // DELETE /api/teams/:teamId/brainstorm/messages/:messageId — delete message
+  app.delete('/:teamId/brainstorm/messages/:messageId', { preHandler: [teamGuard()] }, async (request, reply) => {
+    const { messageId } = request.params as { messageId: string };
+    await brainstormService.deleteMessage(messageId, request.user.id);
+    return reply.send({ success: true, data: { message: 'Message deleted' } });
   });
 
   // PATCH /api/teams/:teamId/brainstorm/messages/:messageId/pin
@@ -108,5 +105,42 @@ export async function brainstormRoutes(app: FastifyInstance) {
     const { whiteboardData, flowData } = request.body as { whiteboardData?: any; flowData?: any };
     const session = await brainstormService.updateCanvasData(sessionId, whiteboardData, flowData);
     return reply.send({ success: true, data: session });
+  });
+
+  // POST /api/teams/:teamId/brainstorm/:sessionId/upload — file upload in discussion
+  app.post('/:teamId/brainstorm/:sessionId/upload', { preHandler: [teamGuard()] }, async (request, reply) => {
+    const { sessionId } = request.params as { sessionId: string };
+    const data = await request.file();
+    if (!data) {
+      return reply.status(400).send({ success: false, error: { message: 'No file uploaded' } });
+    }
+
+    const uploadsDir = path.join(process.cwd(), 'uploads');
+    if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
+
+    const ext = path.extname(data.filename);
+    const uniqueName = `${randomUUID()}${ext}`;
+    const filePath = path.join(uploadsDir, uniqueName);
+
+    const buffer = await data.toBuffer();
+    fs.writeFileSync(filePath, buffer);
+
+    const fileUrl = `/uploads/${uniqueName}`;
+
+    // Create a message with the file
+    const message = await prisma.brainstormMessage.create({
+      data: {
+        sessionId,
+        userId: request.user.id,
+        role: 'USER',
+        content: data.filename,
+        fileUrl,
+        fileName: data.filename,
+        fileType: data.mimetype,
+      },
+      include: { user: { select: { id: true, name: true, avatarUrl: true } } },
+    });
+
+    return reply.send({ success: true, data: message });
   });
 }

@@ -1,5 +1,6 @@
 import Fastify from 'fastify';
 import cors from '@fastify/cors';
+import multipart from '@fastify/multipart';
 import { authRoutes } from './modules/auth/auth.routes.js';
 import { teamRoutes } from './modules/team/team.routes.js';
 import { taskRoutes, myTasksRoute } from './modules/task/task.routes.js';
@@ -11,6 +12,10 @@ import { sprintRoutes } from './modules/sprint/sprint.routes.js';
 import { noteRoutes } from './modules/note/note.routes.js';
 import { discussionRoutes } from './modules/discussion/discussion.routes.js';
 import { aiGenerateRoutes } from './modules/ai-generate/ai-generate.routes.js';
+import { goalRoutes } from './modules/goal/goal.routes.js';
+import { notificationRoutes } from './modules/notification/notification.routes.js';
+import { aiChatRoutes } from './modules/ai-chat/ai-chat.routes.js';
+import { projectRoutes } from './modules/project/project.routes.js';
 import { aiService } from './ai/ai.service.js';
 import { AppError } from './lib/errors.js';
 
@@ -26,6 +31,43 @@ export async function buildApp() {
   await app.register(cors, {
     origin: process.env.CORS_ORIGIN || 'http://localhost:3000',
     credentials: true,
+  });
+
+  // Multipart file upload support
+  await app.register(multipart, {
+    limits: { fileSize: 10 * 1024 * 1024 }, // 10MB max
+  });
+
+  // Serve uploaded files
+  app.get('/uploads/:filename', async (request, reply) => {
+    const { filename } = request.params as { filename: string };
+    const query = request.query as { download?: string; name?: string };
+    const path = await import('path');
+    const fs = await import('fs');
+    const filePath = path.join(process.cwd(), 'uploads', filename);
+    if (!fs.existsSync(filePath)) {
+      return reply.status(404).send({ success: false, error: { message: 'File not found' } });
+    }
+    const ext = path.extname(filename).toLowerCase();
+    const mimeMap: Record<string, string> = {
+      '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg',
+      '.gif': 'image/gif', '.webp': 'image/webp', '.svg': 'image/svg+xml',
+      '.pdf': 'application/pdf', '.sql': 'text/plain',
+      '.txt': 'text/plain', '.json': 'application/json',
+      '.csv': 'text/csv', '.md': 'text/markdown',
+      '.zip': 'application/zip', '.doc': 'application/msword',
+      '.docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      '.xls': 'application/vnd.ms-excel',
+      '.xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    };
+    const contentType = mimeMap[ext] || 'application/octet-stream';
+    // If ?download=true, force download with Content-Disposition
+    if (query.download === 'true') {
+      const downloadName = query.name || filename;
+      reply.header('Content-Disposition', `attachment; filename="${downloadName}"`);
+    }
+    const stream = fs.createReadStream(filePath);
+    return reply.type(contentType).send(stream);
   });
 
   // Global error handler
@@ -90,6 +132,10 @@ export async function buildApp() {
   app.register(noteRoutes, { prefix: '/api/teams' });
   app.register(discussionRoutes, { prefix: '/api/teams' });
   app.register(aiGenerateRoutes, { prefix: '/api/teams' });
+  app.register(goalRoutes, { prefix: '/api/teams' });
+  app.register(notificationRoutes, { prefix: '/api/teams' });
+  app.register(aiChatRoutes, { prefix: '/api/teams' });
+  app.register(projectRoutes, { prefix: '/api/teams' });
 
   return app;
 }

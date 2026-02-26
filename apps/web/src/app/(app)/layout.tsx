@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/stores/auth-store';
 import { useTeamStore } from '@/stores/team-store';
@@ -23,13 +23,25 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   });
   const [mobileOpen, setMobileOpen] = useState(false);
 
-  const toggleSidebar = () => {
+  const toggleSidebar = useCallback(() => {
     setSidebarCollapsed(prev => {
       const next = !prev;
       localStorage.setItem('bf_sidebar_collapsed', String(next));
       return next;
     });
-  };
+  }, []);
+
+  // Keyboard shortcut: Ctrl+B / Cmd+B to toggle sidebar
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'b') {
+        e.preventDefault();
+        toggleSidebar();
+      }
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [toggleSidebar]);
 
   useEffect(() => {
     hydrate();

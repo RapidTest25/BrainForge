@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import { useTeamStore } from '@/stores/team-store';
 import { api } from '@/lib/api';
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 
 type Notification = {
@@ -33,6 +34,7 @@ export default function NotificationsPage() {
   const { activeTeam } = useTeamStore();
   const teamId = activeTeam?.id;
   const queryClient = useQueryClient();
+  const router = useRouter();
   const [filter, setFilter] = useState<'all' | 'unread'>('all');
 
   const { data: notificationsRes } = useQuery({
@@ -47,7 +49,7 @@ export default function NotificationsPage() {
   });
 
   const markAllReadMutation = useMutation({
-    mutationFn: () => api.patch(`/teams/${teamId}/notifications/read-all`, {}),
+    mutationFn: () => api.patch(`/teams/${teamId}/notifications/mark-all-read`, {}),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['notifications', teamId] }),
   });
 
@@ -121,6 +123,7 @@ export default function NotificationsPage() {
               }`}
               onClick={() => {
                 if (!n.read) markReadMutation.mutate(n.id);
+                if (n.link) router.push(n.link);
               }}
             >
               <div

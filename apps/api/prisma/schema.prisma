@@ -120,6 +120,11 @@ model User {
   noteHistories      NoteHistory[]
   discussions        Discussion[]
   discussionReplies  DiscussionReply[]
+  goals              Goal[]
+  notifications      Notification[]
+  brainstormMessages BrainstormMessage[]
+  aiChats            AiChat[]
+  projects           Project[]
 }
 
 // ==========================================
@@ -145,6 +150,10 @@ model Team {
   calendarEvents     CalendarEvent[]
   labels             Label[]
   discussions        Discussion[]
+  goals              Goal[]
+  notifications      Notification[]
+  aiChats            AiChat[]
+  projects           Project[]
 }
 
 model TeamMember {
@@ -194,12 +203,39 @@ model UserAIKey {
 }
 
 // ==========================================
+// PROJECT / WORKSPACE
+// ==========================================
+
+model Project {
+  id          String   @id @default(cuid())
+  teamId      String
+  name        String
+  description String?
+  color       String   @default("#7b68ee")
+  icon        String   @default("folder")
+  createdBy   String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  team               Team               @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  creator            User               @relation(fields: [createdBy], references: [id])
+  tasks              Task[]
+  brainstormSessions BrainstormSession[]
+  sprintPlans        SprintPlan[]
+  notes              Note[]
+  diagrams           Diagram[]
+  goals              Goal[]
+  aiChats            AiChat[]
+}
+
+// ==========================================
 // TASKS (ClickUp-inspired)
 // ==========================================
 
 model Task {
   id          String       @id @default(cuid())
   teamId      String
+  projectId   String?
   sprintId    String?
   title       String
   description String?      @db.Text
@@ -216,6 +252,7 @@ model Task {
   updatedAt   DateTime     @updatedAt
 
   team         Team             @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  project      Project?         @relation(fields: [projectId], references: [id])
   sprint       SprintPlan?      @relation(fields: [sprintId], references: [id])
   creator      User             @relation("taskCreator", fields: [createdBy], references: [id])
   assignees    TaskAssignee[]
@@ -295,12 +332,60 @@ model TaskActivity {
 }
 
 // ==========================================
+// GOALS
+// ==========================================
+
+enum GoalStatus {
+  NOT_STARTED
+  IN_PROGRESS
+  COMPLETED
+}
+
+model Goal {
+  id          String     @id @default(cuid())
+  teamId      String
+  projectId   String?
+  createdBy   String
+  title       String
+  description String?    @db.Text
+  status      GoalStatus @default(NOT_STARTED)
+  progress    Int        @default(0)
+  dueDate     DateTime?
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  team    Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  project Project? @relation(fields: [projectId], references: [id])
+  creator User     @relation(fields: [createdBy], references: [id])
+}
+
+// ==========================================
+// NOTIFICATIONS
+// ==========================================
+
+model Notification {
+  id        String   @id @default(cuid())
+  teamId    String
+  userId    String
+  title     String
+  message   String?  @db.Text
+  type      String   @default("info")
+  link      String?
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  team Team @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// ==========================================
 // BRAINSTORM
 // ==========================================
 
 model BrainstormSession {
   id             String         @id @default(cuid())
   teamId         String
+  projectId      String?
   createdBy      String
   title          String
   mode           BrainstormMode
@@ -312,6 +397,7 @@ model BrainstormSession {
   updatedAt      DateTime       @updatedAt
 
   team     Team               @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  project  Project?           @relation(fields: [projectId], references: [id])
   creator  User               @relation(fields: [createdBy], references: [id])
   messages BrainstormMessage[]
 }
@@ -319,12 +405,19 @@ model BrainstormSession {
 model BrainstormMessage {
   id        String      @id @default(cuid())
   sessionId String
+  userId    String?
   role      MessageRole
   content   String      @db.Text
   isPinned  Boolean     @default(false)
+  fileUrl   String?
+  fileName  String?
+  fileType  String?
+  isEdited  Boolean     @default(false)
   createdAt DateTime    @default(now())
+  updatedAt DateTime    @default(now()) @updatedAt
 
   session BrainstormSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  user    User?             @relation(fields: [userId], references: [id])
 }
 
 // ==========================================
@@ -334,6 +427,7 @@ model BrainstormMessage {
 model SprintPlan {
   id        String       @id @default(cuid())
   teamId    String
+  projectId String?
   createdBy String
   title     String
   goal      String       @db.Text
@@ -344,8 +438,9 @@ model SprintPlan {
   createdAt DateTime     @default(now())
   updatedAt DateTime     @updatedAt
 
-  team    Team @relation(fields: [teamId], references: [id], onDelete: Cascade)
-  creator User @relation(fields: [createdBy], references: [id])
+  team    Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  project Project? @relation(fields: [projectId], references: [id])
+  creator User     @relation(fields: [createdBy], references: [id])
   tasks   Task[]
 }
 
@@ -356,6 +451,7 @@ model SprintPlan {
 model Diagram {
   id          String      @id @default(cuid())
   teamId      String
+  projectId   String?
   createdBy   String
   title       String
   description String?
@@ -365,8 +461,9 @@ model Diagram {
   createdAt   DateTime    @default(now())
   updatedAt   DateTime    @updatedAt
 
-  team    Team @relation(fields: [teamId], references: [id], onDelete: Cascade)
-  creator User @relation(fields: [createdBy], references: [id])
+  team    Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  project Project? @relation(fields: [projectId], references: [id])
+  creator User     @relation(fields: [createdBy], references: [id])
 }
 
 // ==========================================
@@ -401,6 +498,7 @@ model CalendarEvent {
 model Note {
   id        String   @id @default(cuid())
   teamId    String
+  projectId String?
   createdBy String
   title     String
   content   String   @db.Text @default("")
@@ -409,6 +507,7 @@ model Note {
   updatedAt DateTime @updatedAt
 
   team    Team          @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  project Project?      @relation(fields: [projectId], references: [id])
   creator User          @relation(fields: [createdBy], references: [id])
   history NoteHistory[]
 }
@@ -456,6 +555,37 @@ model DiscussionReply {
 
   discussion Discussion @relation(fields: [discussionId], references: [id], onDelete: Cascade)
   user       User       @relation(fields: [userId], references: [id])
+}
+
+// ==========================================
+// AI CHAT
+// ==========================================
+
+model AiChat {
+  id        String   @id @default(cuid())
+  teamId    String
+  projectId String?
+  createdBy String
+  title     String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  team     Team            @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  project  Project?        @relation(fields: [projectId], references: [id])
+  creator  User            @relation(fields: [createdBy], references: [id])
+  messages AiChatMessage[]
+}
+
+model AiChatMessage {
+  id        String      @id @default(cuid())
+  chatId    String
+  role      MessageRole
+  content   String      @db.Text
+  provider  String?
+  model     String?
+  createdAt DateTime    @default(now())
+
+  chat AiChat @relation(fields: [chatId], references: [id], onDelete: Cascade)
 }
 
 // ==========================================

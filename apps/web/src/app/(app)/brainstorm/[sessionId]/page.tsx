@@ -4,11 +4,12 @@ import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
-  MessageSquare, Send, Brain, Swords, BarChart3,
+  MessageSquare, Send, Swords, BarChart3,
   Sparkles, Loader2, ArrowLeft, Pencil, GitBranch, Trash2,
   Circle, Square, Type, Minus, Eraser, Download,
   ArrowRight, Diamond, RotateCcw,
-  Users, FileText, Check, X,
+  Users, FileText, Check, X, Paperclip, Image as ImageIcon, File as FileIcon,
+  MoreVertical, Edit2, Brain,
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -22,6 +23,7 @@ import { useTeamStore } from '@/stores/team-store';
 import { useAuthStore } from '@/stores/auth-store';
 import { api } from '@/lib/api';
 import { cn } from '@/lib/utils';
+import { toast } from 'sonner';
 import { useBrainstormSocket } from '@/hooks/use-brainstorm-socket';
 
 // ===== CONSTANTS =====
@@ -187,11 +189,9 @@ export default function BrainstormSessionPage() {
 
   // Chat state
   const [message, setMessage] = useState('');
-  const [provider, setProvider] = useState('GEMINI');
-  const [model, setModel] = useState('gemini-2.5-flash');
-  const [streaming, setStreaming] = useState(false);
-  const [streamContent, setStreamContent] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
+  const [editingContent, setEditingContent] = useState('');
 
   // Title editing
   const [editingTitle, setEditingTitle] = useState(false);
@@ -266,11 +266,6 @@ export default function BrainstormSessionPage() {
     enabled: !!sessionId && !!teamId,
   });
 
-  const { data: modelsData } = useQuery({
-    queryKey: ['ai-models'],
-    queryFn: () => api.get<{ data: Record<string, any[]> }>('/ai/models'),
-  });
-
   // ===== LOAD SAVED DATA =====
   useEffect(() => {
     if (session?.data) {
@@ -324,35 +319,88 @@ export default function BrainstormSessionPage() {
   });
 
   const sendMutation = useMutation({
-    mutationFn: async (data: { content: string; provider: string; model: string }) => {
-      setStreaming(true);
-      setStreamContent('');
-      try {
-        let full = '';
-        for await (const chunk of api.streamPost(
-          `/teams/${teamId}/brainstorm/${sessionId}/stream`,
-          data
-        )) {
-          full += chunk;
-          setStreamContent(full);
-        }
-      } catch {
-        await api.post(`/teams/${teamId}/brainstorm/${sessionId}/messages`, data);
-      }
-      setStreaming(false);
-      setStreamContent('');
+    mutationFn: async (data: { content: string }) => {
+      return api.post(`/teams/${teamId}/brainstorm/${sessionId}/messages`, data);
+    },
+    onSuccess: () => {
       refetchSession();
+    },
+  });
+
+  const editMutation = useMutation({
+    mutationFn: async ({ messageId, content }: { messageId: string; content: string }) => {
+      return api.patch(`/teams/${teamId}/brainstorm/messages/${messageId}`, { content });
+    },
+    onSuccess: () => {
+      setEditingMessageId(null);
+      setEditingContent('');
+      refetchSession();
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (messageId: string) => {
+      return api.delete(`/teams/${teamId}/brainstorm/messages/${messageId}`);
+    },
+    onSuccess: () => {
+      refetchSession();
+      toast.success('Message deleted');
     },
   });
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [session?.data?.messages, streamContent]);
+  }, [session?.data?.messages]);
 
   const handleSend = () => {
-    if (!message.trim() || streaming) return;
-    sendMutation.mutate({ content: message, provider, model });
+    if (!message.trim()) return;
+    sendMutation.mutate({ content: message });
     setMessage('');
+  };
+
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [uploading, setUploading] = useState(false);
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error('File size must be under 10MB');
+      return;
+    }
+    setUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api';
+      let token: string | null = null;
+      try {
+        const stored = localStorage.getItem('brainforge_tokens');
+        if (stored) token = JSON.parse(stored).accessToken;
+      } catch {}
+
+      if (!token) {
+        toast.error('Please log in again to upload files');
+        return;
+      }
+
+      const res = await fetch(`${apiUrl}/teams/${teamId}/brainstorm/${sessionId}/upload`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` },
+        body: formData,
+      });
+      if (!res.ok) {
+        const errData = await res.json().catch(() => null);
+        throw new Error(errData?.error?.message || `Upload failed (${res.status})`);
+      }
+      queryClient.invalidateQueries({ queryKey: ['brainstorm-session', sessionId] });
+      toast.success('File uploaded');
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to upload file');
+    } finally {
+      setUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
   };
 
   const getModeInfo = (mode: string) => MODES.find(m => m.value === mode);
@@ -720,80 +768,178 @@ export default function BrainstormSessionPage() {
             </button>
           ))}
         </div>
-
-        {activeTab === 'chat' && (
-          <div className="flex items-center gap-2">
-            <Select value={provider} onValueChange={setProvider}>
-              <SelectTrigger className="w-28 h-7 text-xs border-gray-200 rounded-lg">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {Object.keys(modelsData?.data || {}).map(p => (
-                  <SelectItem key={p} value={p}>{p}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Select value={model} onValueChange={setModel}>
-              <SelectTrigger className="w-44 h-7 text-xs border-gray-200 rounded-lg">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {(modelsData?.data?.[provider] || []).map((m: any) => (
-                  <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        )}
       </div>
 
       {/* ===== CHAT TAB ===== */}
       {activeTab === 'chat' && (
         <>
           <div className="flex-1 overflow-y-auto py-4 space-y-3">
-            {session?.data?.messages?.map((msg: any) => (
-              <div key={msg.id} className={cn('flex gap-3 max-w-[85%]', msg.role === 'USER' ? 'ml-auto flex-row-reverse' : '')}>
-                <div className={cn('h-7 w-7 rounded-lg flex items-center justify-center shrink-0 mt-1', msg.role === 'USER' ? 'bg-[#7b68ee]/15' : 'bg-gradient-to-br from-gray-100 to-gray-50')}>
-                  {msg.role === 'USER' ? <Users className="h-3.5 w-3.5 text-[#7b68ee]" /> : <Brain className="h-3.5 w-3.5 text-gray-500" />}
-                </div>
-                <div className={cn('rounded-2xl px-4 py-3', msg.role === 'USER' ? 'bg-gradient-to-r from-[#7b68ee] to-[#6c5ce7] text-white' : 'bg-gray-50 text-[#1a1a2e] border border-gray-100')}>
-                  <p className="text-sm whitespace-pre-wrap leading-relaxed">{msg.content}</p>
-                  <div className="flex items-center gap-2 mt-2">
-                    <span className={cn('text-[10px]', msg.role === 'USER' ? 'text-white/60' : 'text-gray-400')}>
-                      {new Date(msg.createdAt).toLocaleTimeString()}
-                    </span>
-                    {msg.model && (
-                      <span className={cn('text-[10px] px-1.5 py-0.5 rounded-md', msg.role === 'USER' ? 'text-white/60 bg-white/10' : 'text-gray-400 bg-gray-100')}>
-                        {msg.model}
-                      </span>
+            {session?.data?.messages?.map((msg: any) => {
+              const isOwn = msg.userId === user?.id;
+              const senderName = msg.user?.name || (msg.role === 'ASSISTANT' ? 'AI' : 'Unknown');
+              const senderInitial = senderName.charAt(0).toUpperCase();
+              const isEditing = editingMessageId === msg.id;
+
+              return (
+                <div key={msg.id} className={cn('flex gap-3 max-w-[85%]', isOwn ? 'ml-auto flex-row-reverse' : '')}>
+                  <div className={cn('h-7 w-7 rounded-full flex items-center justify-center shrink-0 mt-1 text-[10px] font-bold text-white', isOwn ? 'bg-gradient-to-br from-[#7b68ee] to-[#6c5ce7]' : 'bg-gradient-to-br from-gray-400 to-gray-500')}>
+                    {msg.user?.avatarUrl ? (
+                      <img src={msg.user.avatarUrl} alt={senderName} className="h-7 w-7 rounded-full object-cover" />
+                    ) : senderInitial}
+                  </div>
+                  <div className={cn('rounded-2xl px-4 py-3 group relative', isOwn ? 'bg-gradient-to-r from-[#7b68ee] to-[#6c5ce7] text-white' : 'bg-gray-50 text-[#1a1a2e] border border-gray-100')}>
+                    {/* Sender name */}
+                    <p className={cn('text-[11px] font-semibold mb-1', isOwn ? 'text-white/80' : 'text-gray-500')}>
+                      {senderName}
+                    </p>
+
+                    {/* Message content or edit input */}
+                    {isEditing ? (
+                      <div className="space-y-2">
+                        <Textarea
+                          value={editingContent}
+                          onChange={(e) => setEditingContent(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); editMutation.mutate({ messageId: msg.id, content: editingContent }); }
+                            if (e.key === 'Escape') { setEditingMessageId(null); setEditingContent(''); }
+                          }}
+                          className="min-h-[60px] text-sm bg-white/20 border-white/30 text-inherit rounded-xl"
+                          autoFocus
+                        />
+                        <div className="flex gap-1.5 justify-end">
+                          <button onClick={() => { setEditingMessageId(null); setEditingContent(''); }} className="px-2.5 py-1 text-[11px] rounded-lg hover:bg-white/20">Cancel</button>
+                          <button
+                            onClick={() => editMutation.mutate({ messageId: msg.id, content: editingContent })}
+                            disabled={!editingContent.trim() || editMutation.isPending}
+                            className="px-2.5 py-1 text-[11px] rounded-lg bg-white/20 hover:bg-white/30 font-medium disabled:opacity-50"
+                          >
+                            {editMutation.isPending ? 'Saving...' : 'Save'}
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <>
+                        {msg.content && <p className="text-sm whitespace-pre-wrap leading-relaxed">{msg.content}</p>}
+                        {msg.fileUrl && (() => {
+                          const baseUrl = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api').replace(/\/api$/, '');
+                          const fullUrl = msg.fileUrl.startsWith('http') ? msg.fileUrl : `${baseUrl}${msg.fileUrl}`;
+                          const downloadUrl = `${fullUrl}?download=true&name=${encodeURIComponent(msg.fileName || 'file')}`;
+                          return (
+                            <div className="mt-2">
+                              {msg.fileType?.startsWith('image/') ? (
+                                <div className="relative group/file inline-block">
+                                  <a href={fullUrl} target="_blank" rel="noopener noreferrer">
+                                    <img
+                                      src={fullUrl}
+                                      alt={msg.fileName || 'Image'}
+                                      className="max-w-[280px] max-h-[200px] rounded-lg object-cover border border-white/20"
+                                    />
+                                  </a>
+                                  <a
+                                    href={downloadUrl}
+                                    download={msg.fileName || 'image'}
+                                    className="absolute top-2 right-2 h-7 w-7 rounded-lg bg-black/50 hover:bg-black/70 flex items-center justify-center opacity-0 group-hover/file:opacity-100 transition-opacity"
+                                    title="Download"
+                                    onClick={(e) => e.stopPropagation()}
+                                  >
+                                    <Download className="h-3.5 w-3.5 text-white" />
+                                  </a>
+                                </div>
+                              ) : (
+                                <div className={cn('flex items-center gap-2 px-3 py-2 rounded-lg text-xs', isOwn ? 'bg-white/15' : 'bg-gray-100')}>
+                                  <FileIcon className="h-4 w-4" />
+                                  <a
+                                    href={fullUrl}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="truncate max-w-[160px] hover:underline"
+                                  >
+                                    {msg.fileName || 'File'}
+                                  </a>
+                                  <a
+                                    href={downloadUrl}
+                                    download={msg.fileName || 'file'}
+                                    className={cn('ml-auto h-6 w-6 rounded-md flex items-center justify-center shrink-0 transition-colors', isOwn ? 'hover:bg-white/20' : 'hover:bg-gray-200')}
+                                    title="Download"
+                                  >
+                                    <Download className="h-3 w-3" />
+                                  </a>
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })()}
+                      </>
+                    )}
+
+                    {/* Timestamp + edited badge */}
+                    {!isEditing && (
+                      <div className="flex items-center gap-2 mt-2">
+                        <span className={cn('text-[10px]', isOwn ? 'text-white/60' : 'text-gray-400')}>
+                          {new Date(msg.createdAt).toLocaleTimeString()}
+                        </span>
+                        {msg.isEdited && (
+                          <span className={cn('text-[10px] italic', isOwn ? 'text-white/50' : 'text-gray-400')}>
+                            (edited)
+                          </span>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Edit/Delete actions — only for own messages */}
+                    {isOwn && !isEditing && (
+                      <div className="absolute top-2 opacity-0 group-hover:opacity-100 transition-opacity" style={{ [isOwn ? 'left' : 'right']: '-2rem' }}>
+                        <div className="flex flex-col gap-0.5">
+                          <button
+                            onClick={() => { setEditingMessageId(msg.id); setEditingContent(msg.content || ''); }}
+                            className="h-6 w-6 flex items-center justify-center rounded-md hover:bg-gray-200 text-gray-400 hover:text-[#7b68ee] transition-colors"
+                            title="Edit"
+                          >
+                            <Edit2 className="h-3 w-3" />
+                          </button>
+                          <button
+                            onClick={() => {
+                              if (confirm('Delete this message?')) deleteMutation.mutate(msg.id);
+                            }}
+                            className="h-6 w-6 flex items-center justify-center rounded-md hover:bg-red-50 text-gray-400 hover:text-red-500 transition-colors"
+                            title="Delete"
+                          >
+                            <Trash2 className="h-3 w-3" />
+                          </button>
+                        </div>
+                      </div>
                     )}
                   </div>
                 </div>
-              </div>
-            ))}
-            {streaming && streamContent && (
-              <div className="flex gap-3 max-w-[85%]">
-                <div className="h-7 w-7 rounded-lg flex items-center justify-center bg-gradient-to-br from-gray-100 to-gray-50 shrink-0 mt-1">
-                  <Brain className="h-3.5 w-3.5 text-gray-500" />
-                </div>
-                <div className="rounded-2xl px-4 py-3 bg-gray-50 border border-gray-100">
-                  <p className="text-sm whitespace-pre-wrap leading-relaxed text-[#1a1a2e]">{streamContent}</p>
-                  <Loader2 className="h-3 w-3 animate-spin mt-2 text-[#7b68ee]" />
-                </div>
-              </div>
-            )}
-            {!session?.data?.messages?.length && !streaming && (
+              );
+            })}
+            {!session?.data?.messages?.length && (
               <div className="flex flex-col items-center justify-center h-full text-center py-16">
                 <div className="h-16 w-16 rounded-2xl bg-gradient-to-br from-[#7b68ee]/10 to-[#6c5ce7]/5 flex items-center justify-center mb-4">
-                  <Brain className="h-8 w-8 text-[#7b68ee]" />
+                  <MessageSquare className="h-8 w-8 text-[#7b68ee]" />
                 </div>
                 <h3 className="text-sm font-semibold text-[#1a1a2e] mb-1">Start the conversation</h3>
-                <p className="text-xs text-gray-400 max-w-xs">Ask a question, share an idea, or start a discussion with AI</p>
+                <p className="text-xs text-gray-400 max-w-xs">Share ideas and discuss with your team</p>
               </div>
             )}
             <div ref={messagesEndRef} />
           </div>
           <div className="flex gap-2 pt-3 border-t border-gray-100">
+            <input
+              type="file"
+              ref={fileInputRef}
+              className="hidden"
+              accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.sql,.txt,.csv,.json,.xml,.zip,.rar"
+              onChange={handleFileUpload}
+            />
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              disabled={uploading}
+              className="shrink-0 h-11 w-11 flex items-center justify-center rounded-xl border border-gray-200 hover:bg-gray-50 text-gray-500 hover:text-[#7b68ee] disabled:opacity-50 transition-all"
+              title="Upload file"
+            >
+              {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Paperclip className="h-4 w-4" />}
+            </button>
             <div className="flex-1 relative">
               <Textarea
                 placeholder="Type your message... (Shift+Enter for new line)"
@@ -808,10 +954,10 @@ export default function BrainstormSessionPage() {
             </div>
             <button
               onClick={handleSend}
-              disabled={!message.trim() || streaming}
+              disabled={!message.trim() || sendMutation.isPending}
               className="shrink-0 h-11 w-11 flex items-center justify-center rounded-xl bg-gradient-to-r from-[#7b68ee] to-[#6c5ce7] text-white hover:shadow-lg hover:shadow-[#7b68ee]/25 disabled:opacity-50 transition-all"
             >
-              {streaming ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+              {sendMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
             </button>
           </div>
         </>

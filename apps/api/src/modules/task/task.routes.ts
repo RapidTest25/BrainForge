@@ -6,6 +6,7 @@ import {
 } from '@brainforge/validators';
 import { authGuard } from '../../middleware/auth.middleware.js';
 import { teamGuard } from '../../middleware/team.middleware.js';
+import { prisma } from '../../lib/prisma.js';
 
 export async function taskRoutes(app: FastifyInstance) {
   app.addHook('preHandler', authGuard);
@@ -69,6 +70,28 @@ export async function taskRoutes(app: FastifyInstance) {
     const { taskId } = request.params as { taskId: string };
     const comments = await taskService.getComments(taskId);
     return reply.send({ success: true, data: comments });
+  });
+
+  // GET /api/teams/:teamId/tasks/:taskId/activities
+  app.get('/:teamId/tasks/:taskId/activities', { preHandler: [teamGuard()] }, async (request, reply) => {
+    const { taskId } = request.params as { taskId: string };
+    const activities = await prisma.taskActivity.findMany({
+      where: { taskId },
+      orderBy: { createdAt: 'desc' },
+      take: 50,
+    });
+    // Enrich with user names
+    const userIds = [...new Set(activities.map((a) => a.userId))];
+    const users = await prisma.user.findMany({
+      where: { id: { in: userIds } },
+      select: { id: true, name: true, avatarUrl: true },
+    });
+    const userMap = Object.fromEntries(users.map((u) => [u.id, u]));
+    const enriched = activities.map((a) => ({
+      ...a,
+      user: userMap[a.userId] || { id: a.userId, name: 'Unknown', avatarUrl: null },
+    }));
+    return reply.send({ success: true, data: enriched });
   });
 
   // PATCH /api/teams/:teamId/tasks/reorder

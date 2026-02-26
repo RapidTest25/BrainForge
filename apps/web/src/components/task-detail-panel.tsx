@@ -5,7 +5,8 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   X, Calendar as CalendarIcon, Clock, User, MessageSquare,
   CheckCircle2, ArrowUpCircle, Trash2, Loader2, Flag, AlignLeft,
-  ChevronRight, PencilLine, Save, Send
+  ChevronRight, PencilLine, Save, Send, Activity, GitCommitHorizontal,
+  ArrowRightLeft, Type, Tag
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -52,7 +53,7 @@ export function TaskDetailPanel({ task, onClose, onUpdate, onDelete, isUpdating 
   const [title, setTitle] = useState(task.title);
   const [description, setDescription] = useState(task.description || '');
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-  const [activeTab, setActiveTab] = useState<'details' | 'comments'>('details');
+  const [activeTab, setActiveTab] = useState<'details' | 'comments' | 'activity'>('details');
   const [commentText, setCommentText] = useState('');
   const commentsEndRef = useRef<HTMLDivElement>(null);
 
@@ -76,9 +77,19 @@ export function TaskDetailPanel({ task, onClose, onUpdate, onDelete, isUpdating 
       api.post(`/teams/${teamId}/tasks/${task.id}/comments`, { content }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['task-comments', teamId, task.id] });
+      queryClient.invalidateQueries({ queryKey: ['task-activities', teamId, task.id] });
       setCommentText('');
     },
   });
+
+  // Fetch activities
+  const { data: activitiesData, isLoading: loadingActivities } = useQuery({
+    queryKey: ['task-activities', teamId, task.id],
+    queryFn: () => api.get<{ data: any[] }>(`/teams/${teamId}/tasks/${task.id}/activities`),
+    enabled: !!teamId && !!task.id,
+  });
+
+  const activities = activitiesData?.data || [];
 
   const comments = commentsData?.data || [];
 
@@ -165,6 +176,23 @@ export function TaskDetailPanel({ task, onClose, onUpdate, onDelete, isUpdating 
           {comments.length > 0 && (
             <span className="text-[10px] bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded-full ml-0.5">
               {comments.length}
+            </span>
+          )}
+        </button>
+        <button
+          onClick={() => setActiveTab('activity')}
+          className={cn(
+            'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all',
+            activeTab === 'activity'
+              ? 'bg-[#7b68ee]/10 text-[#7b68ee]'
+              : 'text-gray-400 hover:text-gray-600 hover:bg-gray-50'
+          )}
+        >
+          <Activity className="h-3.5 w-3.5" />
+          Activity
+          {activities.length > 0 && (
+            <span className="text-[10px] bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded-full ml-0.5">
+              {activities.length}
             </span>
           )}
         </button>
@@ -343,10 +371,10 @@ export function TaskDetailPanel({ task, onClose, onUpdate, onDelete, isUpdating 
 
             <div className="border-t border-gray-100" />
 
-            {/* Activity */}
+            {/* Activity Summary */}
             <div className="space-y-2">
               <label className="flex items-center gap-1.5 text-xs font-semibold text-gray-400 uppercase tracking-wider">
-                <Clock className="h-3 w-3" /> Activity
+                <Clock className="h-3 w-3" /> Timeline
               </label>
               <div className="space-y-2 text-xs text-gray-400">
                 <div className="flex items-center gap-2">
@@ -358,6 +386,14 @@ export function TaskDetailPanel({ task, onClose, onUpdate, onDelete, isUpdating 
                     <div className="h-1.5 w-1.5 rounded-full bg-blue-400" />
                     <span>Updated {timeAgo(task.updatedAt)}</span>
                   </div>
+                )}
+                {activities.length > 0 && (
+                  <button 
+                    onClick={() => setActiveTab('activity')} 
+                    className="text-[#7b68ee] hover:underline font-medium mt-1"
+                  >
+                    View {activities.length} activities →
+                  </button>
                 )}
               </div>
             </div>
@@ -436,6 +472,113 @@ export function TaskDetailPanel({ task, onClose, onUpdate, onDelete, isUpdating 
                 </button>
               </div>
             </div>
+          </div>
+        )}
+
+        {/* Activity Tab */}
+        {activeTab === 'activity' && (
+          <div className="px-5 py-4">
+            {loadingActivities && (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 className="h-5 w-5 animate-spin text-gray-300" />
+              </div>
+            )}
+            {!loadingActivities && activities.length === 0 && (
+              <div className="text-center py-12">
+                <Activity className="h-10 w-10 mx-auto text-gray-200 mb-3" />
+                <p className="text-sm font-medium text-gray-400">No activity yet</p>
+                <p className="text-xs text-gray-300 mt-1">Changes to this task will appear here</p>
+              </div>
+            )}
+            {activities.length > 0 && (
+              <div className="relative">
+                {/* Timeline line */}
+                <div className="absolute left-[13px] top-3 bottom-3 w-px bg-gray-200" />
+                <div className="space-y-4">
+                  {activities.map((act: any) => {
+                    const actionConfig: Record<string, { icon: any; color: string; bg: string; label: string }> = {
+                      'created': { icon: CheckCircle2, color: '#22c55e', bg: '#f0fdf4', label: 'created this task' },
+                      'status_changed': { icon: ArrowRightLeft, color: '#3b82f6', bg: '#eff6ff', label: 'changed status' },
+                      'priority_changed': { icon: Flag, color: '#f59e0b', bg: '#fffbeb', label: 'changed priority' },
+                      'title_changed': { icon: Type, color: '#8b5cf6', bg: '#f5f3ff', label: 'renamed task' },
+                      'comment_added': { icon: MessageSquare, color: '#7b68ee', bg: '#7b68ee15', label: 'commented' },
+                      'assignee_changed': { icon: User, color: '#06b6d4', bg: '#ecfeff', label: 'changed assignee' },
+                      'description_changed': { icon: AlignLeft, color: '#6b7280', bg: '#f9fafb', label: 'updated description' },
+                    };
+                    const config = actionConfig[act.action] || { icon: GitCommitHorizontal, color: '#9ca3af', bg: '#f3f4f6', label: act.action?.replace(/_/g, ' ') || 'updated' };
+                    const IconComp = config.icon;
+
+                    const statusLabel = (val: string) => {
+                      const s = STATUS_OPTIONS.find(s => s.key === val);
+                      return s ? s.label : val;
+                    };
+                    const priorityLabel = (val: string) => {
+                      const p = PRIORITY_OPTIONS.find(p => p.value === val);
+                      return p ? p.label : val;
+                    };
+
+                    return (
+                      <div key={act.id} className="flex gap-3 relative">
+                        <div
+                          className="h-7 w-7 rounded-full flex items-center justify-center shrink-0 z-10 ring-2 ring-white"
+                          style={{ backgroundColor: config.bg }}
+                        >
+                          <IconComp className="h-3.5 w-3.5" style={{ color: config.color }} />
+                        </div>
+                        <div className="flex-1 min-w-0 pt-0.5">
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className="text-xs font-semibold text-gray-700">
+                              {act.user?.name || 'Unknown'}
+                            </span>
+                            <span className="text-xs text-gray-400">{config.label}</span>
+                          </div>
+                          {/* Show old → new values for changes */}
+                          {act.action === 'status_changed' && act.oldValue && act.newValue && (
+                            <div className="flex items-center gap-1.5 mt-1">
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-medium bg-gray-100 text-gray-500">
+                                <div className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: STATUS_OPTIONS.find(s => s.key === act.oldValue)?.color || '#9ca3af' }} />
+                                {statusLabel(act.oldValue)}
+                              </span>
+                              <ChevronRight className="h-3 w-3 text-gray-300" />
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-medium" style={{ backgroundColor: STATUS_OPTIONS.find(s => s.key === act.newValue)?.bg || '#f3f4f6', color: STATUS_OPTIONS.find(s => s.key === act.newValue)?.color || '#6b7280' }}>
+                                <div className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: STATUS_OPTIONS.find(s => s.key === act.newValue)?.color || '#9ca3af' }} />
+                                {statusLabel(act.newValue)}
+                              </span>
+                            </div>
+                          )}
+                          {act.action === 'priority_changed' && act.oldValue && act.newValue && (
+                            <div className="flex items-center gap-1.5 mt-1">
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-medium bg-gray-100 text-gray-500">
+                                {priorityLabel(act.oldValue)}
+                              </span>
+                              <ChevronRight className="h-3 w-3 text-gray-300" />
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-medium" style={{ backgroundColor: PRIORITY_OPTIONS.find(p => p.value === act.newValue)?.bg || '#f3f4f6', color: PRIORITY_OPTIONS.find(p => p.value === act.newValue)?.color || '#6b7280' }}>
+                                {priorityLabel(act.newValue)}
+                              </span>
+                            </div>
+                          )}
+                          {act.action === 'title_changed' && act.oldValue && act.newValue && (
+                            <div className="mt-1 text-[11px]">
+                              <span className="line-through text-gray-400">{act.oldValue}</span>
+                              <span className="mx-1.5 text-gray-300">→</span>
+                              <span className="text-gray-600 font-medium">{act.newValue}</span>
+                            </div>
+                          )}
+                          {act.action === 'comment_added' && act.newValue && (
+                            <p className="mt-1 text-[11px] text-gray-500 bg-gray-50 rounded-lg px-2.5 py-1.5 border border-gray-100 line-clamp-2">
+                              &ldquo;{act.newValue}&rdquo;
+                            </p>
+                          )}
+                          <span className="text-[10px] text-gray-300 mt-1 block">
+                            {timeAgo(act.createdAt)}
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>

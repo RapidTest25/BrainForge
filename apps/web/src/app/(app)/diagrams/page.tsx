@@ -1,11 +1,12 @@
 'use client';
 
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   Plus, ArrowLeft, Sparkles, Save, Loader2, Search, Clock,
-  GitBranch, Network, Workflow, Database, Cpu, Share2, MoreHorizontal, Trash2
+  GitBranch, Network, Workflow, Database, Cpu, Share2, MoreHorizontal, Trash2,
+  Move, MousePointer, PencilLine, X, GripVertical, Check, Link2
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -27,6 +28,450 @@ const DIAGRAM_TYPES = [
   { value: 'SEQUENCE', label: 'Sequence', desc: 'Interaction flows', icon: Share2, color: '#ef4444' },
   { value: 'COMPONENT', label: 'Component', desc: 'Module structure', icon: GitBranch, color: '#7b68ee' },
 ];
+
+// ── Interactive Diagram Editor Component (Inline Editing — No Modals) ──
+function DiagramEditor({ diagram, dtype, nodes: initNodes, edges: initEdges, onBack, onDelete, onSave }: {
+  diagram: any;
+  dtype: any;
+  nodes: any[];
+  edges: any[];
+  onBack: () => void;
+  onDelete: () => void;
+  onSave: (nodes: any[], edges: any[]) => void;
+}) {
+  const [nodes, setNodes] = useState<any[]>(initNodes);
+  const [edges, setEdges] = useState<any[]>(initEdges);
+  const [selectedNode, setSelectedNode] = useState<string | null>(null);
+  const [draggingNode, setDraggingNode] = useState<string | null>(null);
+  const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
+  const [hasChanges, setHasChanges] = useState(false);
+  const canvasRef = useRef<HTMLDivElement>(null);
+
+  // Inline editing state
+  const [editingNodeId, setEditingNodeId] = useState<string | null>(null);
+  const [editLabel, setEditLabel] = useState('');
+  const [editDesc, setEditDesc] = useState('');
+
+  // Inline add-node bar
+  const [addingNode, setAddingNode] = useState(false);
+  const [newLabel, setNewLabel] = useState('');
+  const [newDesc, setNewDesc] = useState('');
+  const addInputRef = useRef<HTMLInputElement>(null);
+
+  // Edge-linking mode
+  const [linkingFrom, setLinkingFrom] = useState<string | null>(null);
+  const [edgeLabel, setEdgeLabel] = useState('');
+  const [showEdgeLabelInput, setShowEdgeLabelInput] = useState<{ source: string; target: string } | null>(null);
+
+  useEffect(() => { setNodes(initNodes); setEdges(initEdges); setHasChanges(false); }, [initNodes, initEdges]);
+  useEffect(() => { if (addingNode && addInputRef.current) addInputRef.current.focus(); }, [addingNode]);
+
+  const handleMouseDown = (e: React.MouseEvent, nodeId: string) => {
+    e.stopPropagation();
+    if (linkingFrom) return; // don't drag in link mode
+    const node = nodes.find(n => n.id === nodeId);
+    if (!node) return;
+    setDraggingNode(nodeId);
+    setSelectedNode(nodeId);
+    const rect = canvasRef.current?.getBoundingClientRect();
+    setDragOffset({
+      x: e.clientX - (node.position?.x || 0) - (rect?.left || 0),
+      y: e.clientY - (node.position?.y || 0) - (rect?.top || 0),
+    });
+  };
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    if (!draggingNode || !canvasRef.current) return;
+    const rect = canvasRef.current.getBoundingClientRect();
+    const x = Math.max(0, e.clientX - rect.left - dragOffset.x);
+    const y = Math.max(0, e.clientY - rect.top - dragOffset.y);
+    setNodes(prev => prev.map(n => n.id === draggingNode ? { ...n, position: { x, y } } : n));
+    setHasChanges(true);
+  };
+
+  const handleMouseUp = () => { setDraggingNode(null); };
+
+  // Add node inline
+  const addNode = () => {
+    if (!newLabel.trim()) return;
+    const id = `node-${Date.now()}`;
+    const maxX = Math.max(0, ...nodes.map(n => (n.position?.x || 0)));
+    const maxY = Math.max(0, ...nodes.map(n => (n.position?.y || 0)));
+    setNodes(prev => [...prev, {
+      id,
+      type: 'default',
+      position: { x: maxX + 200, y: nodes.length % 2 === 0 ? 50 : maxY + 100 },
+      data: { label: newLabel, description: newDesc },
+    }]);
+    setNewLabel('');
+    setNewDesc('');
+    setAddingNode(false);
+    setHasChanges(true);
+  };
+
+  // Start inline edit on double-click
+  const startEdit = (node: any) => {
+    setEditingNodeId(node.id);
+    setEditLabel(node.data?.label || '');
+    setEditDesc(node.data?.description || '');
+    setSelectedNode(node.id);
+  };
+
+  const saveEdit = () => {
+    if (!editingNodeId) return;
+    setNodes(prev => prev.map(n => n.id === editingNodeId ? {
+      ...n,
+      data: { ...n.data, label: editLabel, description: editDesc },
+    } : n));
+    setEditingNodeId(null);
+    setHasChanges(true);
+  };
+
+  const cancelEdit = () => { setEditingNodeId(null); };
+
+  // Edge linking
+  const handleNodeClick = (e: React.MouseEvent, nodeId: string) => {
+    e.stopPropagation();
+    if (linkingFrom) {
+      if (linkingFrom !== nodeId) {
+        // Show edge label input before adding
+        setShowEdgeLabelInput({ source: linkingFrom, target: nodeId });
+        setEdgeLabel('');
+      }
+      setLinkingFrom(null);
+    } else {
+      setSelectedNode(nodeId);
+    }
+  };
+
+  const confirmAddEdge = () => {
+    if (!showEdgeLabelInput) return;
+    const { source, target } = showEdgeLabelInput;
+    // Prevent duplicate edges
+    const exists = edges.some(e => e.source === source && e.target === target);
+    if (!exists) {
+      setEdges(prev => [...prev, {
+        id: `e-${source}-${target}`,
+        source,
+        target,
+        label: edgeLabel || '',
+      }]);
+      setHasChanges(true);
+    }
+    setShowEdgeLabelInput(null);
+    setEdgeLabel('');
+  };
+
+  const deleteNode = (nodeId: string) => {
+    setNodes(prev => prev.filter(n => n.id !== nodeId));
+    setEdges(prev => prev.filter(e => e.source !== nodeId && e.target !== nodeId));
+    setSelectedNode(null);
+    setEditingNodeId(null);
+    setHasChanges(true);
+  };
+
+  const deleteEdge = (edgeId: string) => {
+    setEdges(prev => prev.filter(e => e.id !== edgeId));
+    setHasChanges(true);
+  };
+
+  const color = dtype?.color || '#7b68ee';
+
+  return (
+    <div className="max-w-6xl mx-auto space-y-3">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <button onClick={onBack} className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 transition-colors">
+            <ArrowLeft className="h-4 w-4" />
+          </button>
+          {dtype && (
+            <div className="h-8 w-8 rounded-lg flex items-center justify-center" style={{ backgroundColor: `${color}12` }}>
+              <dtype.icon className="h-4 w-4" style={{ color }} />
+            </div>
+          )}
+          <div>
+            <h2 className="font-semibold text-[#1a1a2e]">{diagram.title}</h2>
+            <div className="flex items-center gap-2 mt-0.5">
+              <span className="text-[10px] font-medium px-1.5 py-0.5 rounded" style={{ color, backgroundColor: `${color}12` }}>
+                {diagram.type}
+              </span>
+              <span className="text-[11px] text-gray-400">{nodes.length} nodes · {edges.length} edges</span>
+            </div>
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          {hasChanges && (
+            <button
+              onClick={() => onSave(nodes, edges)}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-[#7b68ee] text-white text-sm rounded-lg hover:bg-[#6c5ce7] transition-colors"
+            >
+              <Save className="h-3.5 w-3.5" /> Save
+            </button>
+          )}
+          <button onClick={onDelete} className="p-1.5 rounded-lg text-gray-300 hover:text-red-500 hover:bg-red-50 transition-colors">
+            <Trash2 className="h-4 w-4" />
+          </button>
+        </div>
+      </div>
+
+      {/* Inline Toolbar */}
+      <div className="flex items-center gap-2 px-2 py-2 bg-gray-50 rounded-xl border border-gray-100">
+        <button
+          onClick={() => { setAddingNode(true); setLinkingFrom(null); }}
+          className={`flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-lg transition-colors ${addingNode ? 'bg-[#7b68ee] text-white' : 'border border-gray-200 text-gray-600 hover:bg-white'}`}
+        >
+          <Plus className="h-3.5 w-3.5" /> Node
+        </button>
+        <button
+          onClick={() => { setLinkingFrom(linkingFrom ? null : '__waiting__'); setAddingNode(false); }}
+          className={`flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-lg transition-colors ${linkingFrom ? 'bg-emerald-500 text-white' : 'border border-gray-200 text-gray-600 hover:bg-white'}`}
+        >
+          <Link2 className="h-3.5 w-3.5" /> {linkingFrom ? 'Click source node...' : 'Connect'}
+        </button>
+        <div className="h-5 w-px bg-gray-200 mx-1" />
+        {linkingFrom && (
+          <span className="text-xs text-emerald-600 bg-emerald-50 px-2.5 py-1 rounded-lg animate-pulse">
+            Click a source node, then a target node to connect
+          </span>
+        )}
+        {selectedNode && !linkingFrom && (
+          <span className="text-xs text-gray-400">
+            Double-click node to edit · Click to select
+          </span>
+        )}
+        {!selectedNode && !linkingFrom && (
+          <span className="text-xs text-gray-400">Click node to select · Double-click to edit</span>
+        )}
+      </div>
+
+      {/* Inline Add Node Bar */}
+      {addingNode && (
+        <div className="flex items-center gap-2 px-3 py-2.5 bg-white border border-[#7b68ee]/30 rounded-xl shadow-sm">
+          <div className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: color }} />
+          <input
+            ref={addInputRef}
+            value={newLabel}
+            onChange={(e) => setNewLabel(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter') addNode(); if (e.key === 'Escape') setAddingNode(false); }}
+            placeholder="Node label..."
+            className="flex-1 text-sm border-0 outline-none bg-transparent placeholder:text-gray-300"
+          />
+          <input
+            value={newDesc}
+            onChange={(e) => setNewDesc(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter') addNode(); if (e.key === 'Escape') setAddingNode(false); }}
+            placeholder="Description (optional)"
+            className="flex-1 text-sm border-0 outline-none bg-transparent placeholder:text-gray-300 border-l border-gray-100 pl-2"
+          />
+          <button onClick={addNode} disabled={!newLabel.trim()} className="h-7 w-7 rounded-lg bg-[#7b68ee] text-white flex items-center justify-center disabled:opacity-40 hover:bg-[#6c5ce7] transition-colors">
+            <Check className="h-3.5 w-3.5" />
+          </button>
+          <button onClick={() => setAddingNode(false)} className="h-7 w-7 rounded-lg text-gray-400 hover:bg-gray-100 flex items-center justify-center transition-colors">
+            <X className="h-3.5 w-3.5" />
+          </button>
+        </div>
+      )}
+
+      {/* Inline Edge Label Input */}
+      {showEdgeLabelInput && (
+        <div className="flex items-center gap-2 px-3 py-2.5 bg-white border border-emerald-300 rounded-xl shadow-sm">
+          <Link2 className="h-4 w-4 text-emerald-500" />
+          <span className="text-xs text-gray-500">
+            {nodes.find(n => n.id === showEdgeLabelInput.source)?.data?.label} → {nodes.find(n => n.id === showEdgeLabelInput.target)?.data?.label}
+          </span>
+          <input
+            value={edgeLabel}
+            onChange={(e) => setEdgeLabel(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter') confirmAddEdge(); if (e.key === 'Escape') setShowEdgeLabelInput(null); }}
+            placeholder="Edge label (optional, Enter to confirm)"
+            className="flex-1 text-sm border-0 outline-none bg-transparent placeholder:text-gray-300"
+            autoFocus
+          />
+          <button onClick={confirmAddEdge} className="h-7 w-7 rounded-lg bg-emerald-500 text-white flex items-center justify-center hover:bg-emerald-600 transition-colors">
+            <Check className="h-3.5 w-3.5" />
+          </button>
+          <button onClick={() => setShowEdgeLabelInput(null)} className="h-7 w-7 rounded-lg text-gray-400 hover:bg-gray-100 flex items-center justify-center transition-colors">
+            <X className="h-3.5 w-3.5" />
+          </button>
+        </div>
+      )}
+
+      {/* Canvas */}
+      <div
+        ref={canvasRef}
+        className={`border rounded-xl bg-white min-h-[65vh] p-6 relative overflow-auto ${linkingFrom ? 'cursor-crosshair border-emerald-200' : 'border-gray-100'}`}
+        onMouseMove={handleMouseMove}
+        onMouseUp={handleMouseUp}
+        onMouseLeave={handleMouseUp}
+        onClick={() => { setSelectedNode(null); setEditingNodeId(null); }}
+      >
+        <div className="absolute inset-0 opacity-30" style={{
+          backgroundImage: 'radial-gradient(circle, #d1d5db 1px, transparent 1px)',
+          backgroundSize: '24px 24px',
+        }} />
+        {nodes.length === 0 && !addingNode ? (
+          <div className="relative flex items-center justify-center h-full min-h-[55vh]">
+            <div className="text-center">
+              <div className="h-14 w-14 rounded-2xl mx-auto mb-4 flex items-center justify-center bg-gray-50">
+                <GitBranch className="h-6 w-6 text-gray-300" />
+              </div>
+              <h3 className="font-medium text-[#1a1a2e] mb-1">Empty Diagram</h3>
+              <p className="text-sm text-gray-400 max-w-xs mb-3">Click &quot;+ Node&quot; in the toolbar above to add your first node.</p>
+              <button onClick={() => setAddingNode(true)} className="flex items-center gap-1.5 px-4 py-2 bg-[#7b68ee] text-white text-sm rounded-lg hover:bg-[#6c5ce7] transition-colors mx-auto">
+                <Plus className="h-3.5 w-3.5" /> Add First Node
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="relative" style={{ minHeight: '500px' }}>
+            <svg className="absolute inset-0 w-full h-full" style={{ minHeight: '500px', zIndex: 1 }}>
+              {edges.map((edge: any) => {
+                const source = nodes.find((n: any) => n.id === edge.source);
+                const target = nodes.find((n: any) => n.id === edge.target);
+                if (!source || !target) return null;
+                const sx = (source.position?.x || 0) + 70;
+                const sy = (source.position?.y || 0) + 25;
+                const tx = (target.position?.x || 0) + 70;
+                const ty = (target.position?.y || 0) + 25;
+                const mx = (sx + tx) / 2;
+                const my = (sy + ty) / 2;
+                return (
+                  <g key={edge.id} className="cursor-pointer" onClick={(e) => { e.stopPropagation(); }}>
+                    <path
+                      d={`M ${sx} ${sy} Q ${mx} ${sy}, ${mx} ${my} Q ${mx} ${ty}, ${tx} ${ty}`}
+                      stroke="transparent"
+                      strokeWidth="12"
+                      fill="none"
+                    />
+                    <path
+                      d={`M ${sx} ${sy} Q ${mx} ${sy}, ${mx} ${my} Q ${mx} ${ty}, ${tx} ${ty}`}
+                      stroke={color}
+                      strokeWidth="2"
+                      fill="none"
+                      opacity="0.4"
+                      markerEnd="url(#arrowhead)"
+                    />
+                    <circle cx={tx} cy={ty} r="3" fill={color} opacity="0.5" />
+                    {edge.label && (
+                      <text x={mx} y={my - 8} fill="#9ca3af" fontSize="10" textAnchor="middle">{edge.label}</text>
+                    )}
+                    <text
+                      x={mx + 15}
+                      y={my - 8}
+                      fill="#ef4444"
+                      fontSize="14"
+                      textAnchor="middle"
+                      className="cursor-pointer opacity-0 hover:opacity-100"
+                      onClick={(e) => { e.stopPropagation(); deleteEdge(edge.id); }}
+                    >
+                      ×
+                    </text>
+                  </g>
+                );
+              })}
+              <defs>
+                <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+                  <polygon points="0 0, 10 3.5, 0 7" fill={color} opacity="0.4" />
+                </marker>
+              </defs>
+            </svg>
+            {nodes.map((node: any) => {
+              const isEditing = editingNodeId === node.id;
+              const isLinkSource = linkingFrom === node.id;
+              return (
+                <div
+                  key={node.id}
+                  className={`absolute bg-white border-2 rounded-xl p-3 shadow-sm min-w-36 transition-all group select-none ${
+                    isLinkSource ? 'border-emerald-400 shadow-md ring-2 ring-emerald-200' :
+                    selectedNode === node.id ? 'border-[#7b68ee] shadow-md ring-2 ring-[#7b68ee]/20' :
+                    linkingFrom ? 'border-gray-200 hover:border-emerald-300 hover:shadow-md cursor-pointer' :
+                    'border-gray-100 hover:shadow-md hover:border-gray-200'
+                  }`}
+                  style={{
+                    left: node.position?.x || 0,
+                    top: node.position?.y || 0,
+                    zIndex: draggingNode === node.id ? 100 : isEditing ? 50 : 10,
+                    cursor: linkingFrom ? 'pointer' : draggingNode === node.id ? 'grabbing' : 'grab',
+                  }}
+                  onMouseDown={(e) => handleMouseDown(e, node.id)}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (linkingFrom === '__waiting__') {
+                      // First click: set source
+                      setLinkingFrom(node.id);
+                    } else if (linkingFrom) {
+                      handleNodeClick(e, node.id);
+                    } else {
+                      setSelectedNode(node.id);
+                    }
+                  }}
+                  onDoubleClick={(e) => { e.stopPropagation(); if (!linkingFrom) startEdit(node); }}
+                >
+                  {isEditing ? (
+                    /* Inline edit form */
+                    <div className="space-y-2 min-w-48" onClick={(e) => e.stopPropagation()}>
+                      <input
+                        value={editLabel}
+                        onChange={(e) => setEditLabel(e.target.value)}
+                        onKeyDown={(e) => { if (e.key === 'Enter') saveEdit(); if (e.key === 'Escape') cancelEdit(); }}
+                        className="w-full text-sm font-medium border border-gray-200 rounded-lg px-2 py-1.5 outline-none focus:border-[#7b68ee] bg-gray-50"
+                        autoFocus
+                        placeholder="Label"
+                      />
+                      <textarea
+                        value={editDesc}
+                        onChange={(e) => setEditDesc(e.target.value)}
+                        onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); saveEdit(); } if (e.key === 'Escape') cancelEdit(); }}
+                        className="w-full text-[11px] border border-gray-200 rounded-lg px-2 py-1.5 outline-none focus:border-[#7b68ee] bg-gray-50 resize-none"
+                        rows={2}
+                        placeholder="Description (optional)"
+                      />
+                      <div className="flex gap-1 justify-end">
+                        <button onClick={cancelEdit} className="px-2 py-1 text-[11px] text-gray-500 hover:bg-gray-100 rounded-md">Cancel</button>
+                        <button onClick={saveEdit} className="px-2 py-1 text-[11px] bg-[#7b68ee] text-white rounded-md hover:bg-[#6c5ce7]">Save</button>
+                      </div>
+                    </div>
+                  ) : (
+                    /* Display mode */
+                    <>
+                      <div className="flex items-center gap-2 mb-0.5">
+                        <GripVertical className="h-3 w-3 text-gray-300 opacity-0 group-hover:opacity-100 transition-opacity cursor-grab" />
+                        <div className="h-2 w-2 rounded-full" style={{ backgroundColor: color }} />
+                        <p className="text-sm font-medium text-[#1a1a2e]">{node.data?.label || node.id}</p>
+                      </div>
+                      {node.data?.description && (
+                        <p className="text-[11px] text-gray-400 mt-1 max-w-48 leading-relaxed pl-5">{node.data.description}</p>
+                      )}
+                      {selectedNode === node.id && !linkingFrom && (
+                        <div className="absolute -top-2 -right-2 flex gap-1">
+                          <button
+                            className="h-5 w-5 bg-[#7b68ee] rounded-full flex items-center justify-center shadow-sm hover:bg-[#6c5ce7]"
+                            onClick={(e) => { e.stopPropagation(); startEdit(node); }}
+                            title="Edit"
+                          >
+                            <PencilLine className="h-2.5 w-2.5 text-white" />
+                          </button>
+                          <button
+                            className="h-5 w-5 bg-red-500 rounded-full flex items-center justify-center shadow-sm hover:bg-red-600"
+                            onClick={(e) => { e.stopPropagation(); deleteNode(node.id); }}
+                            title="Delete"
+                          >
+                            <X className="h-2.5 w-2.5 text-white" />
+                          </button>
+                        </div>
+                      )}
+                    </>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
 
 export default function DiagramsPage() {
   const { activeTeam } = useTeamStore();
@@ -94,117 +539,43 @@ export default function DiagramsPage() {
     },
   });
 
+  const updateMutation = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: any }) =>
+      api.patch(`/teams/${teamId}/diagrams/${id}`, { data }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['diagram', activeDiagram] });
+      queryClient.invalidateQueries({ queryKey: ['diagrams', teamId] });
+      toast.success('Diagram saved');
+    },
+    onError: () => {
+      toast.error('Failed to save diagram');
+    },
+  });
+
   const getType = (type: string) => DIAGRAM_TYPES.find(d => d.value === type);
   const diagramList = diagrams?.data || [];
   const filteredDiagrams = search
     ? diagramList.filter((d: any) => d.title.toLowerCase().includes(search.toLowerCase()))
     : diagramList;
 
-  // Detail view
+  // Detail view — Interactive Editor
   if (activeDiagram && diagram?.data) {
-    const nodes = (diagram.data.data as any)?.nodes || [];
-    const edges = (diagram.data.data as any)?.edges || [];
+    const rawNodes = (diagram.data.data as any)?.nodes || [];
+    const rawEdges = (diagram.data.data as any)?.edges || [];
     const dtype = getType(diagram.data.type);
 
     return (
-      <div className="max-w-6xl mx-auto space-y-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <button onClick={() => setActiveDiagram(null)} className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 transition-colors">
-              <ArrowLeft className="h-4 w-4" />
-            </button>
-            {dtype && (
-              <div className="h-8 w-8 rounded-lg flex items-center justify-center" style={{ backgroundColor: `${dtype.color}12` }}>
-                <dtype.icon className="h-4 w-4" style={{ color: dtype.color }} />
-              </div>
-            )}
-            <div>
-              <h2 className="font-semibold text-[#1a1a2e]">{diagram.data.title}</h2>
-              <div className="flex items-center gap-2 mt-0.5">
-                <span className="text-[10px] font-medium px-1.5 py-0.5 rounded" style={{ color: dtype?.color, backgroundColor: `${dtype?.color}12` }}>
-                  {diagram.data.type}
-                </span>
-                <span className="text-[11px] text-gray-400">{nodes.length} nodes · {edges.length} edges</span>
-              </div>
-            </div>
-          </div>
-          <button
-            onClick={() => { if (confirm('Delete this diagram?')) deleteMutation.mutate(diagram.data.id); }}
-            className="p-1.5 rounded-lg text-gray-300 hover:text-red-500 hover:bg-red-50 transition-colors"
-          >
-            <Trash2 className="h-4 w-4" />
-          </button>
-        </div>
-
-        {/* Canvas */}
-        <div className="border border-gray-100 rounded-xl bg-white min-h-[65vh] p-6 relative overflow-auto">
-          {/* Grid dots background */}
-          <div className="absolute inset-0 opacity-30" style={{
-            backgroundImage: 'radial-gradient(circle, #d1d5db 1px, transparent 1px)',
-            backgroundSize: '24px 24px',
-          }} />
-          {nodes.length === 0 ? (
-            <div className="relative flex items-center justify-center h-full min-h-[55vh]">
-              <div className="text-center">
-                <div className="h-14 w-14 rounded-2xl mx-auto mb-4 flex items-center justify-center bg-gray-50">
-                  <GitBranch className="h-6 w-6 text-gray-300" />
-                </div>
-                <h3 className="font-medium text-[#1a1a2e] mb-1">Empty Diagram</h3>
-                <p className="text-sm text-gray-400 max-w-xs">Use AI Generate to automatically create nodes and connections for this diagram.</p>
-              </div>
-            </div>
-          ) : (
-            <div className="relative" style={{ minHeight: '500px' }}>
-              <svg className="absolute inset-0 w-full h-full pointer-events-none" style={{ minHeight: '500px' }}>
-                {edges.map((edge: any) => {
-                  const source = nodes.find((n: any) => n.id === edge.source);
-                  const target = nodes.find((n: any) => n.id === edge.target);
-                  if (!source || !target) return null;
-                  const sx = (source.position?.x || 0) + 70;
-                  const sy = (source.position?.y || 0) + 25;
-                  const tx = (target.position?.x || 0) + 70;
-                  const ty = (target.position?.y || 0) + 25;
-                  const mx = (sx + tx) / 2;
-                  const my = (sy + ty) / 2;
-                  return (
-                    <g key={edge.id}>
-                      <path
-                        d={`M ${sx} ${sy} Q ${mx} ${sy}, ${mx} ${my} Q ${mx} ${ty}, ${tx} ${ty}`}
-                        stroke={dtype?.color || '#7b68ee'}
-                        strokeWidth="2"
-                        fill="none"
-                        opacity="0.4"
-                      />
-                      <circle cx={tx} cy={ty} r="3" fill={dtype?.color || '#7b68ee'} opacity="0.5" />
-                      {edge.label && (
-                        <text x={mx} y={my - 8} fill="#9ca3af" fontSize="10" textAnchor="middle">{edge.label}</text>
-                      )}
-                    </g>
-                  );
-                })}
-              </svg>
-              {nodes.map((node: any) => (
-                <div
-                  key={node.id}
-                  className="absolute bg-white border-2 border-gray-100 rounded-xl p-3 shadow-sm min-w-36 hover:shadow-md hover:border-gray-200 transition-all group"
-                  style={{
-                    left: node.position?.x || 0,
-                    top: node.position?.y || 0,
-                  }}
-                >
-                  <div className="flex items-center gap-2 mb-0.5">
-                    <div className="h-2 w-2 rounded-full" style={{ backgroundColor: dtype?.color || '#7b68ee' }} />
-                    <p className="text-sm font-medium text-[#1a1a2e]">{node.data?.label || node.id}</p>
-                  </div>
-                  {node.data?.description && (
-                    <p className="text-[11px] text-gray-400 mt-1 max-w-48 leading-relaxed">{node.data.description}</p>
-                  )}
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      </div>
+      <DiagramEditor
+        diagram={diagram.data}
+        dtype={dtype}
+        nodes={rawNodes}
+        edges={rawEdges}
+        onBack={() => setActiveDiagram(null)}
+        onDelete={() => { if (confirm('Delete this diagram?')) deleteMutation.mutate(diagram.data.id); }}
+        onSave={(nodes: any[], edges: any[]) => {
+          updateMutation.mutate({ id: diagram.data.id, data: { nodes, edges } });
+        }}
+      />
     );
   }
 

@@ -7,7 +7,7 @@ import { prisma } from '../../lib/prisma.js';
 const VALID_PRIORITIES = new Set(['URGENT', 'HIGH', 'MEDIUM', 'LOW']);
 const VALID_STATUSES = new Set(['TODO', 'IN_PROGRESS', 'IN_REVIEW', 'DONE', 'CANCELLED']);
 const VALID_BRAINSTORM_MODES = new Set(['BRAINSTORM', 'DEBATE', 'ANALYSIS', 'FREEFORM']);
-const ALLOWED_TYPES = new Set(['tasks', 'brainstorm', 'notes']);
+const ALLOWED_TYPES = new Set(['tasks', 'brainstorm', 'notes', 'goals']);
 
 // ── JSON parser with markdown-fence stripping ───────────────────────
 const tryParseJson = (raw: string) => {
@@ -73,6 +73,19 @@ NOTES RULES:
 - Include decisions, assumptions, and next steps.
 - Actionable, no filler.
 ` : ''}
+${requestedKeys.includes('goals') ? `
+"goals": an array of 3 to 6 objects. Each object must include:
+- "title": string, max 100 chars, clear and measurable (SMART goal format)
+- "description": string, detailed with success criteria, key results, and milestones (use \\n for new lines)
+- "status": exactly "NOT_STARTED"
+- "progress": number 0
+- "dueDate": ISO 8601 date string, realistic deadline (within 1-12 months from now)
+GOALS RULES:
+- Goals must be SMART (Specific, Measurable, Achievable, Relevant, Time-bound).
+- Each goal should have clear success criteria in description.
+- Vary due dates across goals (not all on the same date).
+- Make goals strategic and aligned with the user's prompt.
+` : ''}
 IMPORTANT:
 - Return ONLY valid JSON now.
 `.trim();
@@ -110,7 +123,7 @@ export const aiGenerateRoutes: FastifyPluginAsync = async (app) => {
     if (!normalizedTypes.length) {
       return reply.status(400).send({
         success: false,
-        error: { message: 'No valid generateTypes provided. Allowed: tasks, brainstorm, notes' },
+        error: { message: 'No valid generateTypes provided. Allowed: tasks, brainstorm, notes, goals' },
       });
     }
 
@@ -151,7 +164,7 @@ ${result.content}`;
         }
       }
 
-      const created: any = { tasks: [], brainstorm: null, notes: [] };
+      const created: any = { tasks: [], brainstorm: null, notes: [], goals: [] };
 
       // ── Create tasks with enum safety ───────────────────────────
       if (normalizedTypes.includes('tasks') && parsed.tasks && Array.isArray(parsed.tasks)) {
@@ -223,6 +236,31 @@ ${result.content}`;
         }
       }
 
+      // ── Create goals ────────────────────────────────────────────
+      const VALID_GOAL_STATUSES = new Set(['NOT_STARTED', 'IN_PROGRESS', 'COMPLETED', 'ON_HOLD', 'CANCELLED']);
+      if (normalizedTypes.includes('goals') && parsed.goals && Array.isArray(parsed.goals)) {
+        for (const goal of parsed.goals) {
+          if (!goal.title) continue;
+          const safeStatus = VALID_GOAL_STATUSES.has(goal.status) ? goal.status : 'NOT_STARTED';
+          try {
+            const g = await prisma.goal.create({
+              data: {
+                title: goal.title.slice(0, 200),
+                description: goal.description || '',
+                status: safeStatus,
+                progress: typeof goal.progress === 'number' ? Math.min(100, Math.max(0, goal.progress)) : 0,
+                dueDate: goal.dueDate ? new Date(goal.dueDate) : null,
+                teamId,
+                createdBy: userId,
+              },
+            });
+            created.goals.push(g);
+          } catch (e: any) {
+            console.error('Failed to create goal:', e.message);
+          }
+        }
+      }
+
       return reply.send({
         success: true,
         data: {
@@ -232,6 +270,7 @@ ${result.content}`;
             tasks: created.tasks.length,
             brainstorm: created.brainstorm ? 1 : 0,
             notes: created.notes.length,
+            goals: created.goals.length,
           },
         },
       });

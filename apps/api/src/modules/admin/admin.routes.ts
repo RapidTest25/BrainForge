@@ -64,4 +64,45 @@ export async function adminRoutes(app: FastifyInstance) {
     );
     return reply.send({ success: true, data: result });
   });
+
+  // Get single team detail
+  app.get('/teams/:teamId', async (request, reply) => {
+    const { teamId } = request.params as { teamId: string };
+    const team = await adminService.getTeam(teamId);
+    return reply.send({ success: true, data: team });
+  });
+
+  // AI usage analytics (per-provider, per-model, top users)
+  app.get('/ai-usage', async (request, reply) => {
+    const analytics = await adminService.getAIUsageAnalytics();
+    return reply.send({ success: true, data: analytics });
+  });
+
+  // AI usage logs (paginated)
+  app.get('/ai-usage/logs', async (request, reply) => {
+    const query = request.query as { page?: string; limit?: string; provider?: string; userId?: string; feature?: string };
+    const result = await adminService.getAIUsageLogs(
+      Number(query.page) || 1,
+      Number(query.limit) || 50,
+      { provider: query.provider, userId: query.userId, feature: query.feature }
+    );
+    return reply.send({ success: true, data: result });
+  });
+
+  // List all API keys (without actual key values)
+  app.get('/api-keys', async (request, reply) => {
+    const query = request.query as { page?: string; limit?: string; search?: string };
+    const result = await adminService.listAPIKeys(
+      Number(query.page) || 1,
+      Number(query.limit) || 20,
+      query.search
+    );
+    return reply.send({ success: true, data: result });
+  });
+
+  // Growth analytics
+  app.get('/growth', async (request, reply) => {
+    const growth = await adminService.getGrowthAnalytics();
+    return reply.send({ success: true, data: growth });
+  });
 }

@@ -607,3 +607,21 @@ model AIUsageLog {
 
   user User @relation(fields: [userId], references: [id])
 }
+
+// ==========================================
+// SYSTEM SETTINGS
+// ==========================================
+
+model SystemSetting {
+  id        String   @id @default(cuid())
+  category  String   // e.g. 'general', 'email', 'security', 'ai', 'notifications'
+  key       String
+  value     String   @db.Text
+  type      String   @default("string") // string, number, boolean, json
+  label     String?
+  updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now())
+
+  @@unique([category, key])
+  @@index([category])
+}

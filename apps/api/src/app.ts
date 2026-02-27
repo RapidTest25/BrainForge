@@ -17,7 +17,9 @@ import { notificationRoutes } from './modules/notification/notification.routes.j
 import { aiChatRoutes } from './modules/ai-chat/ai-chat.routes.js';
 import { projectRoutes } from './modules/project/project.routes.js';
 import { adminRoutes } from './modules/admin/admin.routes.js';
+import { settingsRoutes } from './modules/admin/settings.routes.js';
 import { aiService } from './ai/ai.service.js';
+import { prisma } from './lib/prisma.js';
 import { AppError } from './lib/errors.js';
 
 export async function buildApp() {
@@ -120,6 +122,24 @@ export async function buildApp() {
     return reply.send({ success: true, data: models });
   });
 
+  // Public app version info (no auth needed)
+  app.get('/api/app/version', async (_request, reply) => {
+    try {
+      const setting = await prisma.systemSetting.findUnique({
+        where: { category_key: { category: 'version', key: 'web_version' } },
+      });
+      return reply.send({
+        success: true,
+        data: { webVersion: setting?.value || '0.1.0' },
+      });
+    } catch {
+      return reply.send({
+        success: true,
+        data: { webVersion: '0.1.0' },
+      });
+    }
+  });
+
   // Register routes
   app.register(authRoutes, { prefix: '/api/auth' });
   app.register(teamRoutes, { prefix: '/api/teams' });
@@ -138,6 +158,7 @@ export async function buildApp() {
   app.register(aiChatRoutes, { prefix: '/api/teams' });
   app.register(projectRoutes, { prefix: '/api/teams' });
   app.register(adminRoutes, { prefix: '/api/admin' });
+  app.register(settingsRoutes, { prefix: '/api/admin/settings' });
 
   return app;
 }

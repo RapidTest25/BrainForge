@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useMutation } from '@tanstack/react-query';
 import {
   User, Lock, Camera, Loader2, CheckCircle2, Mail, Shield, Sparkles, Link2, Unlink
@@ -24,7 +24,16 @@ export default function SettingsPage() {
   const [setPasswordValue, setSetPasswordValue] = useState('');
   const [setPasswordConfirm, setSetPasswordConfirm] = useState('');
   const [googleLinking, setGoogleLinking] = useState(false);
+  const [webVersion, setWebVersion] = useState<string>('');
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    api.get('/app/version')
+      .then((res: any) => {
+        if (res.data?.webVersion) setWebVersion(res.data.webVersion);
+      })
+      .catch(() => {});
+  }, []);
 
   const isGoogleLinked = !!user?.googleId;
   const hasPassword = user?.hasPassword !== false;
@@ -167,12 +176,12 @@ export default function SettingsPage() {
   return (
     <div className="space-y-6 max-w-2xl mx-auto">
       <div>
-        <h1 className="text-xl font-bold text-foreground">Profile & Settings</h1>
-        <p className="text-sm text-muted-foreground mt-0.5">Manage your profile, avatar, and account preferences.</p>
+        <h1 className="text-xl font-bold text-[#1a1a2e]">Profile & Settings</h1>
+        <p className="text-sm text-gray-400 mt-0.5">Manage your profile, avatar, and account preferences.</p>
       </div>
 
       {/* Profile Card */}
-      <div className="bg-card border border-border rounded-2xl overflow-hidden">
+      <div className="bg-white border border-gray-100 rounded-2xl overflow-hidden">
         {/* Banner */}
         <div className="h-24 bg-gradient-to-r from-[#7b68ee] via-[#8b7cf6] to-[#a78bfa] relative">
           <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiNmZmZmZmYiIGZpbGwtb3BhY2l0eT0iMC4wNSI+PGNpcmNsZSBjeD0iMzAiIGN5PSIzMCIgcj0iMiIvPjwvZz48L2c+PC9zdmc+')] opacity-50" />
@@ -203,45 +212,45 @@ export default function SettingsPage() {
               className="hidden"
               onChange={handleAvatarChange}
             />
-            <p className="text-[11px] text-muted-foreground mt-2">Click to upload a photo (max 2MB)</p>
+            <p className="text-[11px] text-gray-400 mt-2">Click to upload a photo (max 2MB)</p>
           </div>
 
           {/* Name */}
           <div className="space-y-4">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-1.5">
-                <label className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                <label className="flex items-center gap-1.5 text-xs font-semibold text-gray-400 uppercase tracking-wider">
                   <User className="h-3 w-3" /> Display Name
                 </label>
                 <Input
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  className="border-border focus:border-[#7b68ee] rounded-xl h-10"
+                  className="border-gray-200 focus:border-[#7b68ee] rounded-xl h-10"
                   placeholder="Your display name"
                 />
               </div>
               <div className="space-y-1.5">
-                <label className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                <label className="flex items-center gap-1.5 text-xs font-semibold text-gray-400 uppercase tracking-wider">
                   <Mail className="h-3 w-3" /> Email
                 </label>
                 <Input
                   value={user?.email || ''}
                   disabled
-                  className="opacity-60 border-border rounded-xl h-10"
+                  className="opacity-60 border-gray-200 rounded-xl h-10"
                 />
               </div>
             </div>
 
             {/* Stats row */}
-            <div className="flex items-center gap-4 py-3 px-4 rounded-xl bg-muted/80 border border-border">
-              <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+            <div className="flex items-center gap-4 py-3 px-4 rounded-xl bg-gray-50/80 border border-gray-100">
+              <div className="flex items-center gap-1.5 text-xs text-gray-500">
                 <Shield className="h-3.5 w-3.5 text-[#7b68ee]" />
                 <span className="font-medium">Active Account</span>
               </div>
               <div className="h-3 w-px bg-border" />
-              <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+              <div className="flex items-center gap-1.5 text-xs text-gray-500">
                 <Sparkles className="h-3.5 w-3.5 text-amber-500" />
-                <span className="font-medium">BrainForge v1.0</span>
+                <span className="font-medium">BrainForge {webVersion ? `v${webVersion}` : ''}</span>
               </div>
             </div>
 
@@ -267,7 +276,7 @@ export default function SettingsPage() {
               {avatarFile && (
                 <button
                   onClick={() => { setAvatarPreview(user?.avatar || null); setAvatarFile(null); }}
-                  className="text-xs text-muted-foreground hover:text-muted-foreground"
+                  className="text-xs text-gray-400 hover:text-gray-500"
                 >
                   Reset avatar
                 </button>
@@ -278,9 +287,9 @@ export default function SettingsPage() {
       </div>
 
       {/* Security */}
-      <div className="bg-card border border-border rounded-2xl p-6 space-y-4">
-        <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
-          <div className="h-7 w-7 rounded-lg flex items-center justify-center bg-red-500/10">
+      <div className="bg-white border border-gray-100 rounded-2xl p-6 space-y-4">
+        <div className="flex items-center gap-2 text-sm font-semibold text-[#1a1a2e]">
+          <div className="h-7 w-7 rounded-lg flex items-center justify-center bg-red-50">
             <Lock className="h-3.5 w-3.5 text-red-500" />
           </div>
           Security
@@ -291,22 +300,22 @@ export default function SettingsPage() {
           <>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-1.5">
-                <label className="text-[13px] font-medium text-muted-foreground">Current Password</label>
+                <label className="text-[13px] font-medium text-gray-600">Current Password</label>
                 <Input
                   type="password"
                   value={currentPassword}
                   onChange={(e) => setCurrentPassword(e.target.value)}
-                  className="border-border focus:border-[#7b68ee] rounded-xl h-10"
+                  className="border-gray-200 focus:border-[#7b68ee] rounded-xl h-10"
                   placeholder="Enter current password"
                 />
               </div>
               <div className="space-y-1.5">
-                <label className="text-[13px] font-medium text-muted-foreground">New Password</label>
+                <label className="text-[13px] font-medium text-gray-600">New Password</label>
                 <Input
                   type="password"
                   value={newPassword}
                   onChange={(e) => setNewPassword(e.target.value)}
-                  className="border-border focus:border-[#7b68ee] rounded-xl h-10"
+                  className="border-gray-200 focus:border-[#7b68ee] rounded-xl h-10"
                   placeholder="Enter new password"
                 />
               </div>
@@ -333,29 +342,29 @@ export default function SettingsPage() {
         ) : (
           /* Set Password - for Google-only users who don't have a password yet */
           <>
-            <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/20">
+            <div className="p-3 rounded-xl bg-amber-50 border border-amber-100">
               <p className="text-xs text-amber-700">
                 Your account uses Google sign-in and doesn&apos;t have a password yet. Set one to also be able to log in with email &amp; password.
               </p>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-1.5">
-                <label className="text-[13px] font-medium text-muted-foreground">New Password</label>
+                <label className="text-[13px] font-medium text-gray-600">New Password</label>
                 <Input
                   type="password"
                   value={setPasswordValue}
                   onChange={(e) => setSetPasswordValue(e.target.value)}
-                  className="border-border focus:border-[#7b68ee] rounded-xl h-10"
+                  className="border-gray-200 focus:border-[#7b68ee] rounded-xl h-10"
                   placeholder="Minimum 8 characters"
                 />
               </div>
               <div className="space-y-1.5">
-                <label className="text-[13px] font-medium text-muted-foreground">Confirm Password</label>
+                <label className="text-[13px] font-medium text-gray-600">Confirm Password</label>
                 <Input
                   type="password"
                   value={setPasswordConfirm}
                   onChange={(e) => setSetPasswordConfirm(e.target.value)}
-                  className="border-border focus:border-[#7b68ee] rounded-xl h-10"
+                  className="border-gray-200 focus:border-[#7b68ee] rounded-xl h-10"
                   placeholder="Repeat password"
                 />
               </div>
@@ -391,17 +400,17 @@ export default function SettingsPage() {
       </div>
 
       {/* Connected Accounts */}
-      <div className="bg-card border border-border rounded-2xl p-6 space-y-4">
-        <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
-          <div className="h-7 w-7 rounded-lg flex items-center justify-center bg-blue-500/10">
+      <div className="bg-white border border-gray-100 rounded-2xl p-6 space-y-4">
+        <div className="flex items-center gap-2 text-sm font-semibold text-[#1a1a2e]">
+          <div className="h-7 w-7 rounded-lg flex items-center justify-center bg-blue-50">
             <Link2 className="h-3.5 w-3.5 text-blue-500" />
           </div>
           Connected Accounts
         </div>
 
-        <div className="flex items-center justify-between p-4 rounded-xl bg-muted/80 border border-border">
+        <div className="flex items-center justify-between p-4 rounded-xl bg-gray-50/80 border border-gray-100">
           <div className="flex items-center gap-3">
-            <div className="h-10 w-10 rounded-xl bg-card border border-border flex items-center justify-center shadow-sm">
+            <div className="h-10 w-10 rounded-xl bg-white border border-gray-200 flex items-center justify-center shadow-sm">
               <svg className="h-5 w-5" viewBox="0 0 24 24">
                 <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 01-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" fill="#4285F4" />
                 <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853" />
@@ -410,13 +419,13 @@ export default function SettingsPage() {
               </svg>
             </div>
             <div>
-              <p className="text-sm font-medium text-foreground">Google</p>
+              <p className="text-sm font-medium text-[#1a1a2e]">Google</p>
               {isGoogleLinked ? (
                 <p className="text-xs text-green-600 flex items-center gap-1">
                   <CheckCircle2 className="h-3 w-3" /> Connected
                 </p>
               ) : (
-                <p className="text-xs text-muted-foreground">Not connected</p>
+                <p className="text-xs text-gray-400">Not connected</p>
               )}
             </div>
           </div>
@@ -425,7 +434,7 @@ export default function SettingsPage() {
             <button
               onClick={() => unlinkGoogleMutation.mutate()}
               disabled={unlinkGoogleMutation.isPending}
-              className="flex items-center gap-1.5 px-4 py-2 text-xs font-medium text-red-600 bg-red-500/10 hover:bg-red-500/20 rounded-lg transition-colors disabled:opacity-50"
+              className="flex items-center gap-1.5 px-4 py-2 text-xs font-medium text-red-600 bg-red-50 hover:bg-red-100 rounded-lg transition-colors disabled:opacity-50"
             >
               {unlinkGoogleMutation.isPending ? (
                 <Loader2 className="h-3 w-3 animate-spin" />
@@ -438,7 +447,7 @@ export default function SettingsPage() {
             <button
               onClick={() => googleLink()}
               disabled={googleLinking || linkGoogleMutation.isPending}
-              className="flex items-center gap-1.5 px-4 py-2 text-xs font-medium text-blue-600 bg-blue-500/10 hover:bg-blue-100 rounded-lg transition-colors disabled:opacity-50"
+              className="flex items-center gap-1.5 px-4 py-2 text-xs font-medium text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors disabled:opacity-50"
             >
               {googleLinking || linkGoogleMutation.isPending ? (
                 <Loader2 className="h-3 w-3 animate-spin" />
@@ -452,12 +461,12 @@ export default function SettingsPage() {
       </div>
 
       {/* About */}
-      <div className="bg-card border border-border rounded-2xl p-6">
-        <h3 className="text-sm font-semibold text-foreground mb-2">About BrainForge</h3>
-        <p className="text-sm text-muted-foreground">
+      <div className="bg-white border border-gray-100 rounded-2xl p-6">
+        <h3 className="text-sm font-semibold text-[#1a1a2e] mb-2">About BrainForge</h3>
+        <p className="text-sm text-gray-400">
           BrainForge is an AI-powered collaborative workspace for teams. Brainstorm, manage tasks, create diagrams, and more — all in one place.
         </p>
-        <p className="text-[11px] text-muted-foreground/60 mt-3">Version 1.0.0 &middot; 100% free, bring your own API keys.</p>
+        <p className="text-[11px] text-gray-300 mt-3">{webVersion ? `Version ${webVersion}` : 'Version'} &middot; 100% free, bring your own API keys.</p>
       </div>
     </div>
   );

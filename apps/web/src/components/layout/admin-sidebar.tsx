@@ -20,6 +20,7 @@ const ADMIN_NAV = [
   { label: 'AI Usage', href: '/admin/ai-usage', icon: Bot, color: '#8b5cf6' },
   { label: 'API Keys', href: '/admin/api-keys', icon: Key, color: '#ef4444' },
   { label: 'System', href: '/admin/system', icon: Database, color: '#6366f1' },
+  { label: 'Settings', href: '/admin/settings', icon: Settings, color: '#f97316' },
 ];
 
 interface AdminSidebarProps {
@@ -183,11 +184,11 @@ export function AdminSidebar({ collapsed, onToggle }: AdminSidebarProps) {
       )}>
         <NavTooltip label="Admin Settings" show={!isExpanded}>
           <Link
-            href="/admin/system"
+            href="/admin/settings"
             className={cn(
               'flex items-center rounded-md transition-colors',
               isExpanded ? 'gap-2.5 px-2.5 py-1.5 text-[13px]' : 'justify-center h-8',
-              checkActive('/admin/system')
+              checkActive('/admin/settings')
                 ? 'bg-red-50 dark:bg-red-500/10 text-red-600 dark:text-red-400 font-medium'
                 : 'text-muted-foreground hover:bg-accent hover:text-foreground'
             )}

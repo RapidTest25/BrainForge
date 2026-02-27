@@ -3,6 +3,7 @@ import { ClaudeProvider } from './providers/claude.js';
 import { GeminiProvider } from './providers/gemini.js';
 import { GroqProvider } from './providers/groq.js';
 import { OpenRouterProvider } from './providers/openrouter.js';
+import { CopilotProvider } from './providers/copilot.js';
 import { aiKeyService } from '../modules/ai-key/ai-key.service.js';
 import type { AIProviderInterface, ChatMsg, ChatOptions, ChatResult, ModelDef, BalanceInfo } from './providers/base.js';
 
@@ -12,6 +13,7 @@ const providers: Record<string, AIProviderInterface> = {
   GEMINI: new GeminiProvider(),
   GROQ: new GroqProvider(),
   OPENROUTER: new OpenRouterProvider(),
+  COPILOT: new CopilotProvider(),
 };
 
 class AIService {

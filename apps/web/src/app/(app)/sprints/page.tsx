@@ -127,11 +127,11 @@ export default function SprintsPage() {
 
   const getStatusStyle = (status: string) => {
     switch (status) {
-      case 'DRAFT': return 'bg-gray-100 text-gray-600';
+      case 'DRAFT': return 'bg-muted text-muted-foreground';
       case 'ACTIVE': return 'bg-[#7b68ee]/10 text-[#7b68ee]';
-      case 'COMPLETED': return 'bg-green-50 text-green-600';
-      case 'ARCHIVED': return 'bg-amber-50 text-amber-600';
-      default: return 'bg-gray-100 text-gray-600';
+      case 'COMPLETED': return 'bg-green-500/100/10 text-green-600';
+      case 'ARCHIVED': return 'bg-amber-500/100/10 text-amber-600';
+      default: return 'bg-muted text-muted-foreground';
     }
   };
 
@@ -150,11 +150,11 @@ export default function SprintsPage() {
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div className="min-w-0">
-            <button onClick={() => setSelectedSprint(null)} className="flex items-center gap-1 text-sm text-gray-400 hover:text-gray-600 mb-2 transition-colors">
+            <button onClick={() => setSelectedSprint(null)} className="flex items-center gap-1 text-sm text-muted-foreground hover:text-muted-foreground mb-2 transition-colors">
               <ArrowLeft className="h-3.5 w-3.5" /> Back to Sprints
             </button>
             <div className="flex items-center gap-3 flex-wrap">
-              <h1 className="text-lg sm:text-xl font-semibold text-[#1a1a2e] truncate">{selectedSprint.title || plan.sprintGoal || plan.goal}</h1>
+              <h1 className="text-lg sm:text-xl font-semibold text-foreground truncate">{selectedSprint.title || plan.sprintGoal || plan.goal}</h1>
               {selectedSprint.status && (
                 <span className={cn('text-[11px] px-2 py-0.5 rounded-full font-medium whitespace-nowrap', getStatusStyle(selectedSprint.status))}>
                   {selectedSprint.status}
@@ -162,7 +162,7 @@ export default function SprintsPage() {
               )}
             </div>
             {selectedSprint.goal && (
-              <p className="text-sm text-gray-400 mt-1 line-clamp-2">{selectedSprint.goal}</p>
+              <p className="text-sm text-muted-foreground mt-1 line-clamp-2">{selectedSprint.goal}</p>
             )}
           </div>
           <div className="flex items-center gap-2 shrink-0">
@@ -180,7 +180,7 @@ export default function SprintsPage() {
             {selectedSprint.id && (
               <button
                 onClick={() => { if (confirm('Delete this sprint?')) deleteMutation.mutate(selectedSprint.id); }}
-                className="flex items-center gap-1 px-2.5 py-1.5 text-red-500 text-sm rounded-lg hover:bg-red-50 transition-colors"
+                className="flex items-center gap-1 px-2.5 py-1.5 text-red-500 text-sm rounded-lg hover:bg-red-500/100/100/100/10 transition-colors"
               >
                 <Trash2 className="h-3.5 w-3.5" />
               </button>
@@ -189,26 +189,26 @@ export default function SprintsPage() {
         </div>
 
         {/* Info bar */}
-        <div className="flex flex-wrap gap-3 text-xs text-gray-400">
+        <div className="flex flex-wrap gap-3 text-xs text-muted-foreground">
           {selectedSprint.deadline && (
-            <span className="flex items-center gap-1 px-2.5 py-1 bg-white border border-gray-100 rounded-lg">
+            <span className="flex items-center gap-1 px-2.5 py-1 bg-card border border-border rounded-lg">
               <Calendar className="h-3 w-3" /> {new Date(selectedSprint.deadline).toLocaleDateString()}
             </span>
           )}
           {selectedSprint.teamSize && (
-            <span className="px-2.5 py-1 bg-white border border-gray-100 rounded-lg">
+            <span className="px-2.5 py-1 bg-card border border-border rounded-lg">
               Team: {selectedSprint.teamSize}
             </span>
           )}
           {plan.tasks?.length > 0 && (
-            <span className="px-2.5 py-1 bg-white border border-gray-100 rounded-lg">
+            <span className="px-2.5 py-1 bg-card border border-border rounded-lg">
               {plan.tasks.length} tasks
             </span>
           )}
         </div>
 
         {/* Tabs */}
-        <div className="flex gap-1 overflow-x-auto border-b border-gray-100 -mx-1 px-1">
+        <div className="flex gap-1 overflow-x-auto border-b border-border -mx-1 px-1">
           {tabs.map(t => (
             <button
               key={t.key}
@@ -217,7 +217,7 @@ export default function SprintsPage() {
                 'flex items-center gap-1.5 px-3 sm:px-4 py-2 text-sm font-medium border-b-2 transition-colors whitespace-nowrap',
                 activeTab === t.key
                   ? 'border-[#7b68ee] text-[#7b68ee]'
-                  : 'border-transparent text-gray-400 hover:text-gray-600'
+                  : 'border-transparent text-muted-foreground hover:text-muted-foreground'
               )}
             >
               <t.icon className="h-3.5 w-3.5" />
@@ -230,27 +230,27 @@ export default function SprintsPage() {
         {activeTab === 'tasks' && (
           <div className="space-y-2">
             {(plan.tasks || []).map((task: any, i: number) => (
-              <div key={i} className="bg-white border border-gray-100 rounded-xl p-3 sm:p-4">
+              <div key={i} className="bg-card border border-border rounded-xl p-3 sm:p-4">
                 <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-2">
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
-                      <CheckCircle2 className="h-4 w-4 text-gray-300 shrink-0" />
-                      <h3 className="font-medium text-sm text-[#1a1a2e] truncate">{task.title}</h3>
+                      <CheckCircle2 className="h-4 w-4 text-muted-foreground/60 shrink-0" />
+                      <h3 className="font-medium text-sm text-foreground truncate">{task.title}</h3>
                     </div>
                     {task.description && (
-                      <p className="text-sm text-gray-400 mt-1 ml-6 line-clamp-2">{task.description}</p>
+                      <p className="text-sm text-muted-foreground mt-1 ml-6 line-clamp-2">{task.description}</p>
                     )}
                   </div>
                   <div className="flex items-center gap-2 ml-6 sm:ml-0 shrink-0 flex-wrap">
                     <span className={cn(
                       'text-[11px] px-2 py-0.5 rounded font-medium',
-                      task.priority === 'HIGH' || task.priority === 'CRITICAL' ? 'bg-red-50 text-red-600' :
-                      task.priority === 'MEDIUM' ? 'bg-amber-50 text-amber-600' : 'bg-gray-50 text-gray-500'
+                      task.priority === 'HIGH' || task.priority === 'CRITICAL' ? 'bg-red-500/100/10 text-red-600' :
+                      task.priority === 'MEDIUM' ? 'bg-amber-500/100/10 text-amber-600' : 'bg-muted text-muted-foreground'
                     )}>
                       {task.priority || 'MEDIUM'}
                     </span>
                     {(task.estimatedHours || task.estimate) && (
-                      <span className="flex items-center gap-1 text-xs text-gray-400">
+                      <span className="flex items-center gap-1 text-xs text-muted-foreground">
                         <Clock className="h-3 w-3" />{task.estimatedHours || task.estimate}h
                       </span>
                     )}
@@ -262,7 +262,7 @@ export default function SprintsPage() {
               </div>
             ))}
             {(!plan.tasks || plan.tasks.length === 0) && (
-              <p className="text-center text-gray-400 text-sm py-8">No tasks in this sprint plan</p>
+              <p className="text-center text-muted-foreground text-sm py-8">No tasks in this sprint plan</p>
             )}
           </div>
         )}
@@ -270,23 +270,23 @@ export default function SprintsPage() {
         {activeTab === 'milestones' && (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             {(plan.milestones || []).map((m: any, i: number) => (
-              <div key={i} className="bg-white border border-gray-100 rounded-xl p-4 flex items-start gap-3">
+              <div key={i} className="bg-card border border-border rounded-xl p-4 flex items-start gap-3">
                 <div className="h-8 w-8 rounded-lg bg-[#7b68ee]/10 flex items-center justify-center shrink-0">
                   <Target className="h-4 w-4 text-[#7b68ee]" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <h3 className="font-medium text-sm text-[#1a1a2e]">{m.title}</h3>
-                  <p className="text-sm text-gray-400 mt-0.5 line-clamp-2">{m.description}</p>
+                  <h3 className="font-medium text-sm text-foreground">{m.title}</h3>
+                  <p className="text-sm text-muted-foreground mt-0.5 line-clamp-2">{m.description}</p>
                 </div>
                 {(m.date || m.day) && (
-                  <span className="flex items-center gap-1 text-xs text-gray-400 px-2 py-1 bg-gray-50 rounded whitespace-nowrap shrink-0">
+                  <span className="flex items-center gap-1 text-xs text-muted-foreground px-2 py-1 bg-muted rounded whitespace-nowrap shrink-0">
                     <Calendar className="h-3 w-3" />{m.date || `Day ${m.day}`}
                   </span>
                 )}
               </div>
             ))}
             {(!plan.milestones || plan.milestones.length === 0) && (
-              <p className="text-center text-gray-400 text-sm py-8 col-span-full">No milestones defined</p>
+              <p className="text-center text-muted-foreground text-sm py-8 col-span-full">No milestones defined</p>
             )}
           </div>
         )}
@@ -294,24 +294,24 @@ export default function SprintsPage() {
         {activeTab === 'risks' && (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             {(plan.risks || []).map((r: any, i: number) => (
-              <div key={i} className="bg-white border border-gray-100 rounded-xl p-4 flex items-start gap-3">
-                <div className="h-8 w-8 rounded-lg bg-amber-50 flex items-center justify-center shrink-0">
+              <div key={i} className="bg-card border border-border rounded-xl p-4 flex items-start gap-3">
+                <div className="h-8 w-8 rounded-lg bg-amber-500/100/10 flex items-center justify-center shrink-0">
                   <AlertTriangle className="h-4 w-4 text-amber-500" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <h3 className="font-medium text-sm text-[#1a1a2e]">{r.risk || r.title}</h3>
-                  <p className="text-sm text-gray-400 mt-0.5 line-clamp-2">{r.mitigation}</p>
+                  <h3 className="font-medium text-sm text-foreground">{r.risk || r.title}</h3>
+                  <p className="text-sm text-muted-foreground mt-0.5 line-clamp-2">{r.mitigation}</p>
                 </div>
                 <span className={cn(
                   'text-[11px] px-2 py-0.5 rounded-full font-medium whitespace-nowrap shrink-0',
-                  r.severity === 'HIGH' ? 'bg-red-50 text-red-600' : 'bg-gray-50 text-gray-500'
+                  r.severity === 'HIGH' ? 'bg-red-500/100/10 text-red-600' : 'bg-muted text-muted-foreground'
                 )}>
                   {r.severity || 'MEDIUM'}
                 </span>
               </div>
             ))}
             {(!plan.risks || plan.risks.length === 0) && (
-              <p className="text-center text-gray-400 text-sm py-8 col-span-full">No risks identified</p>
+              <p className="text-center text-muted-foreground text-sm py-8 col-span-full">No risks identified</p>
             )}
           </div>
         )}
@@ -319,15 +319,15 @@ export default function SprintsPage() {
         {activeTab === 'daily' && (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
             {(plan.dailyPlan || []).map((day: any, i: number) => (
-              <div key={i} className="bg-white border border-gray-100 rounded-xl p-4">
+              <div key={i} className="bg-card border border-border rounded-xl p-4">
                 <div className="flex items-center gap-2 mb-2">
                   <span className="text-xs font-semibold text-[#7b68ee] bg-[#7b68ee]/10 px-2 py-0.5 rounded">Day {day.day || i + 1}</span>
-                  {day.focus && <span className="text-xs text-gray-400 truncate">{day.focus}</span>}
+                  {day.focus && <span className="text-xs text-muted-foreground truncate">{day.focus}</span>}
                 </div>
                 <ul className="space-y-1.5">
                   {(day.tasks || day.activities || []).map((t: any, j: number) => (
-                    <li key={j} className="text-sm text-gray-500 flex items-start gap-2">
-                      <ListChecks className="h-3 w-3 text-gray-300 mt-1 shrink-0" />
+                    <li key={j} className="text-sm text-muted-foreground flex items-start gap-2">
+                      <ListChecks className="h-3 w-3 text-muted-foreground/60 mt-1 shrink-0" />
                       <span className="line-clamp-2">{typeof t === 'string' ? t : t.title || t.name}</span>
                     </li>
                   ))}
@@ -335,7 +335,7 @@ export default function SprintsPage() {
               </div>
             ))}
             {(!plan.dailyPlan || plan.dailyPlan.length === 0) && (
-              <p className="text-center text-gray-400 text-sm py-8 col-span-full">No daily plan defined</p>
+              <p className="text-center text-muted-foreground text-sm py-8 col-span-full">No daily plan defined</p>
             )}
           </div>
         )}
@@ -348,11 +348,11 @@ export default function SprintsPage() {
     <div className="max-w-5xl mx-auto space-y-5">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <h1 className="text-lg sm:text-xl font-semibold text-[#1a1a2e]">Sprint Planner</h1>
+        <h1 className="text-lg sm:text-xl font-semibold text-foreground">Sprint Planner</h1>
         <div className="flex items-center gap-2">
           <button
             onClick={() => setShowCreate(true)}
-            className="flex items-center gap-1.5 px-3 py-1.5 border border-gray-200 text-gray-600 text-sm rounded-lg hover:bg-gray-50 transition-colors"
+            className="flex items-center gap-1.5 px-3 py-1.5 border border-border text-muted-foreground text-sm rounded-lg hover:bg-accent transition-colors"
           >
             <Plus className="h-3.5 w-3.5" />
             New Sprint
@@ -372,23 +372,23 @@ export default function SprintsPage() {
         {(sprints?.data || []).map((sprint: any) => (
           <div
             key={sprint.id}
-            className="bg-white border border-gray-100 rounded-xl p-4 cursor-pointer hover:shadow-sm hover:border-gray-200 transition-all group"
+            className="bg-card border border-border rounded-xl p-4 cursor-pointer hover:shadow-sm hover:border-border transition-all group"
             onClick={() => setSelectedSprint(sprint)}
           >
             <div className="flex items-start justify-between gap-2">
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 flex-wrap">
-                  <h3 className="font-medium text-sm text-[#1a1a2e] truncate">{sprint.title || sprint.goal}</h3>
+                  <h3 className="font-medium text-sm text-foreground truncate">{sprint.title || sprint.goal}</h3>
                   <span className={cn('text-[11px] px-2 py-0.5 rounded-full font-medium shrink-0', getStatusStyle(sprint.status))}>
                     {sprint.status}
                   </span>
                 </div>
                 {sprint.goal && (
-                  <p className="text-xs text-gray-400 mt-1.5 line-clamp-2">{sprint.goal}</p>
+                  <p className="text-xs text-muted-foreground mt-1.5 line-clamp-2">{sprint.goal}</p>
                 )}
               </div>
             </div>
-            <div className="flex items-center gap-3 mt-3 pt-3 border-t border-gray-50 text-xs text-gray-400">
+            <div className="flex items-center gap-3 mt-3 pt-3 border-t border-border/50 text-xs text-muted-foreground">
               {sprint.deadline && (
                 <span className="flex items-center gap-1">
                   <Calendar className="h-3 w-3" />
@@ -407,15 +407,15 @@ export default function SprintsPage() {
       {/* Empty State */}
       {(!sprints?.data || sprints.data.length === 0) && (
         <div className="text-center py-16">
-          <Zap className="h-10 w-10 mx-auto text-gray-300 mb-3" />
-          <h3 className="font-medium text-[#1a1a2e] mb-1">No Sprint Plans Yet</h3>
-          <p className="text-sm text-gray-400 mb-5 max-w-md mx-auto">
+          <Zap className="h-10 w-10 mx-auto text-muted-foreground/60 mb-3" />
+          <h3 className="font-medium text-foreground mb-1">No Sprint Plans Yet</h3>
+          <p className="text-sm text-muted-foreground mb-5 max-w-md mx-auto">
             Create a sprint manually or use AI to generate a complete plan with tasks, milestones, and daily schedules.
           </p>
           <div className="flex items-center gap-2 justify-center">
             <button
               onClick={() => setShowCreate(true)}
-              className="flex items-center gap-1.5 px-4 py-2 border border-gray-200 text-gray-600 text-sm rounded-lg hover:bg-gray-50 transition-colors"
+              className="flex items-center gap-1.5 px-4 py-2 border border-border text-muted-foreground text-sm rounded-lg hover:bg-accent transition-colors"
             >
               <Plus className="h-3.5 w-3.5" /> Create Sprint
             </button>
@@ -431,53 +431,53 @@ export default function SprintsPage() {
 
       {/* ─── Create Sprint Dialog ─── */}
       <Dialog open={showCreate} onOpenChange={setShowCreate}>
-        <DialogContent className="bg-white sm:max-w-md">
+        <DialogContent className="bg-card sm:max-w-md">
           <DialogHeader>
-            <DialogTitle className="text-[#1a1a2e]">Create Sprint</DialogTitle>
+            <DialogTitle className="text-foreground">Create Sprint</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             <div className="space-y-1.5">
-              <label className="text-[13px] font-medium text-gray-600">Title</label>
+              <label className="text-[13px] font-medium text-muted-foreground">Title</label>
               <Input
                 value={createForm.title}
                 onChange={(e) => setCreateForm({ ...createForm, title: e.target.value })}
                 placeholder="e.g. Sprint 1 — MVP Launch"
-                className="border-gray-200 focus:border-[#7b68ee]"
+                className="border-border focus:border-[#7b68ee]"
               />
             </div>
             <div className="space-y-1.5">
-              <label className="text-[13px] font-medium text-gray-600">Goal</label>
+              <label className="text-[13px] font-medium text-muted-foreground">Goal</label>
               <Textarea
                 value={createForm.goal}
                 onChange={(e) => setCreateForm({ ...createForm, goal: e.target.value })}
                 placeholder="What do you want to accomplish?"
                 rows={3}
-                className="border-gray-200 focus:border-[#7b68ee]"
+                className="border-border focus:border-[#7b68ee]"
               />
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1.5">
-                <label className="text-[13px] font-medium text-gray-600">Deadline</label>
+                <label className="text-[13px] font-medium text-muted-foreground">Deadline</label>
                 <Input
                   type="date"
                   value={createForm.deadline}
                   onChange={(e) => setCreateForm({ ...createForm, deadline: e.target.value })}
-                  className="border-gray-200 focus:border-[#7b68ee]"
+                  className="border-border focus:border-[#7b68ee]"
                 />
               </div>
               <div className="space-y-1.5">
-                <label className="text-[13px] font-medium text-gray-600">Team Size</label>
+                <label className="text-[13px] font-medium text-muted-foreground">Team Size</label>
                 <Input
                   type="number" min={1} max={20}
                   value={createForm.teamSize}
                   onChange={(e) => setCreateForm({ ...createForm, teamSize: parseInt(e.target.value) || 1 })}
-                  className="border-gray-200 focus:border-[#7b68ee]"
+                  className="border-border focus:border-[#7b68ee]"
                 />
               </div>
             </div>
           </div>
           <DialogFooter>
-            <button onClick={() => setShowCreate(false)} className="px-4 py-2 text-sm font-medium text-gray-500 hover:text-gray-700 rounded-lg hover:bg-gray-50 transition-colors">
+            <button onClick={() => setShowCreate(false)} className="px-4 py-2 text-sm font-medium text-muted-foreground hover:text-foreground/80 rounded-lg hover:bg-accent transition-colors">
               Cancel
             </button>
             <button
@@ -493,66 +493,66 @@ export default function SprintsPage() {
 
       {/* ─── AI Generate Sprint Dialog ─── */}
       <Dialog open={showGenerate} onOpenChange={setShowGenerate}>
-        <DialogContent className="bg-white sm:max-w-lg">
+        <DialogContent className="bg-card sm:max-w-lg">
           <DialogHeader>
-            <DialogTitle className="text-[#1a1a2e] flex items-center gap-2">
+            <DialogTitle className="text-foreground flex items-center gap-2">
               <Zap className="h-4 w-4 text-[#7b68ee]" /> AI Sprint Planner
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             <div className="space-y-1.5">
-              <label className="text-[13px] font-medium text-gray-600">Sprint Title</label>
+              <label className="text-[13px] font-medium text-muted-foreground">Sprint Title</label>
               <Input
                 value={genForm.title}
                 onChange={(e) => setGenForm({ ...genForm, title: e.target.value })}
                 placeholder="e.g. Sprint 1 — Auth & Dashboard"
-                className="border-gray-200 focus:border-[#7b68ee]"
+                className="border-border focus:border-[#7b68ee]"
               />
             </div>
             <div className="space-y-1.5">
-              <label className="text-[13px] font-medium text-gray-600">Sprint Goal</label>
+              <label className="text-[13px] font-medium text-muted-foreground">Sprint Goal</label>
               <Textarea
                 value={genForm.goal}
                 onChange={(e) => setGenForm({ ...genForm, goal: e.target.value })}
                 placeholder="Describe what you want to accomplish in this sprint..."
                 rows={3}
-                className="border-gray-200 focus:border-[#7b68ee]"
+                className="border-border focus:border-[#7b68ee]"
               />
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1.5">
-                <label className="text-[13px] font-medium text-gray-600">Deadline</label>
+                <label className="text-[13px] font-medium text-muted-foreground">Deadline</label>
                 <Input
                   type="date"
                   value={genForm.deadline}
                   onChange={(e) => setGenForm({ ...genForm, deadline: e.target.value })}
-                  className="border-gray-200 focus:border-[#7b68ee]"
+                  className="border-border focus:border-[#7b68ee]"
                 />
               </div>
               <div className="space-y-1.5">
-                <label className="text-[13px] font-medium text-gray-600">Team Size</label>
+                <label className="text-[13px] font-medium text-muted-foreground">Team Size</label>
                 <Input
                   type="number" min={1} max={20}
                   value={genForm.teamSize}
                   onChange={(e) => setGenForm({ ...genForm, teamSize: parseInt(e.target.value) || 1 })}
-                  className="border-gray-200 focus:border-[#7b68ee]"
+                  className="border-border focus:border-[#7b68ee]"
                 />
               </div>
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1.5">
-                <label className="text-[13px] font-medium text-gray-600">AI Provider</label>
+                <label className="text-[13px] font-medium text-muted-foreground">AI Provider</label>
                 <Select value={genForm.provider} onValueChange={(v) => setGenForm({ ...genForm, provider: v, model: '' })}>
-                  <SelectTrigger className="border-gray-200"><SelectValue /></SelectTrigger>
+                  <SelectTrigger className="border-border"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     {PROVIDERS.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>
               <div className="space-y-1.5">
-                <label className="text-[13px] font-medium text-gray-600">Model</label>
+                <label className="text-[13px] font-medium text-muted-foreground">Model</label>
                 <Select value={genForm.model} onValueChange={(v) => setGenForm({ ...genForm, model: v })}>
-                  <SelectTrigger className="border-gray-200"><SelectValue placeholder="Select model" /></SelectTrigger>
+                  <SelectTrigger className="border-border"><SelectValue placeholder="Select model" /></SelectTrigger>
                   <SelectContent>
                     {providerModels.map((m: any) => <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>)}
                   </SelectContent>
@@ -561,7 +561,7 @@ export default function SprintsPage() {
             </div>
           </div>
           <DialogFooter>
-            <button onClick={() => setShowGenerate(false)} className="px-4 py-2 text-sm font-medium text-gray-500 hover:text-gray-700 rounded-lg hover:bg-gray-50 transition-colors">
+            <button onClick={() => setShowGenerate(false)} className="px-4 py-2 text-sm font-medium text-muted-foreground hover:text-foreground/80 rounded-lg hover:bg-accent transition-colors">
               Cancel
             </button>
             <button

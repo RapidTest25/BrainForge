@@ -7,13 +7,14 @@ import {
   GitBranch, Calendar, Zap, FileText, Key, Settings,
   ChevronDown, Users, Home, Bell, Target, Star,
   PanelLeftClose, PanelLeftOpen, BookOpen, X, Bot,
-  FolderKanban, Circle, ChevronsLeft, ChevronsRight
+  FolderKanban, Circle, ChevronsLeft, ChevronsRight, Shield
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useTeamStore } from '@/stores/team-store';
 import { useAuthStore } from '@/stores/auth-store';
 import { useProjectStore, Project } from '@/stores/project-store';
+import { ProjectIcon } from '@/app/(app)/projects/page';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { useState, useEffect, useRef, useCallback } from 'react';
@@ -46,6 +47,8 @@ const BOTTOM_NAV = [
   { label: 'Team', href: '/settings/team', icon: Users },
   { label: 'Settings', href: '/settings', icon: Settings },
 ];
+
+const ADMIN_NAV = { label: 'Admin', href: '/admin', icon: Shield };
 
 type SectionState = { favorites: boolean; spaces: boolean };
 
@@ -232,7 +235,7 @@ export function Sidebar({ collapsed, onToggle, mobile, onMobileClose }: SidebarP
           >
             {activeProject ? (
               <>
-                <span className="text-base leading-none">{activeProject.icon}</span>
+                <ProjectIcon icon={activeProject.icon} className="h-3.5 w-3.5" style={{ color: activeProject.color }} />
                 <span className="flex-1 text-left truncate font-medium text-foreground">{activeProject.name}</span>
               </>
             ) : (
@@ -264,7 +267,7 @@ export function Sidebar({ collapsed, onToggle, mobile, onMobileClose }: SidebarP
                     activeProject?.id === p.id && 'bg-accent/50 font-medium'
                   )}
                 >
-                  <span className="text-base leading-none">{p.icon}</span>
+                  <ProjectIcon icon={p.icon} className="h-3.5 w-3.5" style={{ color: p.color }} />
                   <span className="flex-1 text-left truncate text-foreground">{p.name}</span>
                   <Circle className="h-2 w-2 shrink-0" style={{ fill: p.color, color: p.color }} />
                 </button>
@@ -291,11 +294,11 @@ export function Sidebar({ collapsed, onToggle, mobile, onMobileClose }: SidebarP
               {isExpanded && <span className="flex-1 truncate">{label}</span>}
               {label === 'Notifications' && unreadCount > 0 && (
                 isExpanded ? (
-                  <span className="h-4.5 min-w-5 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center px-1.5">
+                  <span className="h-4.5 min-w-5 rounded-full bg-red-500/100/100 text-white text-[10px] font-bold flex items-center justify-center px-1.5">
                     {unreadCount > 99 ? '99+' : unreadCount}
                   </span>
                 ) : (
-                  <span className="absolute -top-0.5 -right-0.5 h-4 min-w-4 rounded-full bg-red-500 text-white text-[9px] font-bold flex items-center justify-center px-1">
+                  <span className="absolute -top-0.5 -right-0.5 h-4 min-w-4 rounded-full bg-red-500/100/100 text-white text-[9px] font-bold flex items-center justify-center px-1">
                     {unreadCount > 99 ? '99+' : unreadCount}
                   </span>
                 )
@@ -389,6 +392,22 @@ export function Sidebar({ collapsed, onToggle, mobile, onMobileClose }: SidebarP
             </Link>
           </NavTooltip>
         ))}
+        {user && (user as any).isAdmin && (
+          <NavTooltip label={ADMIN_NAV.label} show={!isExpanded}>
+            <Link
+              href={ADMIN_NAV.href}
+              onClick={handleNavClick}
+              className={cn(
+                'flex items-center rounded-md transition-colors',
+                isExpanded ? 'gap-2.5 px-2.5 py-1.5 text-[13px]' : 'justify-center h-8',
+                checkActive(ADMIN_NAV.href) ? 'bg-red-500/100/10 text-red-600 font-medium' : 'text-red-400 hover:bg-red-500/100/100/100/10 hover:text-red-600'
+              )}
+            >
+              <ADMIN_NAV.icon className="h-4 w-4 shrink-0" />
+              {isExpanded && <span>{ADMIN_NAV.label}</span>}
+            </Link>
+          </NavTooltip>
+        )}
       </div>
 
       {/* ── User ── */}

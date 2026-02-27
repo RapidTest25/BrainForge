@@ -141,7 +141,7 @@ export function Header({ onMobileMenuToggle }: HeaderProps) {
                 setShowSearch(false);
               }
             }}
-            className="pl-8 h-8 w-48 text-[13px] bg-muted/40 border-transparent focus:border-border focus:bg-white focus:w-64 transition-all"
+            className="pl-8 h-8 w-48 text-[13px] bg-muted/40 border-transparent focus:border-border focus:bg-card focus:w-64 transition-all"
           />
           {searchQuery && (
             <button onClick={() => { setSearchQuery(''); setShowSearch(false); }} className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
@@ -149,7 +149,7 @@ export function Header({ onMobileMenuToggle }: HeaderProps) {
             </button>
           )}
           {showSearch && filteredPages.length > 0 && (
-            <div className="absolute top-full mt-1 right-0 w-64 bg-white border border-border rounded-lg shadow-lg py-1 z-50">
+            <div className="absolute top-full mt-1 right-0 w-64 bg-card border border-border rounded-lg shadow-lg py-1 z-50">
               {filteredPages.map(p => (
                 <button
                   key={p.href}
@@ -202,15 +202,15 @@ export function Header({ onMobileMenuToggle }: HeaderProps) {
           >
             <Bell className="h-4 w-4 text-muted-foreground" />
             {unreadCount > 0 && (
-              <span className="absolute -top-0.5 -right-0.5 h-4 min-w-[16px] flex items-center justify-center px-1 bg-red-500 text-white text-[10px] font-bold rounded-full">
+              <span className="absolute -top-0.5 -right-0.5 h-4 min-w-[16px] flex items-center justify-center px-1 bg-red-500/100/100 text-white text-[10px] font-bold rounded-full">
                 {unreadCount > 9 ? '9+' : unreadCount}
               </span>
             )}
           </Button>
           {showNotifications && (
-            <div className="absolute top-full mt-1 right-0 w-80 bg-white border border-gray-200 rounded-xl shadow-lg z-50 overflow-hidden">
-              <div className="flex items-center justify-between px-4 py-2.5 border-b border-gray-100">
-                <span className="text-sm font-semibold text-[#1a1a2e]">Notifications</span>
+            <div className="absolute top-full mt-1 right-0 w-80 bg-card border border-border rounded-xl shadow-lg z-50 overflow-hidden">
+              <div className="flex items-center justify-between px-4 py-2.5 border-b border-border">
+                <span className="text-sm font-semibold text-foreground">Notifications</span>
                 <button
                   onClick={() => { setShowNotifications(false); router.push('/notifications'); }}
                   className="text-xs text-[#7b68ee] hover:underline"
@@ -221,12 +221,12 @@ export function Header({ onMobileMenuToggle }: HeaderProps) {
               <div className="max-h-80 overflow-y-auto">
                 {notifLoading ? (
                   <div className="flex items-center justify-center py-8">
-                    <Loader2 className="h-5 w-5 animate-spin text-gray-400" />
+                    <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
                   </div>
                 ) : notifList.length === 0 ? (
                   <div className="text-center py-8">
                     <Bell className="h-8 w-8 text-gray-200 mx-auto mb-2" />
-                    <p className="text-sm text-gray-400">No notifications yet</p>
+                    <p className="text-sm text-muted-foreground">No notifications yet</p>
                   </div>
                 ) : (
                   notifList.slice(0, 8).map((n: any) => (
@@ -236,14 +236,14 @@ export function Header({ onMobileMenuToggle }: HeaderProps) {
                         if (!n.read) markReadMutation.mutate(n.id);
                         setShowNotifications(false);
                       }}
-                      className={`w-full text-left px-4 py-3 border-b border-gray-50 hover:bg-gray-50/80 transition-colors ${!n.read ? 'bg-[#7b68ee]/3' : ''}`}
+                      className={`w-full text-left px-4 py-3 border-b border-border/50 hover:bg-muted/80 transition-colors ${!n.read ? 'bg-[#7b68ee]/3' : ''}`}
                     >
                       <div className="flex items-start gap-2">
                         {!n.read && <div className="h-2 w-2 rounded-full bg-[#7b68ee] mt-1.5 shrink-0" />}
                         <div className={!n.read ? '' : 'pl-4'}>
-                          <p className="text-sm text-[#1a1a2e] font-medium line-clamp-1">{n.title}</p>
-                          {n.message && <p className="text-xs text-gray-400 line-clamp-2 mt-0.5">{n.message}</p>}
-                          <p className="text-[11px] text-gray-300 mt-1">
+                          <p className="text-sm text-foreground font-medium line-clamp-1">{n.title}</p>
+                          {n.message && <p className="text-xs text-muted-foreground line-clamp-2 mt-0.5">{n.message}</p>}
+                          <p className="text-[11px] text-muted-foreground/60 mt-1">
                             {new Date(n.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
                           </p>
                         </div>

@@ -7,6 +7,7 @@ interface User {
   avatar?: string;
   googleId?: string | null;
   hasPassword?: boolean;
+  isAdmin?: boolean;
 }
 
 interface AuthTokens {

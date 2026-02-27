@@ -32,6 +32,7 @@ export class AuthService {
         name: true,
         avatarUrl: true,
         googleId: true,
+        isAdmin: true,
         createdAt: true,
         updatedAt: true,
       },
@@ -53,7 +54,7 @@ export class AuthService {
 
     const tokens = await generateTokens(user.id, user.email);
 
-    return { user: { ...user, hasPassword: true }, tokens };
+    return { user: { ...user, hasPassword: true, isAdmin: user.isAdmin || false }, tokens };
   }
   async login(input: LoginInput) {
     const user = await prisma.user.findUnique({
@@ -83,6 +84,7 @@ export class AuthService {
         avatarUrl: user.avatarUrl,
         googleId: (user as any).googleId || null,
         hasPassword: true,
+        isAdmin: (user as any).isAdmin || false,
         createdAt: user.createdAt,
         updatedAt: user.updatedAt,
       },
@@ -184,6 +186,7 @@ export class AuthService {
         avatarUrl: user.avatarUrl,
         googleId: user.googleId || null,
         hasPassword: !!user.passwordHash,
+        isAdmin: (user as any).isAdmin || false,
         createdAt: user.createdAt,
         updatedAt: user.updatedAt,
       },
@@ -229,6 +232,7 @@ export class AuthService {
         name: true,
         avatarUrl: true,
         googleId: true,
+        isAdmin: true,
         passwordHash: true,
         createdAt: true,
         updatedAt: true,
@@ -256,6 +260,7 @@ export class AuthService {
         name: true,
         avatarUrl: true,
         googleId: true,
+        isAdmin: true,
         createdAt: true,
         updatedAt: true,
       },
@@ -368,7 +373,7 @@ export class AuthService {
     const user = await prisma.user.update({
       where: { id: userId },
       data: { googleId },
-      select: { id: true, email: true, name: true, avatarUrl: true, googleId: true, createdAt: true, updatedAt: true },
+      select: { id: true, email: true, name: true, avatarUrl: true, googleId: true, isAdmin: true, createdAt: true, updatedAt: true },
     });
 
     return user;
@@ -388,7 +393,7 @@ export class AuthService {
     const user = await prisma.user.update({
       where: { id: userId },
       data: { googleId: null },
-      select: { id: true, email: true, name: true, avatarUrl: true, googleId: true, createdAt: true, updatedAt: true },
+      select: { id: true, email: true, name: true, avatarUrl: true, googleId: true, isAdmin: true, createdAt: true, updatedAt: true },
     });
 
     return user;

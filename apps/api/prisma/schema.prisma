@@ -33,6 +33,7 @@ enum AIProviderEnum {
   DEEPSEEK
   OPENROUTER
   OLLAMA
+  COPILOT
   CUSTOM
 }
 
@@ -101,6 +102,7 @@ model User {
   googleId     String?  @unique
   name         String
   avatarUrl    String?
+  isAdmin      Boolean  @default(false)
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 

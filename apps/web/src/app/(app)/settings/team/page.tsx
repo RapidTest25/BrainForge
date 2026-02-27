@@ -83,26 +83,26 @@ export default function TeamSettingsPage() {
 
   const getRoleStyle = (role: string) => {
     switch (role) {
-      case 'OWNER': return 'bg-amber-50 text-amber-600';
-      case 'ADMIN': return 'bg-blue-50 text-blue-600';
-      default: return 'bg-gray-50 text-gray-500';
+      case 'OWNER': return 'bg-amber-500/100/10 text-amber-600';
+      case 'ADMIN': return 'bg-blue-500/100/10 text-blue-600';
+      default: return 'bg-muted text-muted-foreground';
     }
   };
 
   return (
     <div className="space-y-5 max-w-4xl mx-auto">
       <div>
-        <h1 className="text-xl font-semibold text-[#1a1a2e]">Team Settings</h1>
-        <p className="text-sm text-gray-400 mt-0.5">Manage your team, members, and invitations.</p>
+        <h1 className="text-xl font-semibold text-foreground">Team Settings</h1>
+        <p className="text-sm text-muted-foreground mt-0.5">Manage your team, members, and invitations.</p>
       </div>
 
       {/* Team Info */}
-      <div className="bg-white border border-gray-100 rounded-xl p-5 space-y-4">
-        <h3 className="text-sm font-medium text-[#1a1a2e]">Team Information</h3>
+      <div className="bg-card border border-border rounded-xl p-5 space-y-4">
+        <h3 className="text-sm font-medium text-foreground">Team Information</h3>
         <div className="space-y-1.5">
-          <label className="text-[13px] font-medium text-gray-600">Team Name</label>
+          <label className="text-[13px] font-medium text-muted-foreground">Team Name</label>
           <div className="flex gap-2">
-            <Input value={teamName} onChange={(e) => setTeamName(e.target.value)} className="border-gray-200 focus:border-[#7b68ee]" />
+            <Input value={teamName} onChange={(e) => setTeamName(e.target.value)} className="border-border focus:border-[#7b68ee]" />
             <button
               onClick={() => updateMutation.mutate({ name: teamName })}
               disabled={updateMutation.isPending}
@@ -112,16 +112,16 @@ export default function TeamSettingsPage() {
             </button>
           </div>
         </div>
-        <div className="flex items-center gap-2 text-sm text-gray-400">
+        <div className="flex items-center gap-2 text-sm text-muted-foreground">
           <Users className="h-4 w-4" />
           {members.length} member{members.length !== 1 ? 's' : ''}
         </div>
       </div>
 
       {/* Members */}
-      <div className="bg-white border border-gray-100 rounded-xl p-5">
+      <div className="bg-card border border-border rounded-xl p-5">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-sm font-medium text-[#1a1a2e]">Members</h3>
+          <h3 className="text-sm font-medium text-foreground">Members</h3>
           <button
             onClick={() => setShowInvite(true)}
             className="flex items-center gap-1.5 px-3 py-1.5 bg-[#7b68ee] text-white text-sm rounded-lg hover:bg-[#6c5ce7] transition-colors"
@@ -131,16 +131,16 @@ export default function TeamSettingsPage() {
         </div>
         <div className="space-y-2">
           {members.map((member: any) => (
-            <div key={member.id} className="flex items-center justify-between p-3 rounded-lg border border-gray-100 hover:border-gray-200 transition-colors">
+            <div key={member.id} className="flex items-center justify-between p-3 rounded-lg border border-border hover:border-border transition-colors">
               <div className="flex items-center gap-3">
                 <Avatar className="h-8 w-8">
-                  <AvatarFallback className="text-xs bg-gray-100 text-gray-500">
+                  <AvatarFallback className="text-xs bg-muted text-muted-foreground">
                     {(member.user?.name || member.user?.email || '?').substring(0, 2).toUpperCase()}
                   </AvatarFallback>
                 </Avatar>
                 <div>
-                  <p className="font-medium text-sm text-[#1a1a2e]">{member.user?.name || 'Unknown'}</p>
-                  <p className="text-[11px] text-gray-400">{member.user?.email}</p>
+                  <p className="font-medium text-sm text-foreground">{member.user?.name || 'Unknown'}</p>
+                  <p className="text-[11px] text-muted-foreground">{member.user?.email}</p>
                 </div>
                 <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium ${getRoleStyle(member.role)}`}>
                   {member.role}
@@ -153,14 +153,14 @@ export default function TeamSettingsPage() {
                       value={member.role}
                       onValueChange={(v) => updateRoleMutation.mutate({ memberId: member.id, role: v })}
                     >
-                      <SelectTrigger className="w-28 h-7 text-xs border-gray-200"><SelectValue /></SelectTrigger>
+                      <SelectTrigger className="w-28 h-7 text-xs border-border"><SelectValue /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="ADMIN">Admin</SelectItem>
                         <SelectItem value="MEMBER">Member</SelectItem>
                       </SelectContent>
                     </Select>
                     <button
-                      className="text-gray-300 hover:text-red-500 transition-colors"
+                      className="text-muted-foreground/60 hover:text-red-500 transition-colors"
                       onClick={() => setRemovingMember(member)}
                     >
                       <Trash2 className="h-4 w-4" />
@@ -175,9 +175,9 @@ export default function TeamSettingsPage() {
 
       {/* Invite Dialog */}
       <Dialog open={showInvite} onOpenChange={(o) => { setShowInvite(o); if (!o) { setInviteLink(''); setInviteMode('email'); } }}>
-        <DialogContent className="bg-white">
+        <DialogContent className="bg-card">
           <DialogHeader>
-            <DialogTitle className="text-[#1a1a2e]">Invite Member</DialogTitle>
+            <DialogTitle className="text-foreground">Invite Member</DialogTitle>
           </DialogHeader>
           {inviteLink ? (
             <div className="space-y-4">
@@ -186,32 +186,32 @@ export default function TeamSettingsPage() {
                 <span className="font-medium text-sm">Invitation Created!</span>
               </div>
               <div className="space-y-1.5">
-                <label className="text-[13px] font-medium text-gray-600">Invite Link</label>
+                <label className="text-[13px] font-medium text-muted-foreground">Invite Link</label>
                 <div className="flex gap-2">
-                  <Input value={`${window.location.origin}/join/${inviteLink}`} readOnly className="border-gray-200 text-sm" />
+                  <Input value={`${window.location.origin}/join/${inviteLink}`} readOnly className="border-border text-sm" />
                   <button
-                    className="px-3 py-1.5 border border-gray-200 rounded-lg text-gray-500 hover:text-gray-700 hover:border-gray-300 transition-colors"
+                    className="px-3 py-1.5 border border-border rounded-lg text-muted-foreground hover:text-foreground/80 hover:border-border transition-colors"
                     onClick={() => navigator.clipboard.writeText(`${window.location.origin}/join/${inviteLink}`)}
                   >
                     <Copy className="h-4 w-4" />
                   </button>
                 </div>
-                <p className="text-[11px] text-gray-400">This link expires in 7 days. Anyone with this link can join the team.</p>
+                <p className="text-[11px] text-muted-foreground">This link expires in 7 days. Anyone with this link can join the team.</p>
               </div>
             </div>
           ) : (
             <div className="space-y-4">
               {/* Mode toggle */}
-              <div className="flex bg-gray-100 rounded-lg p-0.5">
+              <div className="flex bg-muted rounded-lg p-0.5">
                 <button
                   onClick={() => setInviteMode('email')}
-                  className={`flex-1 py-1.5 text-[13px] font-medium rounded-md transition-colors ${inviteMode === 'email' ? 'bg-white text-[#1a1a2e] shadow-sm' : 'text-gray-500'}`}
+                  className={`flex-1 py-1.5 text-[13px] font-medium rounded-md transition-colors ${inviteMode === 'email' ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground'}`}
                 >
                   <Mail className="h-3.5 w-3.5 inline mr-1" /> Email
                 </button>
                 <button
                   onClick={() => setInviteMode('link')}
-                  className={`flex-1 py-1.5 text-[13px] font-medium rounded-md transition-colors ${inviteMode === 'link' ? 'bg-white text-[#1a1a2e] shadow-sm' : 'text-gray-500'}`}
+                  className={`flex-1 py-1.5 text-[13px] font-medium rounded-md transition-colors ${inviteMode === 'link' ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground'}`}
                 >
                   <Copy className="h-3.5 w-3.5 inline mr-1" /> Invite Link
                 </button>
@@ -219,25 +219,25 @@ export default function TeamSettingsPage() {
 
               {inviteMode === 'email' && (
                 <div className="space-y-1.5">
-                  <label className="text-[13px] font-medium text-gray-600">Email</label>
+                  <label className="text-[13px] font-medium text-muted-foreground">Email</label>
                   <Input
                     type="email"
                     value={inviteEmail}
                     onChange={(e) => setInviteEmail(e.target.value)}
                     placeholder="colleague@example.com"
-                    className="border-gray-200 focus:border-[#7b68ee]"
+                    className="border-border focus:border-[#7b68ee]"
                   />
                 </div>
               )}
 
               {inviteMode === 'link' && (
-                <p className="text-sm text-gray-500">Generate a link that anyone can use to join this team. The link expires in 7 days.</p>
+                <p className="text-sm text-muted-foreground">Generate a link that anyone can use to join this team. The link expires in 7 days.</p>
               )}
 
               <div className="space-y-1.5">
-                <label className="text-[13px] font-medium text-gray-600">Role</label>
+                <label className="text-[13px] font-medium text-muted-foreground">Role</label>
                 <Select value={inviteRole} onValueChange={setInviteRole}>
-                  <SelectTrigger className="border-gray-200"><SelectValue /></SelectTrigger>
+                  <SelectTrigger className="border-border"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="ADMIN">Admin</SelectItem>
                     <SelectItem value="MEMBER">Member</SelectItem>
@@ -247,7 +247,7 @@ export default function TeamSettingsPage() {
             </div>
           )}
           <DialogFooter>
-            <button onClick={() => { setShowInvite(false); setInviteLink(''); setInviteMode('email'); }} className="px-4 py-2 text-sm font-medium text-gray-500 hover:text-gray-700 rounded-lg hover:bg-gray-50 transition-colors">
+            <button onClick={() => { setShowInvite(false); setInviteLink(''); setInviteMode('email'); }} className="px-4 py-2 text-sm font-medium text-muted-foreground hover:text-foreground/80 rounded-lg hover:bg-accent transition-colors">
               {inviteLink ? 'Done' : 'Cancel'}
             </button>
             {!inviteLink && inviteMode === 'email' && (
@@ -276,26 +276,26 @@ export default function TeamSettingsPage() {
 
       {/* Remove Member Confirmation Dialog */}
       <Dialog open={!!removingMember} onOpenChange={(o) => { if (!o) setRemovingMember(null); }}>
-        <DialogContent className="bg-white max-w-sm">
+        <DialogContent className="bg-card max-w-sm">
           <DialogHeader>
-            <DialogTitle className="text-[#1a1a2e]">Remove Member</DialogTitle>
+            <DialogTitle className="text-foreground">Remove Member</DialogTitle>
           </DialogHeader>
           <div className="space-y-3">
-            <p className="text-sm text-gray-500">
-              Are you sure you want to remove <span className="font-medium text-[#1a1a2e]">{removingMember?.user?.name || removingMember?.user?.email}</span> from this team?
+            <p className="text-sm text-muted-foreground">
+              Are you sure you want to remove <span className="font-medium text-foreground">{removingMember?.user?.name || removingMember?.user?.email}</span> from this team?
             </p>
-            <p className="text-xs text-gray-400">This action cannot be undone. The member will lose access to all team resources.</p>
+            <p className="text-xs text-muted-foreground">This action cannot be undone. The member will lose access to all team resources.</p>
           </div>
           <DialogFooter>
             <button
               onClick={() => setRemovingMember(null)}
-              className="px-4 py-2 text-sm font-medium text-gray-500 hover:text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+              className="px-4 py-2 text-sm font-medium text-muted-foreground hover:text-foreground/80 rounded-lg hover:bg-accent transition-colors"
             >
               Cancel
             </button>
             <button
               onClick={() => { removeMutation.mutate(removingMember.id); setRemovingMember(null); }}
-              className="px-4 py-2 bg-red-500 text-white text-sm font-medium rounded-lg hover:bg-red-600 transition-colors"
+              className="px-4 py-2 bg-red-500/100/100 text-white text-sm font-medium rounded-lg hover:bg-red-600 transition-colors"
             >
               Remove Member
             </button>

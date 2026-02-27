@@ -49,8 +49,8 @@ function ResetPasswordForm() {
   if (!token) {
     return (
       <div className="text-center">
-        <h1 className="text-2xl font-bold text-[#1a1a2e] mb-2">Invalid Reset Link</h1>
-        <p className="text-gray-500 text-sm mb-6">This reset link is invalid or has expired.</p>
+        <h1 className="text-2xl font-bold text-foreground mb-2">Invalid Reset Link</h1>
+        <p className="text-muted-foreground text-sm mb-6">This reset link is invalid or has expired.</p>
         <Link href="/forgot-password">
           <Button className="bg-[#7b68ee] hover:bg-[#6c5ce7] text-white rounded-lg">
             Request New Link
@@ -66,8 +66,8 @@ function ResetPasswordForm() {
         <div className="h-14 w-14 rounded-full bg-green-50 flex items-center justify-center mx-auto mb-4">
           <CheckCircle className="h-6 w-6 text-green-500" />
         </div>
-        <h1 className="text-2xl font-bold text-[#1a1a2e] mb-2">Password Reset!</h1>
-        <p className="text-gray-500 text-sm mb-6">Your password has been successfully reset.</p>
+        <h1 className="text-2xl font-bold text-foreground mb-2">Password Reset!</h1>
+        <p className="text-muted-foreground text-sm mb-6">Your password has been successfully reset.</p>
         <Link href="/login">
           <Button className="w-full h-10 bg-[#7b68ee] hover:bg-[#6c5ce7] text-white rounded-lg">
             Sign in with new password
@@ -79,8 +79,8 @@ function ResetPasswordForm() {
 
   return (
     <>
-      <h1 className="text-2xl font-bold text-[#1a1a2e] mb-1">Reset your password</h1>
-      <p className="text-gray-500 text-sm mb-8">Enter your new password below</p>
+      <h1 className="text-2xl font-bold text-foreground mb-1">Reset your password</h1>
+      <p className="text-muted-foreground text-sm mb-8">Enter your new password below</p>
 
       <form onSubmit={handleSubmit} className="space-y-4">
         {error && (
@@ -90,15 +90,15 @@ function ResetPasswordForm() {
         )}
 
         <div className="space-y-1.5">
-          <label className="text-sm font-medium text-gray-700">New Password</label>
+          <label className="text-sm font-medium text-foreground/80">New Password</label>
           <div className="relative">
-            <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+            <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
               type={showPassword ? 'text' : 'password'}
               placeholder="Min 8 characters"
               value={newPassword}
               onChange={(e) => setNewPassword(e.target.value)}
-              className="pl-10 pr-10 h-10 border-gray-200 focus:border-[#7b68ee] focus:ring-[#7b68ee]/20"
+              className="pl-10 pr-10 h-10 border-border focus:border-[#7b68ee] focus:ring-[#7b68ee]/20"
               required
               minLength={8}
               autoFocus
@@ -106,7 +106,7 @@ function ResetPasswordForm() {
             <button
               type="button"
               onClick={() => setShowPassword(!showPassword)}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-muted-foreground transition-colors"
               tabIndex={-1}
             >
               {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
@@ -120,22 +120,22 @@ function ResetPasswordForm() {
                 /[0-9]/.test(newPassword),
                 /[^A-Za-z0-9]/.test(newPassword),
               ].map((met, i) => (
-                <div key={i} className={`h-1 flex-1 rounded-full transition-colors ${met ? 'bg-[#7b68ee]' : 'bg-gray-200'}`} />
+                <div key={i} className={`h-1 flex-1 rounded-full transition-colors ${met ? 'bg-[#7b68ee]' : 'bg-muted'}`} />
               ))}
             </div>
           )}
         </div>
 
         <div className="space-y-1.5">
-          <label className="text-sm font-medium text-gray-700">Confirm New Password</label>
+          <label className="text-sm font-medium text-foreground/80">Confirm New Password</label>
           <div className="relative">
-            <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+            <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
               type={showConfirmPassword ? 'text' : 'password'}
               placeholder="Re-enter new password"
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
-              className={`pl-10 pr-10 h-10 border-gray-200 focus:border-[#7b68ee] focus:ring-[#7b68ee]/20 ${
+              className={`pl-10 pr-10 h-10 border-border focus:border-[#7b68ee] focus:ring-[#7b68ee]/20 ${
                 confirmPassword && confirmPassword !== newPassword ? 'border-red-300 focus:border-red-400' : ''
               }`}
               required
@@ -144,7 +144,7 @@ function ResetPasswordForm() {
             <button
               type="button"
               onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-muted-foreground transition-colors"
               tabIndex={-1}
             >
               {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
@@ -169,7 +169,7 @@ function ResetPasswordForm() {
 
 export default function ResetPasswordPage() {
   return (
-    <div className="min-h-screen flex bg-white">
+    <div className="min-h-screen flex bg-card">
       {/* Left branding panel */}
       <div className="hidden lg:flex lg:w-[480px] bg-gradient-to-br from-[#7b68ee] to-[#6c5ce7] relative overflow-hidden">
         <div className="absolute inset-0 opacity-10">
@@ -179,7 +179,7 @@ export default function ResetPasswordPage() {
         </div>
         <div className="relative flex flex-col justify-between p-10 w-full">
           <Link href="/" className="flex items-center gap-2">
-            <div className="h-8 w-8 rounded-lg bg-white/20 flex items-center justify-center">
+            <div className="h-8 w-8 rounded-lg bg-card/20 flex items-center justify-center">
               <Brain className="h-4 w-4 text-white" />
             </div>
             <span className="text-lg font-bold text-white">BrainForge</span>
@@ -208,7 +208,7 @@ export default function ResetPasswordPage() {
             <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-[#7b68ee] to-[#a78bfa] flex items-center justify-center">
               <Brain className="h-4 w-4 text-white" />
             </div>
-            <span className="text-lg font-bold text-[#1a1a2e]">BrainForge</span>
+            <span className="text-lg font-bold text-foreground">BrainForge</span>
           </div>
 
           <Suspense fallback={<div className="flex justify-center"><Loader2 className="h-6 w-6 animate-spin text-[#7b68ee]" /></div>}>
@@ -216,7 +216,7 @@ export default function ResetPasswordPage() {
           </Suspense>
 
           <div className="mt-6 text-center">
-            <Link href="/login" className="text-sm text-gray-500 hover:text-[#7b68ee] transition-colors inline-flex items-center gap-1">
+            <Link href="/login" className="text-sm text-muted-foreground hover:text-[#7b68ee] transition-colors inline-flex items-center gap-1">
               <ArrowLeft className="h-3.5 w-3.5" />
               Back to sign in
             </Link>

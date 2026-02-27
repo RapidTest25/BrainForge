@@ -86,7 +86,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
       <div className="flex-1 flex flex-col overflow-hidden">
         <Header onMobileMenuToggle={() => setMobileOpen(true)} />
-        <main className="flex-1 overflow-y-auto p-4 md:p-6 bg-[#f8f9fb]">
+        <main className="flex-1 overflow-y-auto p-4 md:p-6 bg-background">
           {children}
         </main>
       </div>

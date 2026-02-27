@@ -16,6 +16,7 @@ import { goalRoutes } from './modules/goal/goal.routes.js';
 import { notificationRoutes } from './modules/notification/notification.routes.js';
 import { aiChatRoutes } from './modules/ai-chat/ai-chat.routes.js';
 import { projectRoutes } from './modules/project/project.routes.js';
+import { adminRoutes } from './modules/admin/admin.routes.js';
 import { aiService } from './ai/ai.service.js';
 import { AppError } from './lib/errors.js';
 
@@ -136,6 +137,7 @@ export async function buildApp() {
   app.register(notificationRoutes, { prefix: '/api/teams' });
   app.register(aiChatRoutes, { prefix: '/api/teams' });
   app.register(projectRoutes, { prefix: '/api/teams' });
+  app.register(adminRoutes, { prefix: '/api/admin' });
 
   return app;
 }

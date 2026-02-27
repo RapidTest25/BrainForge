@@ -120,15 +120,15 @@ export function AIGenerateDialog({ open, onOpenChange }: AIGenerateDialogProps) 
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="bg-white sm:max-w-[540px] rounded-2xl">
+      <DialogContent className="bg-card sm:max-w-[540px] rounded-2xl">
         <DialogHeader>
-          <DialogTitle className="text-lg font-bold text-[#1a1a2e] flex items-center gap-2">
+          <DialogTitle className="text-lg font-bold text-foreground flex items-center gap-2">
             <div className="h-8 w-8 rounded-xl bg-gradient-to-br from-[#7b68ee]/20 to-[#6c5ce7]/10 flex items-center justify-center">
               <Wand2 className="h-4 w-4 text-[#7b68ee]" />
             </div>
             AI Auto-Generate
           </DialogTitle>
-          <DialogDescription className="text-sm text-gray-400">
+          <DialogDescription className="text-sm text-muted-foreground">
             Describe your project and let AI create tasks, brainstorms, and notes for you
           </DialogDescription>
         </DialogHeader>
@@ -138,7 +138,7 @@ export function AIGenerateDialog({ open, onOpenChange }: AIGenerateDialogProps) 
             <div className="space-y-5 py-2">
               {/* What to generate */}
               <div className="space-y-2">
-                <label className="text-[13px] font-semibold text-gray-600">What to generate</label>
+                <label className="text-[13px] font-semibold text-muted-foreground">What to generate</label>
                 <div className="grid grid-cols-3 gap-2">
                   {GENERATE_OPTIONS.map(opt => {
                     const isSelected = selectedTypes.includes(opt.key);
@@ -150,7 +150,7 @@ export function AIGenerateDialog({ open, onOpenChange }: AIGenerateDialogProps) 
                           'flex flex-col items-center gap-2 p-3 rounded-xl border-2 transition-all',
                           isSelected
                             ? 'border-[#7b68ee] bg-[#7b68ee]/5 shadow-sm'
-                            : 'border-gray-100 hover:border-gray-200 hover:bg-gray-50'
+                            : 'border-border hover:border-border hover:bg-accent'
                         )}
                       >
                         <div className="relative">
@@ -164,8 +164,8 @@ export function AIGenerateDialog({ open, onOpenChange }: AIGenerateDialogProps) 
                           )}
                         </div>
                         <div className="text-center">
-                          <p className="text-xs font-semibold text-[#1a1a2e]">{opt.label}</p>
-                          <p className="text-[10px] text-gray-400 mt-0.5">{opt.desc}</p>
+                          <p className="text-xs font-semibold text-foreground">{opt.label}</p>
+                          <p className="text-[10px] text-muted-foreground mt-0.5">{opt.desc}</p>
                         </div>
                       </button>
                     );
@@ -175,24 +175,24 @@ export function AIGenerateDialog({ open, onOpenChange }: AIGenerateDialogProps) 
 
               {/* Prompt */}
               <div className="space-y-1.5">
-                <label className="text-[13px] font-semibold text-gray-600">Describe your project or goal</label>
+                <label className="text-[13px] font-semibold text-muted-foreground">Describe your project or goal</label>
                 <Textarea
                   placeholder="e.g. I'm building an e-commerce platform with user auth, product catalog, shopping cart, and checkout flow..."
                   value={prompt}
                   onChange={(e) => setPrompt(e.target.value)}
-                  className="border-gray-200 focus:border-[#7b68ee] rounded-xl min-h-[100px]"
+                  className="border-border focus:border-[#7b68ee] rounded-xl min-h-[100px]"
                   autoFocus
                 />
               </div>
 
               {/* AI Model selection */}
               <div className="space-y-3">
-                <label className="text-[13px] font-semibold text-gray-600">AI Model</label>
+                <label className="text-[13px] font-semibold text-muted-foreground">AI Model</label>
                 
                 {/* Provider pills — only show providers with connected keys */}
                 <div className="flex flex-wrap gap-1.5">
                   {connectedProviders.size === 0 ? (
-                    <div className="w-full flex items-center gap-2 px-3 py-2.5 rounded-xl bg-amber-50 border border-amber-100 text-amber-700 text-[12px]">
+                    <div className="w-full flex items-center gap-2 px-3 py-2.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-700 text-[12px]">
                       <AlertCircle className="h-3.5 w-3.5 shrink-0" />
                       No API keys connected. Go to Settings → AI Integration to add one.
                     </div>
@@ -208,7 +208,7 @@ export function AIGenerateDialog({ open, onOpenChange }: AIGenerateDialogProps) 
                             'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-medium transition-all border',
                             isSelected
                               ? 'border-[#7b68ee] bg-[#7b68ee]/5 text-[#7b68ee]'
-                              : 'border-gray-200 bg-white text-gray-600 hover:bg-gray-50'
+                              : 'border-border bg-card text-muted-foreground hover:bg-accent'
                           )}
                         >
                           <span className="text-sm">{info?.icon || '⚪'}</span>
@@ -232,23 +232,23 @@ export function AIGenerateDialog({ open, onOpenChange }: AIGenerateDialogProps) 
                           'w-full flex items-center gap-3 px-3 py-2 rounded-xl border transition-all text-left',
                           isSelected
                             ? 'border-[#7b68ee] bg-[#7b68ee]/5'
-                            : 'border-gray-100 hover:border-gray-200 hover:bg-gray-50'
+                            : 'border-border hover:border-border hover:bg-accent'
                         )}
                       >
                         <div className={cn(
                           'h-4 w-4 rounded-full border-2 flex items-center justify-center shrink-0',
-                          isSelected ? 'border-[#7b68ee]' : 'border-gray-300'
+                          isSelected ? 'border-[#7b68ee]' : 'border-border'
                         )}>
                           {isSelected && <div className="h-2 w-2 rounded-full bg-[#7b68ee]" />}
                         </div>
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-1.5">
-                            <span className="text-[13px] font-medium text-[#1a1a2e]">{m.name}</span>
-                            {isFree && <span className="text-[8px] font-bold px-1 py-0 rounded bg-green-50 text-green-600">FREE</span>}
+                            <span className="text-[13px] font-medium text-foreground">{m.name}</span>
+                            {isFree && <span className="text-[8px] font-bold px-1 py-0 rounded bg-green-500/10 text-green-600">FREE</span>}
                           </div>
-                          {m.description && <p className="text-[10px] text-gray-400 truncate">{m.description}</p>}
+                          {m.description && <p className="text-[10px] text-muted-foreground truncate">{m.description}</p>}
                         </div>
-                        <div className="text-right text-[10px] text-gray-400 shrink-0">
+                        <div className="text-right text-[10px] text-muted-foreground shrink-0">
                           <p>{(m.contextWindow / 1000).toFixed(0)}K ctx</p>
                           {!isFree && <p>${m.costPer1kInput}/1K</p>}
                         </div>
@@ -262,7 +262,7 @@ export function AIGenerateDialog({ open, onOpenChange }: AIGenerateDialogProps) 
             </div>
 
             <DialogFooter className="gap-2">
-              <button onClick={handleClose} className="px-4 py-2.5 text-sm font-medium text-gray-500 hover:text-gray-700 rounded-xl hover:bg-gray-50 transition-colors">Cancel</button>
+              <button onClick={handleClose} className="px-4 py-2.5 text-sm font-medium text-muted-foreground hover:text-foreground/80 rounded-xl hover:bg-accent transition-colors">Cancel</button>
               <button
                 onClick={handleGenerate}
                 disabled={!prompt.trim() || !selectedTypes.length || generateMutation.isPending || connectedProviders.size === 0}
@@ -286,7 +286,7 @@ export function AIGenerateDialog({ open, onOpenChange }: AIGenerateDialogProps) 
           <>
             {/* Results */}
             <div className="space-y-4 py-2">
-              <div className="flex items-center gap-2 p-3 bg-green-50 rounded-xl border border-green-100">
+              <div className="flex items-center gap-2 p-3 bg-green-500/10 rounded-xl border border-green-500/20">
                 <Check className="h-5 w-5 text-green-500" />
                 <div>
                   <p className="text-sm font-semibold text-green-700">Generated successfully!</p>
@@ -302,15 +302,15 @@ export function AIGenerateDialog({ open, onOpenChange }: AIGenerateDialogProps) 
               {/* Tasks preview */}
               {result.created.tasks?.length > 0 && (
                 <div className="space-y-2">
-                  <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider flex items-center gap-1.5">
+                  <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
                     <CheckSquare className="h-3.5 w-3.5 text-[#7b68ee]" /> Tasks
                   </h4>
                   <div className="space-y-1 max-h-40 overflow-y-auto">
                     {result.created.tasks.map((t: any) => (
-                      <div key={t.id} className="flex items-center gap-2 py-1.5 px-3 bg-gray-50 rounded-lg">
+                      <div key={t.id} className="flex items-center gap-2 py-1.5 px-3 bg-muted rounded-lg">
                         <div className="h-1.5 w-1.5 rounded-full bg-[#7b68ee]" />
-                        <span className="text-sm text-[#1a1a2e] flex-1 truncate">{t.title}</span>
-                        <span className="text-[10px] text-gray-400 px-1.5 py-0.5 bg-gray-100 rounded">{t.priority}</span>
+                        <span className="text-sm text-foreground flex-1 truncate">{t.title}</span>
+                        <span className="text-[10px] text-muted-foreground px-1.5 py-0.5 bg-muted rounded">{t.priority}</span>
                       </div>
                     ))}
                   </div>
@@ -320,11 +320,11 @@ export function AIGenerateDialog({ open, onOpenChange }: AIGenerateDialogProps) 
               {/* Brainstorm preview */}
               {result.created.brainstorm && (
                 <div className="space-y-2">
-                  <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider flex items-center gap-1.5">
+                  <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
                     <Brain className="h-3.5 w-3.5 text-green-500" /> Brainstorm
                   </h4>
-                  <div className="py-2 px-3 bg-green-50/50 rounded-lg border border-green-100">
-                    <p className="text-sm font-medium text-[#1a1a2e]">{result.created.brainstorm.title}</p>
+                  <div className="py-2 px-3 bg-green-500/10/50 rounded-lg border border-green-500/20">
+                    <p className="text-sm font-medium text-foreground">{result.created.brainstorm.title}</p>
                   </div>
                 </div>
               )}
@@ -332,13 +332,13 @@ export function AIGenerateDialog({ open, onOpenChange }: AIGenerateDialogProps) 
               {/* Notes preview */}
               {result.created.notes?.length > 0 && (
                 <div className="space-y-2">
-                  <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider flex items-center gap-1.5">
+                  <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
                     <FileText className="h-3.5 w-3.5 text-purple-500" /> Notes
                   </h4>
                   <div className="space-y-1 max-h-40 overflow-y-auto">
                     {result.created.notes.map((n: any) => (
                       <div key={n.id} className="py-1.5 px-3 bg-purple-50/50 rounded-lg border border-purple-100">
-                        <p className="text-sm font-medium text-[#1a1a2e]">{n.title}</p>
+                        <p className="text-sm font-medium text-foreground">{n.title}</p>
                       </div>
                     ))}
                   </div>

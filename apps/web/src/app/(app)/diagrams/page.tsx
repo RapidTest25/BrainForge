@@ -183,7 +183,7 @@ function DiagramEditor({ diagram, dtype, nodes: initNodes, edges: initEdges, onB
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <button onClick={onBack} className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 transition-colors">
+          <button onClick={onBack} className="p-1.5 rounded-lg hover:bg-accent text-muted-foreground transition-colors">
             <ArrowLeft className="h-4 w-4" />
           </button>
           {dtype && (
@@ -192,12 +192,12 @@ function DiagramEditor({ diagram, dtype, nodes: initNodes, edges: initEdges, onB
             </div>
           )}
           <div>
-            <h2 className="font-semibold text-[#1a1a2e]">{diagram.title}</h2>
+            <h2 className="font-semibold text-foreground">{diagram.title}</h2>
             <div className="flex items-center gap-2 mt-0.5">
               <span className="text-[10px] font-medium px-1.5 py-0.5 rounded" style={{ color, backgroundColor: `${color}12` }}>
                 {diagram.type}
               </span>
-              <span className="text-[11px] text-gray-400">{nodes.length} nodes · {edges.length} edges</span>
+              <span className="text-[11px] text-muted-foreground">{nodes.length} nodes · {edges.length} edges</span>
             </div>
           </div>
         </div>
@@ -210,45 +210,45 @@ function DiagramEditor({ diagram, dtype, nodes: initNodes, edges: initEdges, onB
               <Save className="h-3.5 w-3.5" /> Save
             </button>
           )}
-          <button onClick={onDelete} className="p-1.5 rounded-lg text-gray-300 hover:text-red-500 hover:bg-red-50 transition-colors">
+          <button onClick={onDelete} className="p-1.5 rounded-lg text-muted-foreground/60 hover:text-red-500 hover:bg-red-500/100/10 transition-colors">
             <Trash2 className="h-4 w-4" />
           </button>
         </div>
       </div>
 
       {/* Inline Toolbar */}
-      <div className="flex items-center gap-2 px-2 py-2 bg-gray-50 rounded-xl border border-gray-100">
+      <div className="flex items-center gap-2 px-2 py-2 bg-muted rounded-xl border border-border">
         <button
           onClick={() => { setAddingNode(true); setLinkingFrom(null); }}
-          className={`flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-lg transition-colors ${addingNode ? 'bg-[#7b68ee] text-white' : 'border border-gray-200 text-gray-600 hover:bg-white'}`}
+          className={`flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-lg transition-colors ${addingNode ? 'bg-[#7b68ee] text-white' : 'border border-border text-muted-foreground hover:bg-card'}`}
         >
           <Plus className="h-3.5 w-3.5" /> Node
         </button>
         <button
           onClick={() => { setLinkingFrom(linkingFrom ? null : '__waiting__'); setAddingNode(false); }}
-          className={`flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-lg transition-colors ${linkingFrom ? 'bg-emerald-500 text-white' : 'border border-gray-200 text-gray-600 hover:bg-white'}`}
+          className={`flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-lg transition-colors ${linkingFrom ? 'bg-emerald-500 text-white' : 'border border-border text-muted-foreground hover:bg-card'}`}
         >
           <Link2 className="h-3.5 w-3.5" /> {linkingFrom ? 'Click source node...' : 'Connect'}
         </button>
-        <div className="h-5 w-px bg-gray-200 mx-1" />
+        <div className="h-5 w-px bg-border mx-1" />
         {linkingFrom && (
           <span className="text-xs text-emerald-600 bg-emerald-50 px-2.5 py-1 rounded-lg animate-pulse">
             Click a source node, then a target node to connect
           </span>
         )}
         {selectedNode && !linkingFrom && (
-          <span className="text-xs text-gray-400">
+          <span className="text-xs text-muted-foreground">
             Double-click node to edit · Click to select
           </span>
         )}
         {!selectedNode && !linkingFrom && (
-          <span className="text-xs text-gray-400">Click node to select · Double-click to edit</span>
+          <span className="text-xs text-muted-foreground">Click node to select · Double-click to edit</span>
         )}
       </div>
 
       {/* Inline Add Node Bar */}
       {addingNode && (
-        <div className="flex items-center gap-2 px-3 py-2.5 bg-white border border-[#7b68ee]/30 rounded-xl shadow-sm">
+        <div className="flex items-center gap-2 px-3 py-2.5 bg-card border border-[#7b68ee]/30 rounded-xl shadow-sm">
           <div className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: color }} />
           <input
             ref={addInputRef}
@@ -256,19 +256,19 @@ function DiagramEditor({ diagram, dtype, nodes: initNodes, edges: initEdges, onB
             onChange={(e) => setNewLabel(e.target.value)}
             onKeyDown={(e) => { if (e.key === 'Enter') addNode(); if (e.key === 'Escape') setAddingNode(false); }}
             placeholder="Node label..."
-            className="flex-1 text-sm border-0 outline-none bg-transparent placeholder:text-gray-300"
+            className="flex-1 text-sm border-0 outline-none bg-transparent placeholder:text-muted-foreground/60"
           />
           <input
             value={newDesc}
             onChange={(e) => setNewDesc(e.target.value)}
             onKeyDown={(e) => { if (e.key === 'Enter') addNode(); if (e.key === 'Escape') setAddingNode(false); }}
             placeholder="Description (optional)"
-            className="flex-1 text-sm border-0 outline-none bg-transparent placeholder:text-gray-300 border-l border-gray-100 pl-2"
+            className="flex-1 text-sm border-0 outline-none bg-transparent placeholder:text-muted-foreground/60 border-l border-border pl-2"
           />
           <button onClick={addNode} disabled={!newLabel.trim()} className="h-7 w-7 rounded-lg bg-[#7b68ee] text-white flex items-center justify-center disabled:opacity-40 hover:bg-[#6c5ce7] transition-colors">
             <Check className="h-3.5 w-3.5" />
           </button>
-          <button onClick={() => setAddingNode(false)} className="h-7 w-7 rounded-lg text-gray-400 hover:bg-gray-100 flex items-center justify-center transition-colors">
+          <button onClick={() => setAddingNode(false)} className="h-7 w-7 rounded-lg text-muted-foreground hover:bg-accent flex items-center justify-center transition-colors">
             <X className="h-3.5 w-3.5" />
           </button>
         </div>
@@ -276,9 +276,9 @@ function DiagramEditor({ diagram, dtype, nodes: initNodes, edges: initEdges, onB
 
       {/* Inline Edge Label Input */}
       {showEdgeLabelInput && (
-        <div className="flex items-center gap-2 px-3 py-2.5 bg-white border border-emerald-300 rounded-xl shadow-sm">
+        <div className="flex items-center gap-2 px-3 py-2.5 bg-card border border-emerald-300 rounded-xl shadow-sm">
           <Link2 className="h-4 w-4 text-emerald-500" />
-          <span className="text-xs text-gray-500">
+          <span className="text-xs text-muted-foreground">
             {nodes.find(n => n.id === showEdgeLabelInput.source)?.data?.label} → {nodes.find(n => n.id === showEdgeLabelInput.target)?.data?.label}
           </span>
           <input
@@ -286,13 +286,13 @@ function DiagramEditor({ diagram, dtype, nodes: initNodes, edges: initEdges, onB
             onChange={(e) => setEdgeLabel(e.target.value)}
             onKeyDown={(e) => { if (e.key === 'Enter') confirmAddEdge(); if (e.key === 'Escape') setShowEdgeLabelInput(null); }}
             placeholder="Edge label (optional, Enter to confirm)"
-            className="flex-1 text-sm border-0 outline-none bg-transparent placeholder:text-gray-300"
+            className="flex-1 text-sm border-0 outline-none bg-transparent placeholder:text-muted-foreground/60"
             autoFocus
           />
           <button onClick={confirmAddEdge} className="h-7 w-7 rounded-lg bg-emerald-500 text-white flex items-center justify-center hover:bg-emerald-600 transition-colors">
             <Check className="h-3.5 w-3.5" />
           </button>
-          <button onClick={() => setShowEdgeLabelInput(null)} className="h-7 w-7 rounded-lg text-gray-400 hover:bg-gray-100 flex items-center justify-center transition-colors">
+          <button onClick={() => setShowEdgeLabelInput(null)} className="h-7 w-7 rounded-lg text-muted-foreground hover:bg-accent flex items-center justify-center transition-colors">
             <X className="h-3.5 w-3.5" />
           </button>
         </div>
@@ -301,24 +301,24 @@ function DiagramEditor({ diagram, dtype, nodes: initNodes, edges: initEdges, onB
       {/* Canvas */}
       <div
         ref={canvasRef}
-        className={`border rounded-xl bg-white min-h-[65vh] p-6 relative overflow-auto ${linkingFrom ? 'cursor-crosshair border-emerald-200' : 'border-gray-100'}`}
+        className={`border rounded-xl bg-card min-h-[65vh] p-6 relative overflow-auto ${linkingFrom ? 'cursor-crosshair border-emerald-200' : 'border-border'}`}
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
         onMouseLeave={handleMouseUp}
         onClick={() => { setSelectedNode(null); setEditingNodeId(null); }}
       >
         <div className="absolute inset-0 opacity-30" style={{
-          backgroundImage: 'radial-gradient(circle, #d1d5db 1px, transparent 1px)',
+          backgroundImage: 'radial-gradient(circle, var(--color-border) 1px, transparent 1px)',
           backgroundSize: '24px 24px',
         }} />
         {nodes.length === 0 && !addingNode ? (
           <div className="relative flex items-center justify-center h-full min-h-[55vh]">
             <div className="text-center">
-              <div className="h-14 w-14 rounded-2xl mx-auto mb-4 flex items-center justify-center bg-gray-50">
-                <GitBranch className="h-6 w-6 text-gray-300" />
+              <div className="h-14 w-14 rounded-2xl mx-auto mb-4 flex items-center justify-center bg-muted">
+                <GitBranch className="h-6 w-6 text-muted-foreground/60" />
               </div>
-              <h3 className="font-medium text-[#1a1a2e] mb-1">Empty Diagram</h3>
-              <p className="text-sm text-gray-400 max-w-xs mb-3">Click &quot;+ Node&quot; in the toolbar above to add your first node.</p>
+              <h3 className="font-medium text-foreground mb-1">Empty Diagram</h3>
+              <p className="text-sm text-muted-foreground max-w-xs mb-3">Click &quot;+ Node&quot; in the toolbar above to add your first node.</p>
               <button onClick={() => setAddingNode(true)} className="flex items-center gap-1.5 px-4 py-2 bg-[#7b68ee] text-white text-sm rounded-lg hover:bg-[#6c5ce7] transition-colors mx-auto">
                 <Plus className="h-3.5 w-3.5" /> Add First Node
               </button>
@@ -355,7 +355,7 @@ function DiagramEditor({ diagram, dtype, nodes: initNodes, edges: initEdges, onB
                     />
                     <circle cx={tx} cy={ty} r="3" fill={color} opacity="0.5" />
                     {edge.label && (
-                      <text x={mx} y={my - 8} fill="#9ca3af" fontSize="10" textAnchor="middle">{edge.label}</text>
+                      <text x={mx} y={my - 8} fill="currentColor" className="text-muted-foreground" fontSize="10" textAnchor="middle">{edge.label}</text>
                     )}
                     <text
                       x={mx + 15}
@@ -383,11 +383,11 @@ function DiagramEditor({ diagram, dtype, nodes: initNodes, edges: initEdges, onB
               return (
                 <div
                   key={node.id}
-                  className={`absolute bg-white border-2 rounded-xl p-3 shadow-sm min-w-36 transition-all group select-none ${
+                  className={`absolute bg-card border-2 rounded-xl p-3 shadow-sm min-w-36 transition-all group select-none ${
                     isLinkSource ? 'border-emerald-400 shadow-md ring-2 ring-emerald-200' :
                     selectedNode === node.id ? 'border-[#7b68ee] shadow-md ring-2 ring-[#7b68ee]/20' :
-                    linkingFrom ? 'border-gray-200 hover:border-emerald-300 hover:shadow-md cursor-pointer' :
-                    'border-gray-100 hover:shadow-md hover:border-gray-200'
+                    linkingFrom ? 'border-border hover:border-emerald-300 hover:shadow-md cursor-pointer' :
+                    'border-border hover:shadow-md hover:border-border'
                   }`}
                   style={{
                     left: node.position?.x || 0,
@@ -416,7 +416,7 @@ function DiagramEditor({ diagram, dtype, nodes: initNodes, edges: initEdges, onB
                         value={editLabel}
                         onChange={(e) => setEditLabel(e.target.value)}
                         onKeyDown={(e) => { if (e.key === 'Enter') saveEdit(); if (e.key === 'Escape') cancelEdit(); }}
-                        className="w-full text-sm font-medium border border-gray-200 rounded-lg px-2 py-1.5 outline-none focus:border-[#7b68ee] bg-gray-50"
+                        className="w-full text-sm font-medium border border-border rounded-lg px-2 py-1.5 outline-none focus:border-[#7b68ee] bg-muted"
                         autoFocus
                         placeholder="Label"
                       />
@@ -424,12 +424,12 @@ function DiagramEditor({ diagram, dtype, nodes: initNodes, edges: initEdges, onB
                         value={editDesc}
                         onChange={(e) => setEditDesc(e.target.value)}
                         onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); saveEdit(); } if (e.key === 'Escape') cancelEdit(); }}
-                        className="w-full text-[11px] border border-gray-200 rounded-lg px-2 py-1.5 outline-none focus:border-[#7b68ee] bg-gray-50 resize-none"
+                        className="w-full text-[11px] border border-border rounded-lg px-2 py-1.5 outline-none focus:border-[#7b68ee] bg-muted resize-none"
                         rows={2}
                         placeholder="Description (optional)"
                       />
                       <div className="flex gap-1 justify-end">
-                        <button onClick={cancelEdit} className="px-2 py-1 text-[11px] text-gray-500 hover:bg-gray-100 rounded-md">Cancel</button>
+                        <button onClick={cancelEdit} className="px-2 py-1 text-[11px] text-muted-foreground hover:bg-accent rounded-md">Cancel</button>
                         <button onClick={saveEdit} className="px-2 py-1 text-[11px] bg-[#7b68ee] text-white rounded-md hover:bg-[#6c5ce7]">Save</button>
                       </div>
                     </div>
@@ -437,12 +437,12 @@ function DiagramEditor({ diagram, dtype, nodes: initNodes, edges: initEdges, onB
                     /* Display mode */
                     <>
                       <div className="flex items-center gap-2 mb-0.5">
-                        <GripVertical className="h-3 w-3 text-gray-300 opacity-0 group-hover:opacity-100 transition-opacity cursor-grab" />
+                        <GripVertical className="h-3 w-3 text-muted-foreground/60 opacity-0 group-hover:opacity-100 transition-opacity cursor-grab" />
                         <div className="h-2 w-2 rounded-full" style={{ backgroundColor: color }} />
-                        <p className="text-sm font-medium text-[#1a1a2e]">{node.data?.label || node.id}</p>
+                        <p className="text-sm font-medium text-foreground">{node.data?.label || node.id}</p>
                       </div>
                       {node.data?.description && (
-                        <p className="text-[11px] text-gray-400 mt-1 max-w-48 leading-relaxed pl-5">{node.data.description}</p>
+                        <p className="text-[11px] text-muted-foreground mt-1 max-w-48 leading-relaxed pl-5">{node.data.description}</p>
                       )}
                       {selectedNode === node.id && !linkingFrom && (
                         <div className="absolute -top-2 -right-2 flex gap-1">
@@ -454,7 +454,7 @@ function DiagramEditor({ diagram, dtype, nodes: initNodes, edges: initEdges, onB
                             <PencilLine className="h-2.5 w-2.5 text-white" />
                           </button>
                           <button
-                            className="h-5 w-5 bg-red-500 rounded-full flex items-center justify-center shadow-sm hover:bg-red-600"
+                            className="h-5 w-5 bg-red-500/100 rounded-full flex items-center justify-center shadow-sm hover:bg-red-600"
                             onClick={(e) => { e.stopPropagation(); deleteNode(node.id); }}
                             title="Delete"
                           >
@@ -587,8 +587,8 @@ export default function DiagramsPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-semibold text-[#1a1a2e]">Diagrams</h1>
-          <p className="text-sm text-gray-400 mt-0.5">{diagramList.length} diagram{diagramList.length !== 1 ? 's' : ''}</p>
+          <h1 className="text-xl font-semibold text-foreground">Diagrams</h1>
+          <p className="text-sm text-muted-foreground mt-0.5">{diagramList.length} diagram{diagramList.length !== 1 ? 's' : ''}</p>
         </div>
         <div className="flex gap-2">
           <button
@@ -608,12 +608,12 @@ export default function DiagramsPage() {
 
       {/* Search */}
       <div className="relative max-w-sm">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
         <Input
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="Search diagrams..."
-          className="pl-9 border-gray-200 focus:border-[#7b68ee]"
+          className="pl-9 border-border focus:border-[#7b68ee]"
         />
       </div>
 
@@ -622,7 +622,7 @@ export default function DiagramsPage() {
         {DIAGRAM_TYPES.map(({ value, label, desc, icon: Icon, color }) => (
           <div
             key={value}
-            className="bg-white border border-gray-100 rounded-xl p-3.5 cursor-pointer hover:shadow-sm hover:border-gray-200 transition-all group"
+            className="bg-card border border-border rounded-xl p-3.5 cursor-pointer hover:shadow-sm hover:border-border transition-all group"
             onClick={() => {
               setNewDiagram({ ...newDiagram, type: value });
               setShowCreate(true);
@@ -631,8 +631,8 @@ export default function DiagramsPage() {
             <div className="h-9 w-9 rounded-xl mb-2.5 flex items-center justify-center transition-colors" style={{ backgroundColor: `${color}10` }}>
               <Icon className="h-4.5 w-4.5" style={{ color }} />
             </div>
-            <p className="text-[13px] font-medium text-[#1a1a2e] mb-0.5">{label}</p>
-            <p className="text-[10px] text-gray-400 leading-relaxed">{desc}</p>
+            <p className="text-[13px] font-medium text-foreground mb-0.5">{label}</p>
+            <p className="text-[10px] text-muted-foreground leading-relaxed">{desc}</p>
           </div>
         ))}
       </div>
@@ -640,40 +640,40 @@ export default function DiagramsPage() {
       {/* Diagram list */}
       {filteredDiagrams.length > 0 ? (
         <div className="space-y-2">
-          <h3 className="text-[11px] font-semibold uppercase tracking-wider text-gray-400 px-1">All Diagrams</h3>
+          <h3 className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground px-1">All Diagrams</h3>
           {filteredDiagrams.map((d: any) => {
             const dtype = getType(d.type);
             const nodeCount = (d.data as any)?.nodes?.length || 0;
             return (
               <div
                 key={d.id}
-                className="bg-white border border-gray-100 rounded-xl p-4 cursor-pointer hover:shadow-sm hover:border-gray-200 transition-all flex items-center gap-4"
+                className="bg-card border border-border rounded-xl p-4 cursor-pointer hover:shadow-sm hover:border-border transition-all flex items-center gap-4"
                 onClick={() => setActiveDiagram(d.id)}
               >
                 <div className="h-11 w-11 rounded-xl flex items-center justify-center shrink-0" style={{ backgroundColor: `${dtype?.color || '#6b7280'}10` }}>
                   {dtype && <dtype.icon className="h-5 w-5" style={{ color: dtype.color }} />}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <h3 className="text-sm font-medium text-[#1a1a2e] truncate">{d.title}</h3>
+                  <h3 className="text-sm font-medium text-foreground truncate">{d.title}</h3>
                   <div className="flex items-center gap-3 mt-1">
                     <span className="text-[10px] font-medium px-1.5 py-0.5 rounded" style={{ color: dtype?.color, backgroundColor: `${dtype?.color}10` }}>
                       {d.type}
                     </span>
                     {nodeCount > 0 && (
-                      <span className="text-[11px] text-gray-400">{nodeCount} nodes</span>
+                      <span className="text-[11px] text-muted-foreground">{nodeCount} nodes</span>
                     )}
                     {d.description && (
-                      <span className="text-[11px] text-gray-400 truncate max-w-48">{d.description}</span>
+                      <span className="text-[11px] text-muted-foreground truncate max-w-48">{d.description}</span>
                     )}
                   </div>
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
-                  <span className="text-[11px] text-gray-400 flex items-center gap-1">
+                  <span className="text-[11px] text-muted-foreground flex items-center gap-1">
                     <Clock className="h-3 w-3" />
                     {new Date(d.updatedAt).toLocaleDateString()}
                   </span>
                   <button
-                    className="p-1 rounded text-gray-300 hover:text-red-500 transition-colors"
+                    className="p-1 rounded text-muted-foreground/60 hover:text-red-500 transition-colors"
                     onClick={(e) => {
                       e.stopPropagation();
                       if (confirm('Delete this diagram?')) deleteMutation.mutate(d.id);
@@ -688,11 +688,11 @@ export default function DiagramsPage() {
         </div>
       ) : diagramList.length === 0 ? (
         <div className="text-center py-16">
-          <div className="h-14 w-14 rounded-2xl mx-auto mb-4 flex items-center justify-center bg-gray-50">
-            <GitBranch className="h-6 w-6 text-gray-300" />
+          <div className="h-14 w-14 rounded-2xl mx-auto mb-4 flex items-center justify-center bg-muted">
+            <GitBranch className="h-6 w-6 text-muted-foreground/60" />
           </div>
-          <h3 className="font-medium text-[#1a1a2e] mb-1">No Diagrams Yet</h3>
-          <p className="text-sm text-gray-400 mb-4 max-w-sm mx-auto">Create a diagram manually or use AI to generate flowcharts, ERDs, mind maps and more.</p>
+          <h3 className="font-medium text-foreground mb-1">No Diagrams Yet</h3>
+          <p className="text-sm text-muted-foreground mb-4 max-w-sm mx-auto">Create a diagram manually or use AI to generate flowcharts, ERDs, mind maps and more.</p>
           <div className="flex gap-2 justify-center">
             <button
               onClick={() => setShowAIGenerate(true)}
@@ -710,49 +710,49 @@ export default function DiagramsPage() {
         </div>
       ) : (
         <div className="text-center py-8">
-          <p className="text-sm text-gray-400">No diagrams matching &ldquo;{search}&rdquo;</p>
+          <p className="text-sm text-muted-foreground">No diagrams matching &ldquo;{search}&rdquo;</p>
         </div>
       )}
 
       {/* Create Dialog */}
       <Dialog open={showCreate} onOpenChange={setShowCreate}>
-        <DialogContent className="bg-white">
+        <DialogContent className="bg-card">
           <DialogHeader>
-            <DialogTitle className="text-[#1a1a2e]">Create Diagram</DialogTitle>
+            <DialogTitle className="text-foreground">Create Diagram</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             {/* Pre-selected type badge */}
             {(() => {
               const selectedType = getType(newDiagram.type);
               return selectedType ? (
-                <div className="flex items-center gap-2.5 px-3 py-2.5 border border-gray-100 rounded-xl bg-gray-50/50">
+                <div className="flex items-center gap-2.5 px-3 py-2.5 border border-border rounded-xl bg-muted/50">
                   <div className="h-8 w-8 rounded-lg flex items-center justify-center" style={{ backgroundColor: `${selectedType.color}12` }}>
                     <selectedType.icon className="h-4 w-4" style={{ color: selectedType.color }} />
                   </div>
                   <div>
-                    <p className="text-sm font-medium text-[#1a1a2e]">{selectedType.label}</p>
-                    <p className="text-[11px] text-gray-400">{selectedType.desc}</p>
+                    <p className="text-sm font-medium text-foreground">{selectedType.label}</p>
+                    <p className="text-[11px] text-muted-foreground">{selectedType.desc}</p>
                   </div>
                 </div>
               ) : null;
             })()}
             <div className="space-y-1.5">
-              <label className="text-[13px] font-medium text-gray-600">Title</label>
-              <Input value={newDiagram.title} onChange={(e) => setNewDiagram({ ...newDiagram, title: e.target.value })} placeholder="e.g. User Authentication Flow" className="border-gray-200 focus:border-[#7b68ee]" autoFocus />
+              <label className="text-[13px] font-medium text-muted-foreground">Title</label>
+              <Input value={newDiagram.title} onChange={(e) => setNewDiagram({ ...newDiagram, title: e.target.value })} placeholder="e.g. User Authentication Flow" className="border-border focus:border-[#7b68ee]" autoFocus />
             </div>
             <div className="space-y-1.5">
-              <label className="text-[13px] font-medium text-gray-600">Description <span className="text-gray-400 font-normal">(optional)</span></label>
+              <label className="text-[13px] font-medium text-muted-foreground">Description <span className="text-muted-foreground font-normal">(optional)</span></label>
               <Textarea
                 value={newDiagram.description}
                 onChange={(e) => setNewDiagram({ ...newDiagram, description: e.target.value })}
                 placeholder="What is this diagram about?"
                 rows={2}
-                className="border-gray-200 focus:border-[#7b68ee]"
+                className="border-border focus:border-[#7b68ee]"
               />
             </div>
           </div>
           <DialogFooter>
-            <button onClick={() => setShowCreate(false)} className="px-4 py-2 text-sm font-medium text-gray-500 hover:text-gray-700 rounded-lg hover:bg-gray-50 transition-colors">Cancel</button>
+            <button onClick={() => setShowCreate(false)} className="px-4 py-2 text-sm font-medium text-muted-foreground hover:text-foreground/80 rounded-lg hover:bg-accent transition-colors">Cancel</button>
             <button
               onClick={() => createMutation.mutate(newDiagram)}
               disabled={!newDiagram.title || createMutation.isPending}
@@ -767,48 +767,48 @@ export default function DiagramsPage() {
 
       {/* AI Generate Dialog */}
       <Dialog open={showAIGenerate} onOpenChange={setShowAIGenerate}>
-        <DialogContent className="max-w-lg bg-white">
+        <DialogContent className="max-w-lg bg-card">
           <DialogHeader>
-            <DialogTitle className="text-[#1a1a2e]">AI Generate Diagram</DialogTitle>
+            <DialogTitle className="text-foreground">AI Generate Diagram</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             <div className="space-y-1.5">
-              <label className="text-[13px] font-medium text-gray-600">Title</label>
-              <Input value={aiForm.title} onChange={(e) => setAiForm({ ...aiForm, title: e.target.value })} placeholder="Diagram title" className="border-gray-200 focus:border-[#7b68ee]" />
+              <label className="text-[13px] font-medium text-muted-foreground">Title</label>
+              <Input value={aiForm.title} onChange={(e) => setAiForm({ ...aiForm, title: e.target.value })} placeholder="Diagram title" className="border-border focus:border-[#7b68ee]" />
             </div>
             <div className="space-y-1.5">
-              <label className="text-[13px] font-medium text-gray-600">Type</label>
+              <label className="text-[13px] font-medium text-muted-foreground">Type</label>
               <Select value={aiForm.type} onValueChange={(v) => setAiForm({ ...aiForm, type: v })}>
-                <SelectTrigger className="border-gray-200"><SelectValue /></SelectTrigger>
+                <SelectTrigger className="border-border"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   {DIAGRAM_TYPES.map(t => <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
             <div className="space-y-1.5">
-              <label className="text-[13px] font-medium text-gray-600">Description</label>
+              <label className="text-[13px] font-medium text-muted-foreground">Description</label>
               <Textarea
                 value={aiForm.description}
                 onChange={(e) => setAiForm({ ...aiForm, description: e.target.value })}
                 placeholder="Describe what you want the diagram to show..."
                 rows={4}
-                className="border-gray-200 focus:border-[#7b68ee]"
+                className="border-border focus:border-[#7b68ee]"
               />
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1.5">
-                <label className="text-[13px] font-medium text-gray-600">Provider</label>
+                <label className="text-[13px] font-medium text-muted-foreground">Provider</label>
                 <Select value={aiForm.provider} onValueChange={(v) => setAiForm({ ...aiForm, provider: v })}>
-                  <SelectTrigger className="border-gray-200"><SelectValue /></SelectTrigger>
+                  <SelectTrigger className="border-border"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     {Object.keys(modelsData?.data || {}).map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>
               <div className="space-y-1.5">
-                <label className="text-[13px] font-medium text-gray-600">Model</label>
+                <label className="text-[13px] font-medium text-muted-foreground">Model</label>
                 <Select value={aiForm.model} onValueChange={(v) => setAiForm({ ...aiForm, model: v })}>
-                  <SelectTrigger className="border-gray-200"><SelectValue /></SelectTrigger>
+                  <SelectTrigger className="border-border"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     {(modelsData?.data?.[aiForm.provider] || []).map((m: any) => (
                       <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>
@@ -819,7 +819,7 @@ export default function DiagramsPage() {
             </div>
           </div>
           <DialogFooter>
-            <button onClick={() => setShowAIGenerate(false)} className="px-4 py-2 text-sm font-medium text-gray-500 hover:text-gray-700 rounded-lg hover:bg-gray-50 transition-colors">Cancel</button>
+            <button onClick={() => setShowAIGenerate(false)} className="px-4 py-2 text-sm font-medium text-muted-foreground hover:text-foreground/80 rounded-lg hover:bg-accent transition-colors">Cancel</button>
             <button
               onClick={() => aiGenerateMutation.mutate(aiForm)}
               disabled={!aiForm.title || !aiForm.description || aiGenerateMutation.isPending}

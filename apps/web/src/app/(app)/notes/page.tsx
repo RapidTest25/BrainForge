@@ -142,27 +142,27 @@ export default function NotesPage() {
     return (
       <div className="max-w-5xl mx-auto flex flex-col h-[calc(100vh-5rem)]">
         {/* Toolbar */}
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between border-b border-gray-100 pb-3 mb-4 gap-3">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between border-b border-border pb-3 mb-4 gap-3">
           <div className="flex items-center gap-2 min-w-0 flex-1">
-            <button onClick={() => { saveNote(); setSelectedNote(null); }} className="p-1.5 rounded-lg hover:bg-gray-50 text-gray-400 shrink-0">
+            <button onClick={() => { saveNote(); setSelectedNote(null); }} className="p-1.5 rounded-lg hover:bg-accent text-muted-foreground shrink-0">
               <ArrowLeft className="h-4 w-4" />
             </button>
             <input
               value={editTitle}
               onChange={(e) => setEditTitle(e.target.value)}
-              className="text-lg font-semibold text-[#1a1a2e] border-none bg-transparent focus:outline-none flex-1 min-w-0"
+              className="text-lg font-semibold text-foreground border-none bg-transparent focus:outline-none flex-1 min-w-0"
               placeholder="Note title..."
             />
           </div>
           <div className="flex items-center gap-2 flex-wrap">
             <Select value={aiProvider} onValueChange={(v) => { setAiProvider(v); setAiModel(''); }}>
-              <SelectTrigger className="w-24 h-7 text-xs border-gray-200"><SelectValue /></SelectTrigger>
+              <SelectTrigger className="w-24 h-7 text-xs border-border"><SelectValue /></SelectTrigger>
               <SelectContent>
                 {PROVIDERS.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}
               </SelectContent>
             </Select>
             <Select value={aiModel} onValueChange={setAiModel}>
-              <SelectTrigger className="w-32 h-7 text-xs border-gray-200"><SelectValue placeholder="Model" /></SelectTrigger>
+              <SelectTrigger className="w-32 h-7 text-xs border-border"><SelectValue placeholder="Model" /></SelectTrigger>
               <SelectContent>
                 {providerModels.map((m: any) => <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>)}
               </SelectContent>
@@ -172,7 +172,7 @@ export default function NotesPage() {
               <DropdownMenuTrigger asChild>
                 <button
                   disabled={aiAssistMutation.isPending}
-                  className="flex items-center gap-1.5 px-2.5 py-1 border border-gray-200 text-gray-600 text-xs rounded-lg hover:bg-gray-50 disabled:opacity-50 transition-colors"
+                  className="flex items-center gap-1.5 px-2.5 py-1 border border-border text-muted-foreground text-xs rounded-lg hover:bg-accent disabled:opacity-50 transition-colors"
                 >
                   <Wand2 className="h-3.5 w-3.5" />
                   {aiAssistMutation.isPending ? 'Processing...' : 'AI Assist'}
@@ -188,7 +188,7 @@ export default function NotesPage() {
               </DropdownMenuContent>
             </DropdownMenu>
 
-            <button onClick={() => setShowHistory(true)} className="flex items-center gap-1.5 px-2.5 py-1 border border-gray-200 text-gray-600 text-xs rounded-lg hover:bg-gray-50 transition-colors">
+            <button onClick={() => setShowHistory(true)} className="flex items-center gap-1.5 px-2.5 py-1 border border-border text-muted-foreground text-xs rounded-lg hover:bg-accent transition-colors">
               <History className="h-3.5 w-3.5" /> History
             </button>
 
@@ -198,7 +198,7 @@ export default function NotesPage() {
 
             <button
               onClick={() => { if (confirm('Delete this note?')) deleteMutation.mutate(selectedNote.id); }}
-              className="px-2.5 py-1 text-xs text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+              className="px-2.5 py-1 text-xs text-red-500 hover:bg-red-500/100/100/100/10 rounded-lg transition-colors"
             >
               Delete
             </button>
@@ -210,33 +210,33 @@ export default function NotesPage() {
           <textarea
             value={editContent}
             onChange={(e) => setEditContent(e.target.value)}
-            className="min-h-full w-full border-none bg-transparent focus:outline-none resize-none font-mono text-sm leading-relaxed text-[#1a1a2e] placeholder:text-gray-300"
+            className="min-h-full w-full border-none bg-transparent focus:outline-none resize-none font-mono text-sm leading-relaxed text-foreground placeholder:text-muted-foreground/60"
             placeholder="Start writing your note..."
           />
         </div>
 
         {/* History Dialog */}
         <Dialog open={showHistory} onOpenChange={setShowHistory}>
-          <DialogContent className="bg-white">
+          <DialogContent className="bg-card">
             <DialogHeader>
-              <DialogTitle className="text-[#1a1a2e]">Version History</DialogTitle>
+              <DialogTitle className="text-foreground">Version History</DialogTitle>
             </DialogHeader>
             <div className="space-y-2 max-h-96 overflow-auto">
               {(history?.data || []).map((v: any) => (
                 <div
                   key={v.id}
-                  className="bg-white border border-gray-100 rounded-xl p-3 flex items-center justify-between cursor-pointer hover:border-gray-200 transition-all"
+                  className="bg-card border border-border rounded-xl p-3 flex items-center justify-between cursor-pointer hover:border-border transition-all"
                   onClick={() => restoreMutation.mutate(v.id)}
                 >
                   <div>
-                    <p className="text-sm font-medium text-[#1a1a2e]">Version {v.version}</p>
-                    <p className="text-xs text-gray-400">{new Date(v.createdAt).toLocaleString()}</p>
+                    <p className="text-sm font-medium text-foreground">Version {v.version}</p>
+                    <p className="text-xs text-muted-foreground">{new Date(v.createdAt).toLocaleString()}</p>
                   </div>
-                  <button className="px-2.5 py-1 border border-gray-200 text-xs text-gray-600 rounded-lg hover:bg-gray-50 transition-colors">Restore</button>
+                  <button className="px-2.5 py-1 border border-border text-xs text-muted-foreground rounded-lg hover:bg-accent transition-colors">Restore</button>
                 </div>
               ))}
               {(!history?.data || history.data.length === 0) && (
-                <p className="text-center text-gray-400 text-sm py-4">No history available</p>
+                <p className="text-center text-muted-foreground text-sm py-4">No history available</p>
               )}
             </div>
           </DialogContent>
@@ -249,7 +249,7 @@ export default function NotesPage() {
   return (
     <div className="max-w-5xl mx-auto space-y-5">
       <div className="flex items-center justify-between">
-        <h1 className="text-xl font-semibold text-[#1a1a2e]">Notes</h1>
+        <h1 className="text-xl font-semibold text-foreground">Notes</h1>
         <button
           onClick={() => setShowCreate(true)}
           className="flex items-center gap-1.5 px-3 py-1.5 bg-[#7b68ee] text-white text-sm rounded-lg hover:bg-[#6c5ce7] transition-colors"
@@ -260,8 +260,8 @@ export default function NotesPage() {
 
       {/* Search */}
       <div className="relative max-w-md">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-        <Input value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9 border-gray-200 focus:border-[#7b68ee]" placeholder="Search notes..." />
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        <Input value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9 border-border focus:border-[#7b68ee]" placeholder="Search notes..." />
       </div>
 
       {/* Notes grid */}
@@ -269,7 +269,7 @@ export default function NotesPage() {
         {filteredNotes.map((note: any) => (
           <div
             key={note.id}
-            className="bg-white border border-gray-100 rounded-xl p-4 cursor-pointer hover:shadow-sm hover:border-gray-200 transition-all"
+            className="bg-card border border-border rounded-xl p-4 cursor-pointer hover:shadow-sm hover:border-border transition-all"
             onClick={() => {
               setSelectedNote(note);
               setEditTitle(note.title);
@@ -281,13 +281,13 @@ export default function NotesPage() {
                 <div className="h-6 w-6 rounded flex items-center justify-center bg-[#8b5cf6]/10">
                   <FileText className="h-3.5 w-3.5 text-[#8b5cf6]" />
                 </div>
-                <h3 className="font-medium text-sm text-[#1a1a2e] truncate">{note.title}</h3>
+                <h3 className="font-medium text-sm text-foreground truncate">{note.title}</h3>
               </div>
             </div>
-            <p className="text-sm text-gray-400 line-clamp-3">
+            <p className="text-sm text-muted-foreground line-clamp-3">
               {note.content?.substring(0, 150) || 'Empty note'}
             </p>
-            <div className="flex items-center gap-2 mt-3 text-xs text-gray-400">
+            <div className="flex items-center gap-2 mt-3 text-xs text-muted-foreground">
               <Clock className="h-3 w-3" />
               {new Date(note.updatedAt).toLocaleDateString()}
             </div>
@@ -295,9 +295,9 @@ export default function NotesPage() {
         ))}
         {filteredNotes.length === 0 && (
           <div className="col-span-full text-center py-12">
-            <FileText className="h-10 w-10 mx-auto text-gray-300 mb-3" />
-            <h3 className="font-medium text-[#1a1a2e] mb-1">No Notes Yet</h3>
-            <p className="text-sm text-gray-400 mb-4">Create your first note and use AI to improve your writing.</p>
+            <FileText className="h-10 w-10 mx-auto text-muted-foreground/60 mb-3" />
+            <h3 className="font-medium text-foreground mb-1">No Notes Yet</h3>
+            <p className="text-sm text-muted-foreground mb-4">Create your first note and use AI to improve your writing.</p>
             <button
               onClick={() => setShowCreate(true)}
               className="flex items-center gap-1.5 px-4 py-2 bg-[#7b68ee] text-white text-sm rounded-lg hover:bg-[#6c5ce7] transition-colors mx-auto"
@@ -310,16 +310,16 @@ export default function NotesPage() {
 
       {/* Create Dialog */}
       <Dialog open={showCreate} onOpenChange={setShowCreate}>
-        <DialogContent className="bg-white">
-          <DialogHeader><DialogTitle className="text-[#1a1a2e]">New Note</DialogTitle></DialogHeader>
+        <DialogContent className="bg-card">
+          <DialogHeader><DialogTitle className="text-foreground">New Note</DialogTitle></DialogHeader>
           <div className="space-y-4">
             <div className="space-y-1.5">
-              <label className="text-[13px] font-medium text-gray-600">Title</label>
-              <Input value={newTitle} onChange={(e) => setNewTitle(e.target.value)} placeholder="Note title..." className="border-gray-200 focus:border-[#7b68ee]" />
+              <label className="text-[13px] font-medium text-muted-foreground">Title</label>
+              <Input value={newTitle} onChange={(e) => setNewTitle(e.target.value)} placeholder="Note title..." className="border-border focus:border-[#7b68ee]" />
             </div>
           </div>
           <DialogFooter>
-            <button onClick={() => setShowCreate(false)} className="px-4 py-2 text-sm font-medium text-gray-500 hover:text-gray-700 rounded-lg hover:bg-gray-50 transition-colors">Cancel</button>
+            <button onClick={() => setShowCreate(false)} className="px-4 py-2 text-sm font-medium text-muted-foreground hover:text-foreground/80 rounded-lg hover:bg-accent transition-colors">Cancel</button>
             <button
               onClick={() => createMutation.mutate({ title: newTitle })}
               disabled={!newTitle}

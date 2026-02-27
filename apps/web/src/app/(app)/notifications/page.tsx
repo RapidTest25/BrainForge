@@ -78,8 +78,8 @@ export default function NotificationsPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-semibold text-[#1a1a2e]">Notifications</h1>
-          <p className="text-sm text-gray-400 mt-0.5">
+          <h1 className="text-xl font-semibold text-foreground">Notifications</h1>
+          <p className="text-sm text-muted-foreground mt-0.5">
             {unreadCount > 0 ? `${unreadCount} unread` : 'All caught up'}
           </p>
         </div>
@@ -94,15 +94,15 @@ export default function NotificationsPage() {
       </div>
 
       {/* Filter tabs */}
-      <div className="flex gap-1 bg-gray-100 p-0.5 rounded-lg w-fit">
+      <div className="flex gap-1 bg-muted p-0.5 rounded-lg w-fit">
         {(['all', 'unread'] as const).map((f) => (
           <button
             key={f}
             onClick={() => setFilter(f)}
             className={`px-3 py-1 text-sm rounded-md transition-colors capitalize ${
               filter === f
-                ? 'bg-white text-[#1a1a2e] font-medium shadow-sm'
-                : 'text-gray-500 hover:text-gray-700'
+                ? 'bg-card text-foreground font-medium shadow-sm'
+                : 'text-muted-foreground hover:text-foreground/80'
             }`}
           >
             {f}{f === 'unread' && unreadCount > 0 ? ` (${unreadCount})` : ''}
@@ -119,7 +119,7 @@ export default function NotificationsPage() {
             <div
               key={n.id}
               className={`flex items-start gap-3 p-3 rounded-xl transition-colors cursor-pointer group ${
-                n.read ? 'bg-white hover:bg-gray-50' : 'bg-[#7b68ee]/3 hover:bg-[#7b68ee]/6'
+                n.read ? 'bg-card hover:bg-accent' : 'bg-[#7b68ee]/3 hover:bg-[#7b68ee]/6'
               }`}
               onClick={() => {
                 if (!n.read) markReadMutation.mutate(n.id);
@@ -134,12 +134,12 @@ export default function NotificationsPage() {
               </div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-start justify-between gap-2">
-                  <p className={`text-sm ${n.read ? 'text-gray-600' : 'text-[#1a1a2e] font-medium'}`}>
+                  <p className={`text-sm ${n.read ? 'text-muted-foreground' : 'text-foreground font-medium'}`}>
                     {n.title}
                   </p>
-                  <span className="text-[11px] text-gray-400 shrink-0">{getTimeAgo(n.createdAt)}</span>
+                  <span className="text-[11px] text-muted-foreground shrink-0">{getTimeAgo(n.createdAt)}</span>
                 </div>
-                <p className="text-[13px] text-gray-400 mt-0.5 line-clamp-1">{n.message}</p>
+                <p className="text-[13px] text-muted-foreground mt-0.5 line-clamp-1">{n.message}</p>
               </div>
               {!n.read && (
                 <div className="h-2 w-2 rounded-full bg-[#7b68ee] shrink-0 mt-2" />
@@ -150,11 +150,11 @@ export default function NotificationsPage() {
 
         {filteredNotifications.length === 0 && (
           <div className="text-center py-16">
-            <BellOff className="h-10 w-10 mx-auto text-gray-300 mb-3" />
-            <h3 className="font-medium text-[#1a1a2e] mb-1">
+            <BellOff className="h-10 w-10 mx-auto text-muted-foreground/60 mb-3" />
+            <h3 className="font-medium text-foreground mb-1">
               {filter === 'unread' ? 'No unread notifications' : 'No notifications yet'}
             </h3>
-            <p className="text-sm text-gray-400">
+            <p className="text-sm text-muted-foreground">
               {filter === 'unread'
                 ? 'You\'re all caught up!'
                 : 'Notifications will appear here when there\'s activity in your workspace.'}

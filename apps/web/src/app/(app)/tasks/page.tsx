@@ -127,23 +127,23 @@ export default function TasksPage() {
     <div className="space-y-4 max-w-6xl mx-auto">
       {/* Header */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-        <h1 className="text-xl font-semibold text-[#1a1a2e]">Tasks</h1>
+        <h1 className="text-xl font-semibold text-foreground">Tasks</h1>
         <div className="flex items-center gap-2 flex-wrap">
           <div className="relative">
-            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400" />
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
             <Input
               placeholder="Search tasks..."
-              className="pl-8 h-8 w-40 sm:w-52 text-[13px] bg-white border-gray-200"
+              className="pl-8 h-8 w-40 sm:w-52 text-[13px] bg-card border-border"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />
           </div>
-          <div className="flex items-center border border-gray-200 rounded-lg overflow-hidden">
+          <div className="flex items-center border border-border rounded-lg overflow-hidden">
             <button
               onClick={() => setView('list')}
               className={cn(
                 'h-8 w-8 flex items-center justify-center transition-colors',
-                view === 'list' ? 'bg-[#7b68ee]/8 text-[#7b68ee]' : 'text-gray-400 hover:text-gray-600'
+                view === 'list' ? 'bg-[#7b68ee]/8 text-[#7b68ee]' : 'text-muted-foreground hover:text-muted-foreground'
               )}
             >
               <List className="h-3.5 w-3.5" />
@@ -151,8 +151,8 @@ export default function TasksPage() {
             <button
               onClick={() => setView('board')}
               className={cn(
-                'h-8 w-8 flex items-center justify-center border-l border-gray-200 transition-colors',
-                view === 'board' ? 'bg-[#7b68ee]/8 text-[#7b68ee]' : 'text-gray-400 hover:text-gray-600'
+                'h-8 w-8 flex items-center justify-center border-l border-border transition-colors',
+                view === 'board' ? 'bg-[#7b68ee]/8 text-[#7b68ee]' : 'text-muted-foreground hover:text-muted-foreground'
               )}
             >
               <LayoutGrid className="h-3.5 w-3.5" />
@@ -174,11 +174,11 @@ export default function TasksPage() {
       {view === 'board' && (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 h-[calc(100vh-10rem)] overflow-x-auto">
           {STATUS_COLUMNS.map(({ key, label, color, dotColor }) => (
-            <div key={key} className="flex flex-col rounded-xl bg-gray-50/80 border border-gray-100">
-              <div className="flex items-center gap-2 px-3 py-2.5 border-b border-gray-100">
+            <div key={key} className="flex flex-col rounded-xl bg-muted/80 border border-border">
+              <div className="flex items-center gap-2 px-3 py-2.5 border-b border-border">
                 <div className="h-2 w-2 rounded-full" style={{ backgroundColor: dotColor }} />
-                <span className="text-[13px] font-medium text-gray-700">{label}</span>
-                <span className="text-[11px] text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded ml-auto">
+                <span className="text-[13px] font-medium text-foreground/80">{label}</span>
+                <span className="text-[11px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded ml-auto">
                   {getTasksByStatus(key).length}
                 </span>
               </div>
@@ -188,21 +188,21 @@ export default function TasksPage() {
                     key={task.id}
                     onClick={(e) => handleTaskClick(task, e)}
                     className={cn(
-                      'bg-white rounded-lg border p-3 hover:shadow-md transition-all group relative cursor-pointer',
+                      'bg-card rounded-lg border p-3 hover:shadow-md transition-all group relative cursor-pointer',
                       selectedTask?.id === task.id
                         ? 'border-[#7b68ee] ring-1 ring-[#7b68ee]/20 shadow-sm'
-                        : 'border-gray-100 hover:border-gray-200'
+                        : 'border-border hover:border-border'
                     )}
                   >
                     <div className="flex items-start justify-between mb-1">
-                      <p className="text-sm font-medium text-[#1a1a2e] flex-1 pr-2">{task.title}</p>
+                      <p className="text-sm font-medium text-foreground flex-1 pr-2">{task.title}</p>
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
                           <button
                             data-dropdown-trigger
-                            className="h-6 w-6 flex items-center justify-center rounded hover:bg-gray-100 opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
+                            className="h-6 w-6 flex items-center justify-center rounded hover:bg-accent opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
                           >
-                            <MoreHorizontal className="h-3.5 w-3.5 text-gray-400" />
+                            <MoreHorizontal className="h-3.5 w-3.5 text-muted-foreground" />
                           </button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end" className="w-48">
@@ -259,7 +259,7 @@ export default function TasksPage() {
                       </DropdownMenu>
                     </div>
                     {task.description && (
-                      <p className="text-xs text-gray-400 line-clamp-2 mb-2">{task.description}</p>
+                      <p className="text-xs text-muted-foreground line-clamp-2 mb-2">{task.description}</p>
                     )}
                     <div className="flex items-center gap-1.5">
                       <span
@@ -274,7 +274,7 @@ export default function TasksPage() {
                       {task.dueDate && (
                         <span className={cn(
                           'text-[10px] px-1.5 py-0.5 rounded flex items-center gap-0.5',
-                          new Date(task.dueDate) < new Date() ? 'text-red-500 bg-red-50' : 'text-gray-500 bg-gray-100'
+                          new Date(task.dueDate) < new Date() ? 'text-red-500 bg-red-500/100/10' : 'text-muted-foreground bg-muted'
                         )}>
                           <CalendarIcon className="h-2.5 w-2.5" />
                           {new Date(task.dueDate).toLocaleDateString()}
@@ -284,7 +284,7 @@ export default function TasksPage() {
                   </div>
                 ))}
                 <button
-                  className="w-full py-1.5 text-[12px] text-gray-400 hover:text-[#7b68ee] hover:bg-[#7b68ee]/5 rounded-lg transition-colors flex items-center justify-center gap-1"
+                  className="w-full py-1.5 text-[12px] text-muted-foreground hover:text-[#7b68ee] hover:bg-[#7b68ee]/5 rounded-lg transition-colors flex items-center justify-center gap-1"
                   onClick={() => {
                     setNewTask({ ...newTask, status: key });
                     setShowCreateDialog(true);
@@ -301,8 +301,8 @@ export default function TasksPage() {
 
       {/* List View */}
       {view === 'list' && (
-        <div className="bg-white border border-gray-100 rounded-xl overflow-hidden">
-          <div className="grid-cols-[1fr_110px_90px_110px_40px] gap-2 px-4 py-2 bg-gray-50 border-b border-gray-100 text-[11px] font-semibold text-gray-500 uppercase tracking-wider hidden md:grid">
+        <div className="bg-card border border-border rounded-xl overflow-hidden">
+          <div className="grid-cols-[1fr_110px_90px_110px_40px] gap-2 px-4 py-2 bg-muted border-b border-border text-[11px] font-semibold text-muted-foreground uppercase tracking-wider hidden md:grid">
             <span>Task</span>
             <span>Status</span>
             <span>Priority</span>
@@ -310,7 +310,7 @@ export default function TasksPage() {
             <span></span>
           </div>
           {taskList.length === 0 ? (
-            <div className="text-center py-12 text-gray-400">
+            <div className="text-center py-12 text-muted-foreground">
               <p className="text-sm">No tasks yet</p>
             </div>
           ) : (
@@ -320,14 +320,14 @@ export default function TasksPage() {
                   key={task.id}
                   onClick={(e) => handleTaskClick(task, e)}
                   className={cn(
-                    'grid grid-cols-1 md:grid-cols-[1fr_110px_90px_110px_40px] gap-2 px-4 py-2.5 border-b border-gray-50 hover:bg-gray-50/50 transition-colors items-center cursor-pointer',
+                    'grid grid-cols-1 md:grid-cols-[1fr_110px_90px_110px_40px] gap-2 px-4 py-2.5 border-b border-border/50 hover:bg-muted/50 transition-colors items-center cursor-pointer',
                     selectedTask?.id === task.id && 'bg-[#7b68ee]/5 border-l-2 border-l-[#7b68ee]'
                   )}
                 >
                   <div>
-                    <p className="text-sm text-[#1a1a2e]">{task.title}</p>
+                    <p className="text-sm text-foreground">{task.title}</p>
                     {task.description && (
-                      <p className="text-xs text-gray-400 truncate max-w-sm">{task.description}</p>
+                      <p className="text-xs text-muted-foreground truncate max-w-sm">{task.description}</p>
                     )}
                   </div>
                   <div onClick={(e) => e.stopPropagation()}>
@@ -335,7 +335,7 @@ export default function TasksPage() {
                       value={task.status}
                       onValueChange={(v) => updateMutation.mutate({ taskId: task.id, data: { status: v } })}
                     >
-                      <SelectTrigger className="h-7 text-[11px] border-gray-200">
+                      <SelectTrigger className="h-7 text-[11px] border-border">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
@@ -354,14 +354,14 @@ export default function TasksPage() {
                   >
                     {task.priority}
                   </span>
-                  <span className="text-xs text-gray-400">
+                  <span className="text-xs text-muted-foreground">
                     {task.dueDate ? new Date(task.dueDate).toLocaleDateString() : '-'}
                   </span>
                   <div onClick={(e) => e.stopPropagation()}>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
                         <Button variant="ghost" size="icon" className="h-7 w-7">
-                          <MoreHorizontal className="h-3.5 w-3.5 text-gray-400" />
+                          <MoreHorizontal className="h-3.5 w-3.5 text-muted-foreground" />
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end" className="w-48">
@@ -409,7 +409,7 @@ export default function TasksPage() {
 
       {/* Task Detail Side Panel */}
       <Sheet open={!!selectedTask} onOpenChange={(open) => { if (!open) setSelectedTask(null); }}>
-        <SheetContent side="right" hideClose className="w-full sm:w-[420px] md:w-[480px] p-0 border-l border-gray-200">
+        <SheetContent side="right" hideClose className="w-full sm:w-[420px] md:w-[480px] p-0 border-l border-border">
           {selectedTask && (
             <TaskDetailPanel
               task={selectedTask}
@@ -424,9 +424,9 @@ export default function TasksPage() {
 
       {/* Create Task Dialog */}
       <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
-        <DialogContent className="bg-white sm:max-w-[520px] rounded-2xl">
+        <DialogContent className="bg-card sm:max-w-[520px] rounded-2xl">
           <DialogHeader>
-            <DialogTitle className="text-lg font-bold text-[#1a1a2e] flex items-center gap-2">
+            <DialogTitle className="text-lg font-bold text-foreground flex items-center gap-2">
               <div className="h-8 w-8 rounded-xl bg-[#7b68ee]/10 flex items-center justify-center">
                 <Plus className="h-4 w-4 text-[#7b68ee]" />
               </div>
@@ -436,24 +436,24 @@ export default function TasksPage() {
           <div className="space-y-5 py-1">
             {/* Title */}
             <div className="space-y-1.5">
-              <label className="text-[13px] font-semibold text-gray-600">Title</label>
+              <label className="text-[13px] font-semibold text-muted-foreground">Title</label>
               <Input
                 placeholder="e.g. Implement user dashboard"
                 value={newTask.title}
                 onChange={(e) => setNewTask({ ...newTask, title: e.target.value })}
-                className="border-gray-200 focus:border-[#7b68ee] rounded-xl h-11 text-sm"
+                className="border-border focus:border-[#7b68ee] rounded-xl h-11 text-sm"
                 autoFocus
               />
             </div>
 
             {/* Description */}
             <div className="space-y-1.5">
-              <label className="text-[13px] font-semibold text-gray-600">Description <span className="text-gray-400 font-normal">(optional)</span></label>
+              <label className="text-[13px] font-semibold text-muted-foreground">Description <span className="text-muted-foreground font-normal">(optional)</span></label>
               <Textarea
                 placeholder="Describe the task in detail..."
                 value={newTask.description}
                 onChange={(e) => setNewTask({ ...newTask, description: e.target.value })}
-                className="border-gray-200 focus:border-[#7b68ee] rounded-xl min-h-[80px]"
+                className="border-border focus:border-[#7b68ee] rounded-xl min-h-[80px]"
                 rows={3}
               />
             </div>
@@ -462,7 +462,7 @@ export default function TasksPage() {
             <div className="grid grid-cols-2 gap-4">
               {/* Status */}
               <div className="space-y-1.5">
-                <label className="text-[13px] font-semibold text-gray-600">Status</label>
+                <label className="text-[13px] font-semibold text-muted-foreground">Status</label>
                 <div className="grid grid-cols-2 gap-1.5">
                   {STATUS_COLUMNS.map(s => (
                     <button
@@ -472,7 +472,7 @@ export default function TasksPage() {
                         'flex items-center gap-1.5 px-2.5 py-2 text-[12px] font-medium rounded-xl border-2 transition-all',
                         newTask.status === s.key
                           ? 'border-[#7b68ee] bg-[#7b68ee]/5'
-                          : 'border-gray-100 hover:border-gray-200 hover:bg-gray-50'
+                          : 'border-border hover:border-border hover:bg-accent'
                       )}
                     >
                       <div className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: s.color }} />
@@ -484,7 +484,7 @@ export default function TasksPage() {
 
               {/* Priority */}
               <div className="space-y-1.5">
-                <label className="text-[13px] font-semibold text-gray-600">Priority</label>
+                <label className="text-[13px] font-semibold text-muted-foreground">Priority</label>
                 <div className="grid grid-cols-2 gap-1.5">
                   {PRIORITY_OPTIONS.map(p => (
                     <button
@@ -494,7 +494,7 @@ export default function TasksPage() {
                         'flex items-center gap-1.5 px-2.5 py-2 text-[12px] font-medium rounded-xl border-2 transition-all',
                         newTask.priority === p.value
                           ? 'border-[#7b68ee] bg-[#7b68ee]/5'
-                          : 'border-gray-100 hover:border-gray-200 hover:bg-gray-50'
+                          : 'border-border hover:border-border hover:bg-accent'
                       )}
                     >
                       <div className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: p.color }} />
@@ -507,17 +507,17 @@ export default function TasksPage() {
 
             {/* Due date */}
             <div className="space-y-1.5">
-              <label className="text-[13px] font-semibold text-gray-600">Due Date <span className="text-gray-400 font-normal">(optional)</span></label>
+              <label className="text-[13px] font-semibold text-muted-foreground">Due Date <span className="text-muted-foreground font-normal">(optional)</span></label>
               <Input
                 type="date"
                 value={(newTask as any).dueDate || ''}
                 onChange={(e) => setNewTask({ ...newTask, dueDate: e.target.value } as any)}
-                className="border-gray-200 focus:border-[#7b68ee] rounded-xl h-10"
+                className="border-border focus:border-[#7b68ee] rounded-xl h-10"
               />
             </div>
           </div>
           <DialogFooter className="gap-2">
-            <button onClick={() => setShowCreateDialog(false)} className="px-4 py-2.5 text-sm font-medium text-gray-500 hover:text-gray-700 rounded-xl hover:bg-gray-50 transition-colors">Cancel</button>
+            <button onClick={() => setShowCreateDialog(false)} className="px-4 py-2.5 text-sm font-medium text-muted-foreground hover:text-foreground/80 rounded-xl hover:bg-accent transition-colors">Cancel</button>
             <button
               onClick={() => createMutation.mutate(newTask)}
               disabled={!newTask.title || createMutation.isPending}

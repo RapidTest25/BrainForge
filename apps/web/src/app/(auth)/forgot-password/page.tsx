@@ -35,7 +35,7 @@ export default function ForgotPasswordPage() {
   };
 
   return (
-    <div className="min-h-screen flex bg-white">
+    <div className="min-h-screen flex bg-card">
       {/* Left branding panel */}
       <div className="hidden lg:flex lg:w-[480px] bg-gradient-to-br from-[#7b68ee] to-[#6c5ce7] relative overflow-hidden">
         <div className="absolute inset-0 opacity-10">
@@ -45,7 +45,7 @@ export default function ForgotPasswordPage() {
         </div>
         <div className="relative flex flex-col justify-between p-10 w-full">
           <Link href="/" className="flex items-center gap-2">
-            <div className="h-8 w-8 rounded-lg bg-white/20 flex items-center justify-center">
+            <div className="h-8 w-8 rounded-lg bg-card/20 flex items-center justify-center">
               <Brain className="h-4 w-4 text-white" />
             </div>
             <span className="text-lg font-bold text-white">BrainForge</span>
@@ -78,13 +78,13 @@ export default function ForgotPasswordPage() {
             <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-[#7b68ee] to-[#a78bfa] flex items-center justify-center">
               <Brain className="h-4 w-4 text-white" />
             </div>
-            <span className="text-lg font-bold text-[#1a1a2e]">BrainForge</span>
+            <span className="text-lg font-bold text-foreground">BrainForge</span>
           </div>
 
           {!sent ? (
             <>
-              <h1 className="text-2xl font-bold text-[#1a1a2e] mb-1">Forgot password?</h1>
-              <p className="text-gray-500 text-sm mb-8">Enter your email to receive a reset link</p>
+              <h1 className="text-2xl font-bold text-foreground mb-1">Forgot password?</h1>
+              <p className="text-muted-foreground text-sm mb-8">Enter your email to receive a reset link</p>
 
               <form onSubmit={handleSubmit} className="space-y-4">
                 {error && (
@@ -94,15 +94,15 @@ export default function ForgotPasswordPage() {
                 )}
 
                 <div className="space-y-1.5">
-                  <label className="text-sm font-medium text-gray-700">Email address</label>
+                  <label className="text-sm font-medium text-foreground/80">Email address</label>
                   <div className="relative">
-                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <Input
                       type="email"
                       placeholder="you@example.com"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
-                      className="pl-10 h-10 border-gray-200 focus:border-[#7b68ee] focus:ring-[#7b68ee]/20"
+                      className="pl-10 h-10 border-border focus:border-[#7b68ee] focus:ring-[#7b68ee]/20"
                       required
                       autoFocus
                     />
@@ -123,14 +123,14 @@ export default function ForgotPasswordPage() {
               <div className="h-14 w-14 rounded-full bg-green-50 flex items-center justify-center mx-auto mb-4">
                 <Mail className="h-6 w-6 text-green-500" />
               </div>
-              <h1 className="text-2xl font-bold text-[#1a1a2e] mb-2">Check your email</h1>
-              <p className="text-gray-500 text-sm mb-6">
-                If an account exists for <span className="font-medium text-[#1a1a2e]">{email}</span>, you&apos;ll receive a reset link.
+              <h1 className="text-2xl font-bold text-foreground mb-2">Check your email</h1>
+              <p className="text-muted-foreground text-sm mb-6">
+                If an account exists for <span className="font-medium text-foreground">{email}</span>, you&apos;ll receive a reset link.
               </p>
 
               {resetToken && (
-                <div className="mb-6 p-4 bg-gray-50 rounded-lg border border-gray-200 text-left">
-                  <p className="text-xs text-gray-500 mb-2 font-medium">Self-hosted mode — reset link:</p>
+                <div className="mb-6 p-4 bg-muted rounded-lg border border-border text-left">
+                  <p className="text-xs text-muted-foreground mb-2 font-medium">Self-hosted mode — reset link:</p>
                   <button
                     onClick={() => router.push(`/reset-password?token=${resetToken}`)}
                     className="text-sm text-[#7b68ee] hover:underline break-all"
@@ -151,7 +151,7 @@ export default function ForgotPasswordPage() {
           )}
 
           <div className="mt-6 text-center">
-            <Link href="/login" className="text-sm text-gray-500 hover:text-[#7b68ee] transition-colors inline-flex items-center gap-1">
+            <Link href="/login" className="text-sm text-muted-foreground hover:text-[#7b68ee] transition-colors inline-flex items-center gap-1">
               <ArrowLeft className="h-3.5 w-3.5" />
               Back to sign in
             </Link>

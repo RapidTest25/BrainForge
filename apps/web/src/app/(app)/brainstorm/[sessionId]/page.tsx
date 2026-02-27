@@ -435,7 +435,7 @@ export default function BrainstormSessionPage() {
     if (!ctx) return;
 
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-    ctx.strokeStyle = '#f0f0f0';
+    ctx.strokeStyle = 'var(--color-border)';
     ctx.lineWidth = 1;
     for (let x = 0; x < canvas.width; x += 20) {
       ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, canvas.height); ctx.stroke();
@@ -688,9 +688,9 @@ export default function BrainstormSessionPage() {
   return (
     <div className="max-w-6xl mx-auto flex flex-col h-[calc(100vh-8rem)]">
       {/* ===== HEADER ===== */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 pb-3 border-b border-gray-100">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 pb-3 border-b border-border">
         <div className="flex items-center gap-3 flex-1 min-w-0">
-          <button onClick={() => router.push('/brainstorm')} className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 transition-colors">
+          <button onClick={() => router.push('/brainstorm')} className="p-1.5 rounded-lg hover:bg-accent text-muted-foreground transition-colors">
             <ArrowLeft className="h-4 w-4" />
           </button>
           {session?.data && modeInfo && (
@@ -705,22 +705,22 @@ export default function BrainstormSessionPage() {
                       value={titleDraft}
                       onChange={(e) => setTitleDraft(e.target.value)}
                       onKeyDown={(e) => { if (e.key === 'Enter') saveTitle(); if (e.key === 'Escape') setEditingTitle(false); }}
-                      className="h-7 text-sm font-semibold border-gray-200 focus:border-[#7b68ee] rounded-lg px-2 max-w-[200px]"
+                      className="h-7 text-sm font-semibold border-border focus:border-[#7b68ee] rounded-lg px-2 max-w-[200px]"
                       autoFocus
                     />
-                    <button onClick={saveTitle} className="p-1 rounded hover:bg-green-50 text-green-600"><Check className="h-3.5 w-3.5" /></button>
-                    <button onClick={() => setEditingTitle(false)} className="p-1 rounded hover:bg-red-50 text-red-500"><X className="h-3.5 w-3.5" /></button>
+                    <button onClick={saveTitle} className="p-1 rounded hover:bg-green-500/10 text-green-600"><Check className="h-3.5 w-3.5" /></button>
+                    <button onClick={() => setEditingTitle(false)} className="p-1 rounded hover:bg-red-500/100/100/100/10 text-red-500"><X className="h-3.5 w-3.5" /></button>
                   </div>
                 ) : (
                   <button
                     onClick={startEditTitle}
                     className="group flex items-center gap-1.5"
                   >
-                    <h2 className="font-semibold text-sm text-[#1a1a2e] truncate">{session.data.title}</h2>
-                    <Pencil className="h-3 w-3 text-gray-300 opacity-0 group-hover:opacity-100 transition-opacity" />
+                    <h2 className="font-semibold text-sm text-foreground truncate">{session.data.title}</h2>
+                    <Pencil className="h-3 w-3 text-muted-foreground/60 opacity-0 group-hover:opacity-100 transition-opacity" />
                   </button>
                 )}
-                <p className="text-[11px] text-gray-400 uppercase tracking-wide">{session.data.mode} mode</p>
+                <p className="text-[11px] text-muted-foreground uppercase tracking-wide">{session.data.mode} mode</p>
               </div>
             </>
           )}
@@ -731,14 +731,14 @@ export default function BrainstormSessionPage() {
               {members.slice(0, 5).map((m, i) => (
                 <div
                   key={m.userId + i}
-                  className="h-7 w-7 rounded-full border-2 border-white bg-gradient-to-br from-[#7b68ee] to-[#6c5ce7] flex items-center justify-center text-[10px] font-bold text-white"
+                  className="h-7 w-7 rounded-full border-2 border-background bg-gradient-to-br from-[#7b68ee] to-[#6c5ce7] flex items-center justify-center text-[10px] font-bold text-white"
                   title={m.userName}
                 >
                   {m.userName?.charAt(0)?.toUpperCase() || '?'}
                 </div>
               ))}
               {members.length > 5 && (
-                <div className="h-7 w-7 rounded-full border-2 border-white bg-gray-200 flex items-center justify-center text-[10px] font-medium text-gray-600">
+                <div className="h-7 w-7 rounded-full border-2 border-background bg-muted flex items-center justify-center text-[10px] font-medium text-muted-foreground">
                   +{members.length - 5}
                 </div>
               )}
@@ -747,7 +747,7 @@ export default function BrainstormSessionPage() {
         </div>
 
         {/* Tabs */}
-        <div className="flex items-center gap-1 bg-gray-100/80 rounded-xl p-1">
+        <div className="flex items-center gap-1 bg-muted/80 rounded-xl p-1">
           {[
             { key: 'chat' as const, label: 'Chat', icon: MessageSquare },
             { key: 'whiteboard' as const, label: 'Draw', icon: Pencil },
@@ -759,8 +759,8 @@ export default function BrainstormSessionPage() {
               className={cn(
                 'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all',
                 activeTab === tab.key
-                  ? 'bg-white text-[#7b68ee] shadow-sm'
-                  : 'text-gray-500 hover:text-gray-700'
+                  ? 'bg-card text-[#7b68ee] shadow-sm'
+                  : 'text-muted-foreground hover:text-foreground/80'
               )}
             >
               <tab.icon className="h-3.5 w-3.5" />
@@ -787,9 +787,9 @@ export default function BrainstormSessionPage() {
                       <img src={msg.user.avatarUrl} alt={senderName} className="h-7 w-7 rounded-full object-cover" />
                     ) : senderInitial}
                   </div>
-                  <div className={cn('rounded-2xl px-4 py-3 group relative', isOwn ? 'bg-gradient-to-r from-[#7b68ee] to-[#6c5ce7] text-white' : 'bg-gray-50 text-[#1a1a2e] border border-gray-100')}>
+                  <div className={cn('rounded-2xl px-4 py-3 group relative', isOwn ? 'bg-gradient-to-r from-[#7b68ee] to-[#6c5ce7] text-white' : 'bg-muted text-foreground border border-border')}>
                     {/* Sender name */}
-                    <p className={cn('text-[11px] font-semibold mb-1', isOwn ? 'text-white/80' : 'text-gray-500')}>
+                    <p className={cn('text-[11px] font-semibold mb-1', isOwn ? 'text-white/80' : 'text-muted-foreground')}>
                       {senderName}
                     </p>
 
@@ -803,15 +803,15 @@ export default function BrainstormSessionPage() {
                             if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); editMutation.mutate({ messageId: msg.id, content: editingContent }); }
                             if (e.key === 'Escape') { setEditingMessageId(null); setEditingContent(''); }
                           }}
-                          className="min-h-[60px] text-sm bg-white/20 border-white/30 text-inherit rounded-xl"
+                          className="min-h-[60px] text-sm bg-card/20 border-background/30 text-inherit rounded-xl"
                           autoFocus
                         />
                         <div className="flex gap-1.5 justify-end">
-                          <button onClick={() => { setEditingMessageId(null); setEditingContent(''); }} className="px-2.5 py-1 text-[11px] rounded-lg hover:bg-white/20">Cancel</button>
+                          <button onClick={() => { setEditingMessageId(null); setEditingContent(''); }} className="px-2.5 py-1 text-[11px] rounded-lg hover:bg-card/20">Cancel</button>
                           <button
                             onClick={() => editMutation.mutate({ messageId: msg.id, content: editingContent })}
                             disabled={!editingContent.trim() || editMutation.isPending}
-                            className="px-2.5 py-1 text-[11px] rounded-lg bg-white/20 hover:bg-white/30 font-medium disabled:opacity-50"
+                            className="px-2.5 py-1 text-[11px] rounded-lg bg-card/20 hover:bg-card/30 font-medium disabled:opacity-50"
                           >
                             {editMutation.isPending ? 'Saving...' : 'Save'}
                           </button>
@@ -832,7 +832,7 @@ export default function BrainstormSessionPage() {
                                     <img
                                       src={fullUrl}
                                       alt={msg.fileName || 'Image'}
-                                      className="max-w-[280px] max-h-[200px] rounded-lg object-cover border border-white/20"
+                                      className="max-w-[280px] max-h-[200px] rounded-lg object-cover border border-background/20"
                                     />
                                   </a>
                                   <a
@@ -846,7 +846,7 @@ export default function BrainstormSessionPage() {
                                   </a>
                                 </div>
                               ) : (
-                                <div className={cn('flex items-center gap-2 px-3 py-2 rounded-lg text-xs', isOwn ? 'bg-white/15' : 'bg-gray-100')}>
+                                <div className={cn('flex items-center gap-2 px-3 py-2 rounded-lg text-xs', isOwn ? 'bg-card/15' : 'bg-muted')}>
                                   <FileIcon className="h-4 w-4" />
                                   <a
                                     href={fullUrl}
@@ -859,7 +859,7 @@ export default function BrainstormSessionPage() {
                                   <a
                                     href={downloadUrl}
                                     download={msg.fileName || 'file'}
-                                    className={cn('ml-auto h-6 w-6 rounded-md flex items-center justify-center shrink-0 transition-colors', isOwn ? 'hover:bg-white/20' : 'hover:bg-gray-200')}
+                                    className={cn('ml-auto h-6 w-6 rounded-md flex items-center justify-center shrink-0 transition-colors', isOwn ? 'hover:bg-card/20' : 'hover:bg-accent')}
                                     title="Download"
                                   >
                                     <Download className="h-3 w-3" />
@@ -875,11 +875,11 @@ export default function BrainstormSessionPage() {
                     {/* Timestamp + edited badge */}
                     {!isEditing && (
                       <div className="flex items-center gap-2 mt-2">
-                        <span className={cn('text-[10px]', isOwn ? 'text-white/60' : 'text-gray-400')}>
+                        <span className={cn('text-[10px]', isOwn ? 'text-white/60' : 'text-muted-foreground')}>
                           {new Date(msg.createdAt).toLocaleTimeString()}
                         </span>
                         {msg.isEdited && (
-                          <span className={cn('text-[10px] italic', isOwn ? 'text-white/50' : 'text-gray-400')}>
+                          <span className={cn('text-[10px] italic', isOwn ? 'text-white/50' : 'text-muted-foreground')}>
                             (edited)
                           </span>
                         )}
@@ -892,7 +892,7 @@ export default function BrainstormSessionPage() {
                         <div className="flex flex-col gap-0.5">
                           <button
                             onClick={() => { setEditingMessageId(msg.id); setEditingContent(msg.content || ''); }}
-                            className="h-6 w-6 flex items-center justify-center rounded-md hover:bg-gray-200 text-gray-400 hover:text-[#7b68ee] transition-colors"
+                            className="h-6 w-6 flex items-center justify-center rounded-md hover:bg-accent text-muted-foreground hover:text-[#7b68ee] transition-colors"
                             title="Edit"
                           >
                             <Edit2 className="h-3 w-3" />
@@ -901,7 +901,7 @@ export default function BrainstormSessionPage() {
                             onClick={() => {
                               if (confirm('Delete this message?')) deleteMutation.mutate(msg.id);
                             }}
-                            className="h-6 w-6 flex items-center justify-center rounded-md hover:bg-red-50 text-gray-400 hover:text-red-500 transition-colors"
+                            className="h-6 w-6 flex items-center justify-center rounded-md hover:bg-red-500/100/100/100/10 text-muted-foreground hover:text-red-500 transition-colors"
                             title="Delete"
                           >
                             <Trash2 className="h-3 w-3" />
@@ -918,13 +918,13 @@ export default function BrainstormSessionPage() {
                 <div className="h-16 w-16 rounded-2xl bg-gradient-to-br from-[#7b68ee]/10 to-[#6c5ce7]/5 flex items-center justify-center mb-4">
                   <MessageSquare className="h-8 w-8 text-[#7b68ee]" />
                 </div>
-                <h3 className="text-sm font-semibold text-[#1a1a2e] mb-1">Start the conversation</h3>
-                <p className="text-xs text-gray-400 max-w-xs">Share ideas and discuss with your team</p>
+                <h3 className="text-sm font-semibold text-foreground mb-1">Start the conversation</h3>
+                <p className="text-xs text-muted-foreground max-w-xs">Share ideas and discuss with your team</p>
               </div>
             )}
             <div ref={messagesEndRef} />
           </div>
-          <div className="flex gap-2 pt-3 border-t border-gray-100">
+          <div className="flex gap-2 pt-3 border-t border-border">
             <input
               type="file"
               ref={fileInputRef}
@@ -935,7 +935,7 @@ export default function BrainstormSessionPage() {
             <button
               onClick={() => fileInputRef.current?.click()}
               disabled={uploading}
-              className="shrink-0 h-11 w-11 flex items-center justify-center rounded-xl border border-gray-200 hover:bg-gray-50 text-gray-500 hover:text-[#7b68ee] disabled:opacity-50 transition-all"
+              className="shrink-0 h-11 w-11 flex items-center justify-center rounded-xl border border-border hover:bg-accent text-muted-foreground hover:text-[#7b68ee] disabled:opacity-50 transition-all"
               title="Upload file"
             >
               {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Paperclip className="h-4 w-4" />}
@@ -948,7 +948,7 @@ export default function BrainstormSessionPage() {
                 onKeyDown={(e) => {
                   if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); }
                 }}
-                className="min-h-11 max-h-32 resize-none border-gray-200 focus:border-[#7b68ee] rounded-xl pr-12"
+                className="min-h-11 max-h-32 resize-none border-border focus:border-[#7b68ee] rounded-xl pr-12"
                 rows={1}
               />
             </div>
@@ -965,8 +965,8 @@ export default function BrainstormSessionPage() {
 
       {/* ===== WHITEBOARD TAB ===== */}
       {activeTab === 'whiteboard' && (
-        <div className="flex-1 flex flex-col mt-3 overflow-hidden rounded-xl border border-gray-200">
-          <div className="flex items-center gap-1 px-3 py-2 bg-gray-50 border-b border-gray-200 flex-wrap">
+        <div className="flex-1 flex flex-col mt-3 overflow-hidden rounded-xl border border-border">
+          <div className="flex items-center gap-1 px-3 py-2 bg-muted border-b border-border flex-wrap">
             {([
               { tool: 'pen' as DrawTool, icon: Pencil, label: 'Pen' },
               { tool: 'line' as DrawTool, icon: Minus, label: 'Line' },
@@ -983,13 +983,13 @@ export default function BrainstormSessionPage() {
                 title={t.label}
                 className={cn(
                   'h-8 w-8 flex items-center justify-center rounded-lg transition-all',
-                  drawTool === t.tool ? 'bg-[#7b68ee] text-white shadow-sm' : 'text-gray-500 hover:bg-gray-200 hover:text-gray-700'
+                  drawTool === t.tool ? 'bg-[#7b68ee] text-white shadow-sm' : 'text-muted-foreground hover:bg-accent hover:text-foreground/80'
                 )}
               >
                 <t.icon className="h-4 w-4" />
               </button>
             ))}
-            <div className="w-px h-6 bg-gray-200 mx-1" />
+            <div className="w-px h-6 bg-muted mx-1" />
             {DRAW_COLORS.map(c => (
               <button
                 key={c}
@@ -998,7 +998,7 @@ export default function BrainstormSessionPage() {
                 style={{ backgroundColor: c }}
               />
             ))}
-            <div className="w-px h-6 bg-gray-200 mx-1" />
+            <div className="w-px h-6 bg-muted mx-1" />
             <Select value={String(drawSize)} onValueChange={v => setDrawSize(Number(v))}>
               <SelectTrigger className="w-16 h-7 text-xs"><SelectValue /></SelectTrigger>
               <SelectContent>
@@ -1008,11 +1008,11 @@ export default function BrainstormSessionPage() {
               </SelectContent>
             </Select>
             <div className="flex-1" />
-            <button onClick={undoCanvas} title="Undo" className="h-8 w-8 flex items-center justify-center rounded-lg text-gray-500 hover:bg-gray-200 transition-colors"><RotateCcw className="h-4 w-4" /></button>
-            <button onClick={clearCanvas} title="Clear" className="h-8 w-8 flex items-center justify-center rounded-lg text-gray-500 hover:bg-red-50 hover:text-red-500 transition-colors"><Trash2 className="h-4 w-4" /></button>
-            <button onClick={exportCanvas} title="Export" className="h-8 w-8 flex items-center justify-center rounded-lg text-gray-500 hover:bg-gray-200 transition-colors"><Download className="h-4 w-4" /></button>
+            <button onClick={undoCanvas} title="Undo" className="h-8 w-8 flex items-center justify-center rounded-lg text-muted-foreground hover:bg-accent transition-colors"><RotateCcw className="h-4 w-4" /></button>
+            <button onClick={clearCanvas} title="Clear" className="h-8 w-8 flex items-center justify-center rounded-lg text-muted-foreground hover:bg-red-500/100/100/100/10 hover:text-red-500 transition-colors"><Trash2 className="h-4 w-4" /></button>
+            <button onClick={exportCanvas} title="Export" className="h-8 w-8 flex items-center justify-center rounded-lg text-muted-foreground hover:bg-accent transition-colors"><Download className="h-4 w-4" /></button>
           </div>
-          <div className="flex-1 relative bg-white cursor-crosshair">
+          <div className="flex-1 relative bg-card cursor-crosshair">
             <canvas
               ref={canvasRef}
               onMouseDown={handleCanvasMouseDown}
@@ -1027,26 +1027,26 @@ export default function BrainstormSessionPage() {
 
       {/* ===== FLOW TAB ===== */}
       {activeTab === 'flow' && (
-        <div className="flex-1 flex flex-col mt-3 overflow-hidden rounded-xl border border-gray-200">
+        <div className="flex-1 flex flex-col mt-3 overflow-hidden rounded-xl border border-border">
           {/* Flow Toolbar */}
-          <div className="flex items-center gap-1 px-3 py-2 bg-gray-50 border-b border-gray-200 flex-wrap">
+          <div className="flex items-center gap-1 px-3 py-2 bg-muted border-b border-border flex-wrap">
             {(Object.keys(NODE_STYLES) as FlowNodeType[]).map(type => (
               <button
                 key={type}
                 onClick={() => addFlowNode(type)}
-                className="flex items-center gap-1.5 h-8 px-3 rounded-lg text-xs font-medium text-gray-600 hover:bg-gray-200 transition-colors"
+                className="flex items-center gap-1.5 h-8 px-3 rounded-lg text-xs font-medium text-muted-foreground hover:bg-accent transition-colors"
               >
                 <NodeTypeIcon type={type} size={14} />
                 {NODE_STYLES[type].label}
               </button>
             ))}
-            <div className="w-px h-6 bg-gray-200 mx-1" />
+            <div className="w-px h-6 bg-muted mx-1" />
             {connectingFrom && (
               <div className="flex items-center gap-1.5">
                 <span className="text-xs font-medium text-[#7b68ee] animate-pulse">Click a target port...</span>
                 <button
                   onClick={() => setConnectingFrom(null)}
-                  className="h-7 px-2.5 rounded-lg text-xs font-medium text-red-500 hover:bg-red-50 transition-colors"
+                  className="h-7 px-2.5 rounded-lg text-xs font-medium text-red-500 hover:bg-red-500/100/100/100/10 transition-colors"
                 >
                   Cancel
                 </button>
@@ -1060,14 +1060,14 @@ export default function BrainstormSessionPage() {
                     const node = flowNodes.find(n => n.id === selectedNode);
                     if (node) { setEditingNode(node); setShowNodeDialog(true); }
                   }}
-                  className="h-8 w-8 flex items-center justify-center rounded-lg text-gray-500 hover:bg-gray-200 transition-colors"
+                  className="h-8 w-8 flex items-center justify-center rounded-lg text-muted-foreground hover:bg-accent transition-colors"
                   title="Edit"
                 >
                   <Pencil className="h-3.5 w-3.5" />
                 </button>
                 <button
                   onClick={() => deleteFlowNode(selectedNode)}
-                  className="h-8 w-8 flex items-center justify-center rounded-lg text-gray-500 hover:bg-red-50 hover:text-red-500 transition-colors"
+                  className="h-8 w-8 flex items-center justify-center rounded-lg text-muted-foreground hover:bg-red-500/100/100/100/10 hover:text-red-500 transition-colors"
                   title="Delete"
                 >
                   <Trash2 className="h-3.5 w-3.5" />
@@ -1079,7 +1079,7 @@ export default function BrainstormSessionPage() {
           {/* Flow Canvas */}
           <div
             ref={flowCanvasRef}
-            className="flex-1 relative bg-white overflow-auto"
+            className="flex-1 relative bg-card overflow-auto"
             onMouseMove={handleFlowMouseMove}
             onMouseUp={handleFlowMouseUp}
             onClick={handleFlowCanvasClick}
@@ -1093,7 +1093,7 @@ export default function BrainstormSessionPage() {
             <svg className="absolute inset-0 pointer-events-none" style={{ width: '100%', height: '100%', overflow: 'visible' }}>
               <defs>
                 <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto">
-                  <polygon points="0 0, 10 3.5, 0 7" fill="#9ca3af" />
+                  <polygon points="0 0, 10 3.5, 0 7" fill="currentColor" className="text-muted-foreground" />
                 </marker>
                 <marker id="arrowhead-active" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto">
                   <polygon points="0 0, 10 3.5, 0 7" fill="#7b68ee" />
@@ -1157,7 +1157,7 @@ export default function BrainstormSessionPage() {
 
                   {/* Label */}
                   <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                    <span className="text-[11px] font-semibold text-[#1a1a2e] truncate px-3 max-w-full leading-tight text-center">
+                    <span className="text-[11px] font-semibold text-foreground truncate px-3 max-w-full leading-tight text-center">
                       {node.label}
                     </span>
                   </div>
@@ -1180,8 +1180,8 @@ export default function BrainstormSessionPage() {
                           isActive
                             ? 'bg-[#7b68ee] border-[#7b68ee] scale-125'
                             : connectingFrom
-                              ? 'bg-white border-[#7b68ee] opacity-100'
-                              : 'bg-white border-blue-400 opacity-0 group-hover/node:opacity-100',
+                              ? 'bg-card border-[#7b68ee] opacity-100'
+                              : 'bg-card border-blue-400 opacity-0 group-hover/node:opacity-100',
                         )}
                         style={{
                           left: offset.x - 7,
@@ -1197,33 +1197,33 @@ export default function BrainstormSessionPage() {
 
             {flowNodes.length === 0 && (
               <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
-                <GitBranch className="h-12 w-12 text-gray-300 mb-3" />
-                <p className="text-sm font-medium text-gray-400">Create a flow diagram</p>
-                <p className="text-xs text-gray-300 mt-1">Click a shape in the toolbar to add nodes, then drag between ports to connect</p>
+                <GitBranch className="h-12 w-12 text-muted-foreground/60 mb-3" />
+                <p className="text-sm font-medium text-muted-foreground">Create a flow diagram</p>
+                <p className="text-xs text-muted-foreground/60 mt-1">Click a shape in the toolbar to add nodes, then drag between ports to connect</p>
               </div>
             )}
           </div>
 
           {/* Node Edit Dialog */}
           <Dialog open={showNodeDialog} onOpenChange={setShowNodeDialog}>
-            <DialogContent className="bg-white sm:max-w-[400px] rounded-2xl">
+            <DialogContent className="bg-card sm:max-w-[400px] rounded-2xl">
               <DialogHeader>
-                <DialogTitle className="text-base font-bold text-[#1a1a2e]">Edit Node</DialogTitle>
-                <DialogDescription className="text-sm text-gray-400">Change the node label or type</DialogDescription>
+                <DialogTitle className="text-base font-bold text-foreground">Edit Node</DialogTitle>
+                <DialogDescription className="text-sm text-muted-foreground">Change the node label or type</DialogDescription>
               </DialogHeader>
               {editingNode && (
                 <div className="space-y-4">
                   <div className="space-y-1.5">
-                    <label className="text-[13px] font-semibold text-gray-600">Label</label>
+                    <label className="text-[13px] font-semibold text-muted-foreground">Label</label>
                     <Input
                       value={editingNode.label}
                       onChange={(e) => setEditingNode({ ...editingNode, label: e.target.value })}
-                      className="border-gray-200 focus:border-[#7b68ee] rounded-xl"
+                      className="border-border focus:border-[#7b68ee] rounded-xl"
                       autoFocus
                     />
                   </div>
                   <div className="space-y-1.5">
-                    <label className="text-[13px] font-semibold text-gray-600">Type</label>
+                    <label className="text-[13px] font-semibold text-muted-foreground">Type</label>
                     <Select
                       value={editingNode.type}
                       onValueChange={(v: string) => {
@@ -1253,7 +1253,7 @@ export default function BrainstormSessionPage() {
                 </div>
               )}
               <DialogFooter>
-                <button onClick={() => setShowNodeDialog(false)} className="px-4 py-2 text-sm text-gray-500 rounded-xl hover:bg-gray-50">Cancel</button>
+                <button onClick={() => setShowNodeDialog(false)} className="px-4 py-2 text-sm text-muted-foreground rounded-xl hover:bg-accent">Cancel</button>
                 <button
                   onClick={() => {
                     if (editingNode) {

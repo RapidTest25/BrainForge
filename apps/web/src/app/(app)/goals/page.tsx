@@ -30,9 +30,9 @@ type Goal = {
 };
 
 const STATUS_STYLES: Record<string, { label: string; color: string; bg: string }> = {
-  NOT_STARTED: { label: 'Not Started', color: '#6b7280', bg: '#f3f4f6' },
-  IN_PROGRESS: { label: 'In Progress', color: '#3b82f6', bg: '#eff6ff' },
-  COMPLETED: { label: 'Completed', color: '#22c55e', bg: '#f0fdf4' },
+  NOT_STARTED: { label: 'Not Started', color: '#6b7280', bg: '#6b728015' },
+  IN_PROGRESS: { label: 'In Progress', color: '#3b82f6', bg: '#3b82f615' },
+  COMPLETED: { label: 'Completed', color: '#22c55e', bg: '#22c55e15' },
 };
 
 export default function GoalsPage() {
@@ -112,8 +112,8 @@ export default function GoalsPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-semibold text-[#1a1a2e]">Goals</h1>
-          <p className="text-sm text-gray-400 mt-0.5">Track your team objectives and key results.</p>
+          <h1 className="text-xl font-semibold text-foreground">Goals</h1>
+          <p className="text-sm text-muted-foreground mt-0.5">Track your team objectives and key results.</p>
         </div>
         <div className="flex gap-2">
           <button
@@ -134,7 +134,7 @@ export default function GoalsPage() {
       {/* Stats */}
       <div className="grid grid-cols-3 gap-3">
         {stats.map((stat) => (
-          <div key={stat.label} className="bg-white border border-gray-100 rounded-xl p-4">
+          <div key={stat.label} className="bg-card border border-border rounded-xl p-4">
             <div className="flex items-center gap-2 mb-2">
               <div
                 className="h-7 w-7 rounded-lg flex items-center justify-center"
@@ -143,8 +143,8 @@ export default function GoalsPage() {
                 <Target className="h-3.5 w-3.5" style={{ color: stat.color }} />
               </div>
             </div>
-            <p className="text-2xl font-semibold text-[#1a1a2e]">{stat.value}</p>
-            <p className="text-[11px] text-gray-400 mt-0.5">{stat.label}</p>
+            <p className="text-2xl font-semibold text-foreground">{stat.value}</p>
+            <p className="text-[11px] text-muted-foreground mt-0.5">{stat.label}</p>
           </div>
         ))}
       </div>
@@ -156,7 +156,7 @@ export default function GoalsPage() {
           return (
             <div
               key={goal.id}
-              className="bg-white border border-gray-100 rounded-xl p-4 hover:shadow-sm hover:border-gray-200 transition-all cursor-pointer"
+              className="bg-card border border-border rounded-xl p-4 hover:shadow-sm hover:border-border transition-all cursor-pointer"
               onClick={() => setSelectedGoal(goal)}
             >
               <div className="flex items-start justify-between">
@@ -179,15 +179,15 @@ export default function GoalsPage() {
                     ) : goal.status === 'IN_PROGRESS' ? (
                       <Clock className="h-5 w-5 text-blue-500" />
                     ) : (
-                      <Circle className="h-5 w-5 text-gray-300" />
+                      <Circle className="h-5 w-5 text-muted-foreground/60" />
                     )}
                   </button>
                   <div className="flex-1 min-w-0">
-                    <h3 className={`text-sm font-medium ${goal.status === 'COMPLETED' ? 'text-gray-400 line-through' : 'text-[#1a1a2e]'}`}>
+                    <h3 className={`text-sm font-medium ${goal.status === 'COMPLETED' ? 'text-muted-foreground line-through' : 'text-foreground'}`}>
                       {goal.title}
                     </h3>
                     {goal.description && (
-                      <p className="text-[13px] text-gray-400 mt-0.5 line-clamp-1">{goal.description}</p>
+                      <p className="text-[13px] text-muted-foreground mt-0.5 line-clamp-1">{goal.description}</p>
                     )}
                     <div className="flex items-center gap-3 mt-2">
                       <span
@@ -197,7 +197,7 @@ export default function GoalsPage() {
                         {statusStyle.label}
                       </span>
                       {goal.dueDate && (
-                        <span className="text-[11px] text-gray-400 flex items-center gap-1">
+                        <span className="text-[11px] text-muted-foreground flex items-center gap-1">
                           <Clock className="h-3 w-3" />
                           {new Date(goal.dueDate).toLocaleDateString()}
                         </span>
@@ -207,7 +207,7 @@ export default function GoalsPage() {
                 </div>
                 <div className="flex items-center gap-2">
                   {/* Progress bar */}
-                  <div className="w-20 h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                  <div className="w-20 h-1.5 bg-muted rounded-full overflow-hidden">
                     <div
                       className="h-full rounded-full transition-all"
                       style={{
@@ -216,9 +216,9 @@ export default function GoalsPage() {
                       }}
                     />
                   </div>
-                  <span className="text-[11px] text-gray-400 w-8 text-right">{goal.progress || 0}%</span>
+                  <span className="text-[11px] text-muted-foreground w-8 text-right">{goal.progress || 0}%</span>
                   <button
-                    className="text-gray-300 hover:text-red-500 transition-colors ml-1"
+                    className="text-muted-foreground/60 hover:text-red-500 transition-colors ml-1"
                     onClick={(e) => {
                       e.stopPropagation();
                       if (confirm('Delete this goal?')) deleteMutation.mutate(goal.id);
@@ -234,9 +234,9 @@ export default function GoalsPage() {
 
         {goals.length === 0 && (
           <div className="text-center py-16">
-            <Target className="h-10 w-10 mx-auto text-gray-300 mb-3" />
-            <h3 className="font-medium text-[#1a1a2e] mb-1">No Goals Yet</h3>
-            <p className="text-sm text-gray-400 mb-4">Set goals to track your team&apos;s progress and achievements.</p>
+            <Target className="h-10 w-10 mx-auto text-muted-foreground/60 mb-3" />
+            <h3 className="font-medium text-foreground mb-1">No Goals Yet</h3>
+            <p className="text-sm text-muted-foreground mb-4">Set goals to track your team&apos;s progress and achievements.</p>
             <button
               onClick={() => setShowCreate(true)}
               className="flex items-center gap-1.5 px-4 py-2 bg-[#7b68ee] text-white text-sm rounded-lg hover:bg-[#6c5ce7] transition-colors mx-auto"
@@ -249,42 +249,42 @@ export default function GoalsPage() {
 
       {/* Create Dialog */}
       <Dialog open={showCreate} onOpenChange={setShowCreate}>
-        <DialogContent className="bg-white">
+        <DialogContent className="bg-card">
           <DialogHeader>
-            <DialogTitle className="text-[#1a1a2e]">New Goal</DialogTitle>
+            <DialogTitle className="text-foreground">New Goal</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             <div className="space-y-1.5">
-              <label className="text-[13px] font-medium text-gray-600">Title</label>
+              <label className="text-[13px] font-medium text-muted-foreground">Title</label>
               <Input
                 value={newGoal.title}
                 onChange={(e) => setNewGoal({ ...newGoal, title: e.target.value })}
                 placeholder="e.g., Launch v2.0"
-                className="border-gray-200 focus:border-[#7b68ee]"
+                className="border-border focus:border-[#7b68ee]"
               />
             </div>
             <div className="space-y-1.5">
-              <label className="text-[13px] font-medium text-gray-600">Description (optional)</label>
+              <label className="text-[13px] font-medium text-muted-foreground">Description (optional)</label>
               <textarea
                 value={newGoal.description}
                 onChange={(e) => setNewGoal({ ...newGoal, description: e.target.value })}
                 placeholder="Describe the goal..."
                 rows={3}
-                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-[#7b68ee] resize-none"
+                className="w-full px-3 py-2 border border-border rounded-lg text-sm focus:outline-none focus:border-[#7b68ee] resize-none"
               />
             </div>
             <div className="space-y-1.5">
-              <label className="text-[13px] font-medium text-gray-600">Due Date (optional)</label>
+              <label className="text-[13px] font-medium text-muted-foreground">Due Date (optional)</label>
               <Input
                 type="date"
                 value={newGoal.dueDate}
                 onChange={(e) => setNewGoal({ ...newGoal, dueDate: e.target.value })}
-                className="border-gray-200 focus:border-[#7b68ee]"
+                className="border-border focus:border-[#7b68ee]"
               />
             </div>
           </div>
           <DialogFooter>
-            <button onClick={() => setShowCreate(false)} className="px-4 py-2 text-sm font-medium text-gray-500 hover:text-gray-700 rounded-lg hover:bg-gray-50 transition-colors">
+            <button onClick={() => setShowCreate(false)} className="px-4 py-2 text-sm font-medium text-muted-foreground hover:text-foreground/80 rounded-lg hover:bg-accent transition-colors">
               Cancel
             </button>
             <button
@@ -300,38 +300,38 @@ export default function GoalsPage() {
 
       {/* AI Generate Dialog */}
       <Dialog open={showAIGenerate} onOpenChange={setShowAIGenerate}>
-        <DialogContent className="max-w-lg bg-white">
+        <DialogContent className="max-w-lg bg-card">
           <DialogHeader>
-            <DialogTitle className="text-[#1a1a2e] flex items-center gap-2">
+            <DialogTitle className="text-foreground flex items-center gap-2">
               <Sparkles className="h-4 w-4 text-[#7b68ee]" />
               AI Generate Goals
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             <div className="space-y-1.5">
-              <label className="text-[13px] font-medium text-gray-600">Describe your goals</label>
+              <label className="text-[13px] font-medium text-muted-foreground">Describe your goals</label>
               <Textarea
                 value={aiForm.prompt}
                 onChange={(e) => setAiForm({ ...aiForm, prompt: e.target.value })}
                 placeholder="e.g., We're building a SaaS project management tool. Generate goals for our Q1 launch including product, marketing, and engineering milestones..."
                 rows={4}
-                className="border-gray-200 focus:border-[#7b68ee]"
+                className="border-border focus:border-[#7b68ee]"
               />
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1.5">
-                <label className="text-[13px] font-medium text-gray-600">Provider</label>
+                <label className="text-[13px] font-medium text-muted-foreground">Provider</label>
                 <Select value={aiForm.provider} onValueChange={(v) => setAiForm({ ...aiForm, provider: v })}>
-                  <SelectTrigger className="border-gray-200"><SelectValue /></SelectTrigger>
+                  <SelectTrigger className="border-border"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     {Object.keys(modelsData?.data || {}).map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>
               <div className="space-y-1.5">
-                <label className="text-[13px] font-medium text-gray-600">Model</label>
+                <label className="text-[13px] font-medium text-muted-foreground">Model</label>
                 <Select value={aiForm.model} onValueChange={(v) => setAiForm({ ...aiForm, model: v })}>
-                  <SelectTrigger className="border-gray-200"><SelectValue /></SelectTrigger>
+                  <SelectTrigger className="border-border"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     {(modelsData?.data?.[aiForm.provider] || []).map((m: any) => (
                       <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>
@@ -342,7 +342,7 @@ export default function GoalsPage() {
             </div>
           </div>
           <DialogFooter>
-            <button onClick={() => setShowAIGenerate(false)} className="px-4 py-2 text-sm font-medium text-gray-500 hover:text-gray-700 rounded-lg hover:bg-gray-50 transition-colors">
+            <button onClick={() => setShowAIGenerate(false)} className="px-4 py-2 text-sm font-medium text-muted-foreground hover:text-foreground/80 rounded-lg hover:bg-accent transition-colors">
               Cancel
             </button>
             <button

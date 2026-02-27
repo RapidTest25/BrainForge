@@ -59,10 +59,10 @@ export default function DashboardPage() {
   const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
 
   const statusLabel: Record<string, { text: string; color: string; bg: string }> = {
-    TODO: { text: 'To Do', color: '#6b7280', bg: '#f3f4f6' },
-    IN_PROGRESS: { text: 'In Progress', color: '#3b82f6', bg: '#eff6ff' },
-    IN_REVIEW: { text: 'In Review', color: '#f59e0b', bg: '#fffbeb' },
-    DONE: { text: 'Done', color: '#22c55e', bg: '#f0fdf4' },
+    TODO: { text: 'To Do', color: '#6b7280', bg: '#6b728015' },
+    IN_PROGRESS: { text: 'In Progress', color: '#3b82f6', bg: '#3b82f615' },
+    IN_REVIEW: { text: 'In Review', color: '#f59e0b', bg: '#f59e0b15' },
+    DONE: { text: 'Done', color: '#22c55e', bg: '#22c55e15' },
   };
 
   const priorityLabel: Record<string, { text: string; color: string }> = {
@@ -89,15 +89,15 @@ export default function DashboardPage() {
           </div>
           <button
             onClick={() => router.push('/tasks?new=true')}
-            className="flex items-center gap-1.5 px-4 py-2 bg-white/20 backdrop-blur-sm text-white text-sm font-medium rounded-xl hover:bg-white/30 transition-colors border border-white/10"
+            className="flex items-center gap-1.5 px-4 py-2 bg-card/20 backdrop-blur-sm text-white text-sm font-medium rounded-xl hover:bg-card/30 transition-colors border border-background/10"
           >
             <Plus className="h-3.5 w-3.5" /> New Task
           </button>
         </div>
         {totalTasks > 0 && (
           <div className="relative mt-4">
-            <div className="flex h-1.5 rounded-full overflow-hidden bg-white/20">
-              <div className="bg-white/90 transition-all rounded-full" style={{ width: `${completionPct}%` }} />
+            <div className="flex h-1.5 rounded-full overflow-hidden bg-card/20">
+              <div className="bg-card/90 transition-all rounded-full" style={{ width: `${completionPct}%` }} />
             </div>
           </div>
         )}
@@ -111,14 +111,14 @@ export default function DashboardPage() {
           { label: 'Completed', value: doneCount, icon: TrendingUp, color: '#22c55e' },
           { label: 'Brainstorms', value: brainstorms?.data?.length || 0, icon: MessageSquare, color: '#f59e0b' },
         ].map(({ label, value, icon: Icon, color }) => (
-          <div key={label} className="bg-white rounded-xl border border-gray-100 p-4">
+          <div key={label} className="bg-card rounded-xl border border-border p-4">
             <div className="flex items-center gap-3">
               <div className="h-10 w-10 rounded-xl flex items-center justify-center" style={{ backgroundColor: `${color}12` }}>
                 <Icon className="h-5 w-5" style={{ color }} />
               </div>
               <div>
-                <p className="text-2xl font-bold text-[#1a1a2e]">{value}</p>
-                <p className="text-[11px] text-gray-400">{label}</p>
+                <p className="text-2xl font-bold text-foreground">{value}</p>
+                <p className="text-[11px] text-muted-foreground">{label}</p>
               </div>
             </div>
           </div>
@@ -127,12 +127,12 @@ export default function DashboardPage() {
 
       {/* Task distribution bar */}
       {totalTasks > 0 && (
-        <div className="bg-white rounded-xl border border-gray-100 p-4">
+        <div className="bg-card rounded-xl border border-border p-4">
           <div className="flex items-center justify-between mb-3">
-            <h3 className="text-sm font-medium text-[#1a1a2e]">Task Distribution</h3>
-            <span className="text-[11px] text-gray-400">{totalTasks} total</span>
+            <h3 className="text-sm font-medium text-foreground">Task Distribution</h3>
+            <span className="text-[11px] text-muted-foreground">{totalTasks} total</span>
           </div>
-          <div className="flex h-2.5 rounded-full overflow-hidden bg-gray-100">
+          <div className="flex h-2.5 rounded-full overflow-hidden bg-muted">
             {todoCount > 0 && (
               <div className="bg-gray-400 transition-all" style={{ width: `${(todoCount / totalTasks) * 100}%` }} />
             )}
@@ -149,19 +149,19 @@ export default function DashboardPage() {
           <div className="flex items-center gap-5 mt-2.5">
             <div className="flex items-center gap-1.5">
               <div className="h-2 w-2 rounded-full bg-gray-400" />
-              <span className="text-[11px] text-gray-500">To Do ({todoCount})</span>
+              <span className="text-[11px] text-muted-foreground">To Do ({todoCount})</span>
             </div>
             <div className="flex items-center gap-1.5">
               <div className="h-2 w-2 rounded-full bg-[#3b82f6]" />
-              <span className="text-[11px] text-gray-500">In Progress ({inProgressCount})</span>
+              <span className="text-[11px] text-muted-foreground">In Progress ({inProgressCount})</span>
             </div>
             <div className="flex items-center gap-1.5">
               <div className="h-2 w-2 rounded-full bg-[#f59e0b]" />
-              <span className="text-[11px] text-gray-500">In Review ({inReviewCount})</span>
+              <span className="text-[11px] text-muted-foreground">In Review ({inReviewCount})</span>
             </div>
             <div className="flex items-center gap-1.5">
               <div className="h-2 w-2 rounded-full bg-[#22c55e]" />
-              <span className="text-[11px] text-gray-500">Completed ({doneCount})</span>
+              <span className="text-[11px] text-muted-foreground">Completed ({doneCount})</span>
             </div>
           </div>
         </div>
@@ -170,17 +170,17 @@ export default function DashboardPage() {
       {/* Two column layout */}
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
         {/* Recent Tasks - wider */}
-        <div className="lg:col-span-3 bg-white rounded-xl border border-gray-100">
-          <div className="flex items-center justify-between px-4 py-3 border-b border-gray-50">
-            <h3 className="text-sm font-semibold text-[#1a1a2e]">Recent Tasks</h3>
+        <div className="lg:col-span-3 bg-card rounded-xl border border-border">
+          <div className="flex items-center justify-between px-4 py-3 border-b border-border/50">
+            <h3 className="text-sm font-semibold text-foreground">Recent Tasks</h3>
             <Link href="/tasks" className="text-[11px] text-[#7b68ee] hover:underline flex items-center gap-0.5">
               View all <ArrowRight className="h-3 w-3" />
             </Link>
           </div>
           {recentTasks.length === 0 ? (
             <div className="text-center py-12 px-4">
-              <CheckSquare className="h-8 w-8 text-gray-300 mx-auto mb-2" />
-              <p className="text-sm text-gray-400 mb-3">No tasks yet</p>
+              <CheckSquare className="h-8 w-8 text-muted-foreground/60 mx-auto mb-2" />
+              <p className="text-sm text-muted-foreground mb-3">No tasks yet</p>
               <button
                 onClick={() => router.push('/tasks?new=true')}
                 className="text-xs text-[#7b68ee] hover:underline"
@@ -197,10 +197,10 @@ export default function DashboardPage() {
                   <Link
                     key={task.id}
                     href="/tasks"
-                    className={`flex items-center gap-3 px-4 py-2.5 hover:bg-gray-50/50 transition-colors ${i < recentTasks.length - 1 ? 'border-b border-gray-50' : ''}`}
+                    className={`flex items-center gap-3 px-4 py-2.5 hover:bg-muted/50 transition-colors ${i < recentTasks.length - 1 ? 'border-b border-border/50' : ''}`}
                   >
                     <div className="h-1.5 w-1.5 rounded-full shrink-0" style={{ backgroundColor: priority.color }} />
-                    <span className="text-sm text-[#1a1a2e] flex-1 truncate">{task.title}</span>
+                    <span className="text-sm text-foreground flex-1 truncate">{task.title}</span>
                     <span
                       className="text-[10px] font-medium px-2 py-0.5 rounded-full"
                       style={{ color: status.color, backgroundColor: status.bg }}
@@ -217,9 +217,9 @@ export default function DashboardPage() {
         {/* Right column */}
         <div className="lg:col-span-2 space-y-4">
           {/* Quick Access */}
-          <div className="bg-white rounded-xl border border-gray-100">
-            <div className="px-4 py-3 border-b border-gray-50">
-              <h3 className="text-sm font-semibold text-[#1a1a2e]">Quick Access</h3>
+          <div className="bg-card rounded-xl border border-border">
+            <div className="px-4 py-3 border-b border-border/50">
+              <h3 className="text-sm font-semibold text-foreground">Quick Access</h3>
             </div>
             <div className="p-1.5">
               {[
@@ -233,7 +233,7 @@ export default function DashboardPage() {
                 <Link
                   key={href}
                   href={href}
-                  className="flex items-center gap-2.5 px-3 py-2 rounded-lg hover:bg-gray-50 transition-colors"
+                  className="flex items-center gap-2.5 px-3 py-2 rounded-lg hover:bg-accent transition-colors"
                 >
                   <div
                     className="h-7 w-7 rounded-lg flex items-center justify-center shrink-0"
@@ -242,18 +242,18 @@ export default function DashboardPage() {
                     <Icon className="h-3.5 w-3.5" style={{ color }} />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-[13px] font-medium text-[#1a1a2e]">{label}</p>
-                    <p className="text-[10px] text-gray-400">{desc}</p>
+                    <p className="text-[13px] font-medium text-foreground">{label}</p>
+                    <p className="text-[10px] text-muted-foreground">{desc}</p>
                   </div>
-                  <ArrowRight className="h-3 w-3 text-gray-300" />
+                  <ArrowRight className="h-3 w-3 text-muted-foreground/60" />
                 </Link>
               ))}
             </div>
           </div>
 
           {/* Workspace overview mini */}
-          <div className="bg-white rounded-xl border border-gray-100 p-4">
-            <h3 className="text-sm font-semibold text-[#1a1a2e] mb-3">Workspace Overview</h3>
+          <div className="bg-card rounded-xl border border-border p-4">
+            <h3 className="text-sm font-semibold text-foreground mb-3">Workspace Overview</h3>
             <div className="space-y-2.5">
               {[
                 { label: 'Diagrams', count: diagrams?.data?.length || 0, color: '#f59e0b' },
@@ -263,9 +263,9 @@ export default function DashboardPage() {
                 <div key={label} className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <div className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: color }} />
-                    <span className="text-[13px] text-gray-500">{label}</span>
+                    <span className="text-[13px] text-muted-foreground">{label}</span>
                   </div>
-                  <span className="text-[13px] font-medium text-[#1a1a2e]">{count}</span>
+                  <span className="text-[13px] font-medium text-foreground">{count}</span>
                 </div>
               ))}
             </div>

@@ -5,7 +5,11 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   Plus, FolderKanban, MoreHorizontal, Pencil, Trash2,
   CheckSquare, MessageSquare, GitBranch, Target,
-  Hash, Palette, Search, LayoutGrid, List
+  Hash, Palette, Search, LayoutGrid, List,
+  Rocket, Package, PaintBucket, Lightbulb, Zap, Flame, Star,
+  BarChart3, Wrench, Crosshair, Smartphone, Globe,
+  FlaskConical, FileText, Gamepad2, Building2,
+  type LucideIcon
 } from 'lucide-react';
 import { useTeamStore } from '@/stores/team-store';
 import { useProjectStore, Project } from '@/stores/project-store';
@@ -28,10 +32,32 @@ const PROJECT_COLORS = [
   '#6366f1', '#84cc16',
 ];
 
-const PROJECT_ICONS = [
-  '🚀', '📦', '🎨', '💡', '⚡', '🔥', '🌟', '📊',
-  '🛠️', '🎯', '📱', '🌐', '🔬', '📝', '🎮', '🏗️',
-];
+// Icon map: icon name string → Lucide component
+export const PROJECT_ICON_MAP: Record<string, LucideIcon> = {
+  rocket: Rocket,
+  package: Package,
+  paintBucket: PaintBucket,
+  lightbulb: Lightbulb,
+  zap: Zap,
+  flame: Flame,
+  star: Star,
+  barChart: BarChart3,
+  wrench: Wrench,
+  crosshair: Crosshair,
+  smartphone: Smartphone,
+  globe: Globe,
+  flask: FlaskConical,
+  fileText: FileText,
+  gamepad: Gamepad2,
+  building: Building2,
+};
+
+const PROJECT_ICONS = Object.keys(PROJECT_ICON_MAP);
+
+export function ProjectIcon({ icon, className, style }: { icon: string; className?: string; style?: React.CSSProperties }) {
+  const Icon = PROJECT_ICON_MAP[icon] || FolderKanban;
+  return <Icon className={className} style={style} />;
+}
 
 export default function ProjectsPage() {
   const { activeTeam } = useTeamStore();
@@ -152,10 +178,10 @@ export default function ProjectsPage() {
             style={{ backgroundColor: `${activeProject.color}08`, borderColor: `${activeProject.color}30` }}
           >
             <div
-              className="h-12 w-12 rounded-xl flex items-center justify-center text-2xl shrink-0"
+              className="h-12 w-12 rounded-xl flex items-center justify-center shrink-0"
               style={{ backgroundColor: `${activeProject.color}18` }}
             >
-              {activeProject.icon}
+              <ProjectIcon icon={activeProject.icon} className="h-6 w-6" style={{ color: activeProject.color }} />
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-xs font-medium uppercase tracking-wider" style={{ color: activeProject.color }}>Active Project</p>
@@ -344,10 +370,10 @@ function ProjectCard({
       {/* Top row */}
       <div className="flex items-start justify-between mb-4">
         <div
-          className="h-11 w-11 rounded-lg flex items-center justify-center text-xl"
+          className="h-11 w-11 rounded-lg flex items-center justify-center"
           style={{ backgroundColor: `${project.color}18` }}
         >
-          {project.icon}
+          <ProjectIcon icon={project.icon} className="h-5 w-5" style={{ color: project.color }} />
         </div>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
@@ -423,10 +449,10 @@ function ProjectRow({
       style={isActive ? { boxShadow: `0 0 0 2px ${project.color}`, borderColor: `${project.color}50` } : undefined}
     >
       <div
-        className="h-9 w-9 rounded-lg flex items-center justify-center text-lg shrink-0"
+        className="h-9 w-9 rounded-lg flex items-center justify-center shrink-0"
         style={{ backgroundColor: `${project.color}18` }}
       >
-        {project.icon}
+        <ProjectIcon icon={project.icon} className="h-4 w-4" style={{ color: project.color }} />
       </div>
       <div className="flex-1 min-w-0">
         <h3 className="font-medium text-foreground truncate">{project.name}</h3>
@@ -487,10 +513,10 @@ function ProjectForm({
       {/* Preview */}
       <div className="flex items-center gap-3 p-3 rounded-lg border bg-accent/30">
         <div
-          className="h-11 w-11 rounded-lg flex items-center justify-center text-xl shrink-0"
+          className="h-11 w-11 rounded-lg flex items-center justify-center shrink-0"
           style={{ backgroundColor: `${color}18` }}
         >
-          {icon}
+          <ProjectIcon icon={icon} className="h-5 w-5" style={{ color }} />
         </div>
         <div className="flex-1 min-w-0">
           <p className="font-semibold text-foreground truncate">{name || 'Project Name'}</p>
@@ -526,18 +552,21 @@ function ProjectForm({
       <div>
         <label className="text-sm font-medium text-foreground mb-1.5 block">Icon</label>
         <div className="flex flex-wrap gap-1.5">
-          {PROJECT_ICONS.map(i => (
-            <button
-              key={i}
-              onClick={() => setIcon(i)}
-              className={cn(
-                'h-9 w-9 rounded-lg flex items-center justify-center text-lg transition-all',
-                icon === i ? 'bg-accent ring-2 ring-[#7b68ee] scale-110' : 'hover:bg-accent'
-              )}
-            >
-              {i}
-            </button>
-          ))}
+          {PROJECT_ICONS.map(i => {
+            const Icon = PROJECT_ICON_MAP[i];
+            return (
+              <button
+                key={i}
+                onClick={() => setIcon(i)}
+                className={cn(
+                  'h-9 w-9 rounded-lg flex items-center justify-center transition-all',
+                  icon === i ? 'bg-accent ring-2 ring-[#7b68ee] scale-110' : 'hover:bg-accent'
+                )}
+              >
+                <Icon className="h-4 w-4 text-muted-foreground" />
+              </button>
+            );
+          })}
         </div>
       </div>
 

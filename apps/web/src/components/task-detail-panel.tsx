@@ -21,17 +21,17 @@ import { api } from '@/lib/api';
 import { cn } from '@/lib/utils';
 
 const STATUS_OPTIONS = [
-  { key: 'TODO', label: 'To Do', color: '#9ca3af', bg: '#f3f4f6' },
-  { key: 'IN_PROGRESS', label: 'In Progress', color: '#3b82f6', bg: '#eff6ff' },
-  { key: 'IN_REVIEW', label: 'In Review', color: '#f59e0b', bg: '#fffbeb' },
-  { key: 'DONE', label: 'Done', color: '#22c55e', bg: '#f0fdf4' },
+  { key: 'TODO', label: 'To Do', color: '#9ca3af', bg: '#9ca3af15' },
+  { key: 'IN_PROGRESS', label: 'In Progress', color: '#3b82f6', bg: '#3b82f615' },
+  { key: 'IN_REVIEW', label: 'In Review', color: '#f59e0b', bg: '#f59e0b15' },
+  { key: 'DONE', label: 'Done', color: '#22c55e', bg: '#22c55e15' },
 ];
 
 const PRIORITY_OPTIONS = [
-  { value: 'URGENT', label: 'Urgent', color: '#ef4444', bg: '#fef2f2' },
-  { value: 'HIGH', label: 'High', color: '#f97316', bg: '#fff7ed' },
-  { value: 'MEDIUM', label: 'Medium', color: '#f59e0b', bg: '#fffbeb' },
-  { value: 'LOW', label: 'Low', color: '#6b7280', bg: '#f9fafb' },
+  { value: 'URGENT', label: 'Urgent', color: '#ef4444', bg: '#ef444415' },
+  { value: 'HIGH', label: 'High', color: '#f97316', bg: '#f9731615' },
+  { value: 'MEDIUM', label: 'Medium', color: '#f59e0b', bg: '#f59e0b15' },
+  { value: 'LOW', label: 'Low', color: '#6b7280', bg: '#6b728015' },
 ];
 
 interface TaskDetailPanelProps {
@@ -132,19 +132,19 @@ export function TaskDetailPanel({ task, onClose, onUpdate, onDelete, isUpdating 
   };
 
   return (
-    <div className="flex flex-col h-full bg-white">
+    <div className="flex flex-col h-full bg-card">
       {/* Header */}
-      <div className="flex items-center justify-between px-5 py-3.5 border-b border-gray-100">
-        <div className="flex items-center gap-2 text-xs text-gray-400">
+      <div className="flex items-center justify-between px-5 py-3.5 border-b border-border">
+        <div className="flex items-center gap-2 text-xs text-muted-foreground">
           <span>Tasks</span>
           <ChevronRight className="h-3 w-3" />
-          <span className="text-gray-600 font-medium truncate max-w-[200px]">{task.title}</span>
+          <span className="text-muted-foreground font-medium truncate max-w-[200px]">{task.title}</span>
         </div>
         <button
           onClick={onClose}
-          className="h-7 w-7 flex items-center justify-center rounded-md hover:bg-gray-100 transition-colors"
+          className="h-7 w-7 flex items-center justify-center rounded-md hover:bg-accent transition-colors"
         >
-          <X className="h-4 w-4 text-gray-400" />
+          <X className="h-4 w-4 text-muted-foreground" />
         </button>
       </div>
 
@@ -156,7 +156,7 @@ export function TaskDetailPanel({ task, onClose, onUpdate, onDelete, isUpdating 
             'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all',
             activeTab === 'details'
               ? 'bg-[#7b68ee]/10 text-[#7b68ee]'
-              : 'text-gray-400 hover:text-gray-600 hover:bg-gray-50'
+              : 'text-muted-foreground hover:text-muted-foreground hover:bg-accent'
           )}
         >
           <AlignLeft className="h-3.5 w-3.5" />
@@ -168,13 +168,13 @@ export function TaskDetailPanel({ task, onClose, onUpdate, onDelete, isUpdating 
             'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all',
             activeTab === 'comments'
               ? 'bg-[#7b68ee]/10 text-[#7b68ee]'
-              : 'text-gray-400 hover:text-gray-600 hover:bg-gray-50'
+              : 'text-muted-foreground hover:text-muted-foreground hover:bg-accent'
           )}
         >
           <MessageSquare className="h-3.5 w-3.5" />
           Discussion
           {comments.length > 0 && (
-            <span className="text-[10px] bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded-full ml-0.5">
+            <span className="text-[10px] bg-muted text-muted-foreground px-1.5 py-0.5 rounded-full ml-0.5">
               {comments.length}
             </span>
           )}
@@ -185,13 +185,13 @@ export function TaskDetailPanel({ task, onClose, onUpdate, onDelete, isUpdating 
             'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all',
             activeTab === 'activity'
               ? 'bg-[#7b68ee]/10 text-[#7b68ee]'
-              : 'text-gray-400 hover:text-gray-600 hover:bg-gray-50'
+              : 'text-muted-foreground hover:text-muted-foreground hover:bg-accent'
           )}
         >
           <Activity className="h-3.5 w-3.5" />
           Activity
           {activities.length > 0 && (
-            <span className="text-[10px] bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded-full ml-0.5">
+            <span className="text-[10px] bg-muted text-muted-foreground px-1.5 py-0.5 rounded-full ml-0.5">
               {activities.length}
             </span>
           )}
@@ -209,7 +209,7 @@ export function TaskDetailPanel({ task, onClose, onUpdate, onDelete, isUpdating 
                   <Input
                     value={title}
                     onChange={(e) => setTitle(e.target.value)}
-                    className="text-lg font-semibold border-gray-200 focus:border-[#7b68ee] rounded-xl"
+                    className="text-lg font-semibold border-border focus:border-[#7b68ee] rounded-xl"
                     autoFocus
                     onKeyDown={(e) => {
                       if (e.key === 'Enter') handleSaveTitle();
@@ -223,10 +223,10 @@ export function TaskDetailPanel({ task, onClose, onUpdate, onDelete, isUpdating 
               ) : (
                 <button
                   onClick={() => setIsEditingTitle(true)}
-                  className="text-lg font-bold text-[#1a1a2e] hover:text-[#7b68ee] transition-colors text-left w-full group flex items-center gap-2"
+                  className="text-lg font-bold text-foreground hover:text-[#7b68ee] transition-colors text-left w-full group flex items-center gap-2"
                 >
                   <span>{task.title}</span>
-                  <PencilLine className="h-3.5 w-3.5 text-gray-300 opacity-0 group-hover:opacity-100 transition-opacity" />
+                  <PencilLine className="h-3.5 w-3.5 text-muted-foreground/60 opacity-0 group-hover:opacity-100 transition-opacity" />
                 </button>
               )}
             </div>
@@ -234,11 +234,11 @@ export function TaskDetailPanel({ task, onClose, onUpdate, onDelete, isUpdating 
             {/* Status & Priority row */}
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
-                <label className="flex items-center gap-1.5 text-xs font-semibold text-gray-400 uppercase tracking-wider">
+                <label className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                   <Flag className="h-3 w-3" /> Status
                 </label>
                 <Select value={task.status} onValueChange={(v) => onUpdate(task.id, { status: v })}>
-                  <SelectTrigger className="h-9 text-[13px] border-gray-200 rounded-xl">
+                  <SelectTrigger className="h-9 text-[13px] border-border rounded-xl">
                     <div className="flex items-center gap-2">
                       <div className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: statusInfo.color }} />
                       <SelectValue />
@@ -258,11 +258,11 @@ export function TaskDetailPanel({ task, onClose, onUpdate, onDelete, isUpdating 
               </div>
 
               <div className="space-y-1.5">
-                <label className="flex items-center gap-1.5 text-xs font-semibold text-gray-400 uppercase tracking-wider">
+                <label className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                   <ArrowUpCircle className="h-3 w-3" /> Priority
                 </label>
                 <Select value={task.priority} onValueChange={(v) => onUpdate(task.id, { priority: v })}>
-                  <SelectTrigger className="h-9 text-[13px] border-gray-200 rounded-xl">
+                  <SelectTrigger className="h-9 text-[13px] border-border rounded-xl">
                     <div className="flex items-center gap-2">
                       <div className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: priorityInfo.color }} />
                       <SelectValue />
@@ -284,15 +284,15 @@ export function TaskDetailPanel({ task, onClose, onUpdate, onDelete, isUpdating 
 
             {/* Due date */}
             <div className="space-y-1.5">
-              <label className="flex items-center gap-1.5 text-xs font-semibold text-gray-400 uppercase tracking-wider">
+              <label className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                 <CalendarIcon className="h-3 w-3" /> Due Date
               </label>
               {task.dueDate ? (
                 <div className={cn(
                   'flex items-center gap-2 px-3 py-2 rounded-xl border text-sm',
                   new Date(task.dueDate) < new Date()
-                    ? 'border-red-200 bg-red-50 text-red-600'
-                    : 'border-gray-200 bg-gray-50 text-gray-700'
+                    ? 'border-red-200 bg-red-500/100/10 text-red-600'
+                    : 'border-border bg-muted text-foreground/80'
                 )}>
                   <CalendarIcon className="h-3.5 w-3.5" />
                   {new Date(task.dueDate).toLocaleDateString(undefined, {
@@ -305,33 +305,33 @@ export function TaskDetailPanel({ task, onClose, onUpdate, onDelete, isUpdating 
                   )}
                 </div>
               ) : (
-                <p className="text-sm text-gray-400 px-3 py-2">No due date set</p>
+                <p className="text-sm text-muted-foreground px-3 py-2">No due date set</p>
               )}
             </div>
 
             {/* Assignee */}
             {task.assignee && (
               <div className="space-y-1.5">
-                <label className="flex items-center gap-1.5 text-xs font-semibold text-gray-400 uppercase tracking-wider">
+                <label className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                   <User className="h-3 w-3" /> Assignee
                 </label>
-                <div className="flex items-center gap-2 px-3 py-2 rounded-xl border border-gray-200 bg-gray-50">
+                <div className="flex items-center gap-2 px-3 py-2 rounded-xl border border-border bg-muted">
                   <div className="h-7 w-7 rounded-full bg-gradient-to-br from-[#7b68ee] to-[#6c5ce7] flex items-center justify-center">
                     <span className="text-[11px] font-bold text-white">
                       {task.assignee.name?.charAt(0).toUpperCase()}
                     </span>
                   </div>
-                  <span className="text-sm font-medium text-gray-700">{task.assignee.name}</span>
+                  <span className="text-sm font-medium text-foreground/80">{task.assignee.name}</span>
                 </div>
               </div>
             )}
 
-            <div className="border-t border-gray-100" />
+            <div className="border-t border-border" />
 
             {/* Description */}
             <div className="space-y-2">
               <div className="flex items-center justify-between">
-                <label className="flex items-center gap-1.5 text-xs font-semibold text-gray-400 uppercase tracking-wider">
+                <label className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                   <AlignLeft className="h-3 w-3" /> Description
                 </label>
                 {!isEditingDesc && (
@@ -346,7 +346,7 @@ export function TaskDetailPanel({ task, onClose, onUpdate, onDelete, isUpdating 
                     value={description}
                     onChange={(e) => setDescription(e.target.value)}
                     placeholder="Add a description..."
-                    className="min-h-[120px] text-sm border-gray-200 focus:border-[#7b68ee] rounded-xl"
+                    className="min-h-[120px] text-sm border-border focus:border-[#7b68ee] rounded-xl"
                     autoFocus
                   />
                   <div className="flex items-center gap-2">
@@ -360,8 +360,8 @@ export function TaskDetailPanel({ task, onClose, onUpdate, onDelete, isUpdating 
                   className={cn(
                     'rounded-xl p-3 min-h-[80px] text-sm cursor-pointer transition-colors',
                     task.description
-                      ? 'bg-gray-50 text-gray-700 hover:bg-gray-100'
-                      : 'border border-dashed border-gray-200 text-gray-400 hover:border-gray-300'
+                      ? 'bg-muted text-foreground/80 hover:bg-accent'
+                      : 'border border-dashed border-border text-muted-foreground hover:border-border'
                   )}
                 >
                   {task.description || 'Click to add a description...'}
@@ -369,14 +369,14 @@ export function TaskDetailPanel({ task, onClose, onUpdate, onDelete, isUpdating 
               )}
             </div>
 
-            <div className="border-t border-gray-100" />
+            <div className="border-t border-border" />
 
             {/* Activity Summary */}
             <div className="space-y-2">
-              <label className="flex items-center gap-1.5 text-xs font-semibold text-gray-400 uppercase tracking-wider">
+              <label className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                 <Clock className="h-3 w-3" /> Timeline
               </label>
-              <div className="space-y-2 text-xs text-gray-400">
+              <div className="space-y-2 text-xs text-muted-foreground">
                 <div className="flex items-center gap-2">
                   <div className="h-1.5 w-1.5 rounded-full bg-green-400" />
                   <span>Created {timeAgo(task.createdAt)}</span>
@@ -406,14 +406,14 @@ export function TaskDetailPanel({ task, onClose, onUpdate, onDelete, isUpdating 
             <div className="flex-1 overflow-y-auto px-5 py-4 space-y-3">
               {loadingComments && (
                 <div className="flex items-center justify-center py-8">
-                  <Loader2 className="h-5 w-5 animate-spin text-gray-300" />
+                  <Loader2 className="h-5 w-5 animate-spin text-muted-foreground/60" />
                 </div>
               )}
               {!loadingComments && comments.length === 0 && (
                 <div className="text-center py-12">
                   <MessageSquare className="h-10 w-10 mx-auto text-gray-200 mb-3" />
-                  <p className="text-sm font-medium text-gray-400">No comments yet</p>
-                  <p className="text-xs text-gray-300 mt-1">Start a discussion about this task</p>
+                  <p className="text-sm font-medium text-muted-foreground">No comments yet</p>
+                  <p className="text-xs text-muted-foreground/60 mt-1">Start a discussion about this task</p>
                 </div>
               )}
               {comments.map((comment: any) => {
@@ -422,9 +422,9 @@ export function TaskDetailPanel({ task, onClose, onUpdate, onDelete, isUpdating 
                   <div key={comment.id} className={cn('flex gap-2.5', isOwn ? 'flex-row-reverse' : '')}>
                     <div className={cn(
                       'h-7 w-7 rounded-full flex items-center justify-center shrink-0',
-                      isOwn ? 'bg-gradient-to-br from-[#7b68ee] to-[#6c5ce7]' : 'bg-gray-200'
+                      isOwn ? 'bg-gradient-to-br from-[#7b68ee] to-[#6c5ce7]' : 'bg-muted'
                     )}>
-                      <span className={cn('text-[10px] font-bold', isOwn ? 'text-white' : 'text-gray-600')}>
+                      <span className={cn('text-[10px] font-bold', isOwn ? 'text-white' : 'text-muted-foreground')}>
                         {(comment.user?.name || 'U').charAt(0).toUpperCase()}
                       </span>
                     </div>
@@ -432,13 +432,13 @@ export function TaskDetailPanel({ task, onClose, onUpdate, onDelete, isUpdating 
                       'max-w-[80%] rounded-2xl px-3.5 py-2.5',
                       isOwn
                         ? 'bg-gradient-to-r from-[#7b68ee] to-[#6c5ce7] text-white'
-                        : 'bg-gray-100 text-[#1a1a2e]'
+                        : 'bg-muted text-foreground'
                     )}>
-                      <p className={cn('text-[11px] font-semibold mb-0.5', isOwn ? 'text-white/80' : 'text-gray-600')}>
+                      <p className={cn('text-[11px] font-semibold mb-0.5', isOwn ? 'text-white/80' : 'text-muted-foreground')}>
                         {comment.user?.name || 'User'}
                       </p>
                       <p className="text-sm leading-relaxed whitespace-pre-wrap">{comment.content}</p>
-                      <p className={cn('text-[10px] mt-1.5', isOwn ? 'text-white/50' : 'text-gray-400')}>
+                      <p className={cn('text-[10px] mt-1.5', isOwn ? 'text-white/50' : 'text-muted-foreground')}>
                         {timeAgo(comment.createdAt)}
                       </p>
                     </div>
@@ -449,7 +449,7 @@ export function TaskDetailPanel({ task, onClose, onUpdate, onDelete, isUpdating 
             </div>
 
             {/* Comment input */}
-            <div className="px-5 py-3 border-t border-gray-100">
+            <div className="px-5 py-3 border-t border-border">
               <div className="flex gap-2">
                 <Input
                   placeholder="Write a comment..."
@@ -461,7 +461,7 @@ export function TaskDetailPanel({ task, onClose, onUpdate, onDelete, isUpdating 
                       handleSendComment();
                     }
                   }}
-                  className="border-gray-200 focus:border-[#7b68ee] rounded-xl text-sm"
+                  className="border-border focus:border-[#7b68ee] rounded-xl text-sm"
                 />
                 <button
                   onClick={handleSendComment}
@@ -480,32 +480,32 @@ export function TaskDetailPanel({ task, onClose, onUpdate, onDelete, isUpdating 
           <div className="px-5 py-4">
             {loadingActivities && (
               <div className="flex items-center justify-center py-8">
-                <Loader2 className="h-5 w-5 animate-spin text-gray-300" />
+                <Loader2 className="h-5 w-5 animate-spin text-muted-foreground/60" />
               </div>
             )}
             {!loadingActivities && activities.length === 0 && (
               <div className="text-center py-12">
                 <Activity className="h-10 w-10 mx-auto text-gray-200 mb-3" />
-                <p className="text-sm font-medium text-gray-400">No activity yet</p>
-                <p className="text-xs text-gray-300 mt-1">Changes to this task will appear here</p>
+                <p className="text-sm font-medium text-muted-foreground">No activity yet</p>
+                <p className="text-xs text-muted-foreground/60 mt-1">Changes to this task will appear here</p>
               </div>
             )}
             {activities.length > 0 && (
               <div className="relative">
                 {/* Timeline line */}
-                <div className="absolute left-[13px] top-3 bottom-3 w-px bg-gray-200" />
+                <div className="absolute left-[13px] top-3 bottom-3 w-px bg-border" />
                 <div className="space-y-4">
                   {activities.map((act: any) => {
                     const actionConfig: Record<string, { icon: any; color: string; bg: string; label: string }> = {
-                      'created': { icon: CheckCircle2, color: '#22c55e', bg: '#f0fdf4', label: 'created this task' },
-                      'status_changed': { icon: ArrowRightLeft, color: '#3b82f6', bg: '#eff6ff', label: 'changed status' },
-                      'priority_changed': { icon: Flag, color: '#f59e0b', bg: '#fffbeb', label: 'changed priority' },
-                      'title_changed': { icon: Type, color: '#8b5cf6', bg: '#f5f3ff', label: 'renamed task' },
+                      'created': { icon: CheckCircle2, color: '#22c55e', bg: '#22c55e15', label: 'created this task' },
+                      'status_changed': { icon: ArrowRightLeft, color: '#3b82f6', bg: '#3b82f615', label: 'changed status' },
+                      'priority_changed': { icon: Flag, color: '#f59e0b', bg: '#f59e0b15', label: 'changed priority' },
+                      'title_changed': { icon: Type, color: '#8b5cf6', bg: '#8b5cf615', label: 'renamed task' },
                       'comment_added': { icon: MessageSquare, color: '#7b68ee', bg: '#7b68ee15', label: 'commented' },
-                      'assignee_changed': { icon: User, color: '#06b6d4', bg: '#ecfeff', label: 'changed assignee' },
-                      'description_changed': { icon: AlignLeft, color: '#6b7280', bg: '#f9fafb', label: 'updated description' },
+                      'assignee_changed': { icon: User, color: '#06b6d4', bg: '#06b6d415', label: 'changed assignee' },
+                      'description_changed': { icon: AlignLeft, color: '#6b7280', bg: '#6b728015', label: 'updated description' },
                     };
-                    const config = actionConfig[act.action] || { icon: GitCommitHorizontal, color: '#9ca3af', bg: '#f3f4f6', label: act.action?.replace(/_/g, ' ') || 'updated' };
+                    const config = actionConfig[act.action] || { icon: GitCommitHorizontal, color: '#9ca3af', bg: '#9ca3af15', label: act.action?.replace(/_/g, ' ') || 'updated' };
                     const IconComp = config.icon;
 
                     const statusLabel = (val: string) => {
@@ -527,20 +527,20 @@ export function TaskDetailPanel({ task, onClose, onUpdate, onDelete, isUpdating 
                         </div>
                         <div className="flex-1 min-w-0 pt-0.5">
                           <div className="flex items-center gap-1.5 flex-wrap">
-                            <span className="text-xs font-semibold text-gray-700">
+                            <span className="text-xs font-semibold text-foreground/80">
                               {act.user?.name || 'Unknown'}
                             </span>
-                            <span className="text-xs text-gray-400">{config.label}</span>
+                            <span className="text-xs text-muted-foreground">{config.label}</span>
                           </div>
                           {/* Show old → new values for changes */}
                           {act.action === 'status_changed' && act.oldValue && act.newValue && (
                             <div className="flex items-center gap-1.5 mt-1">
-                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-medium bg-gray-100 text-gray-500">
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-medium bg-muted text-muted-foreground">
                                 <div className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: STATUS_OPTIONS.find(s => s.key === act.oldValue)?.color || '#9ca3af' }} />
                                 {statusLabel(act.oldValue)}
                               </span>
-                              <ChevronRight className="h-3 w-3 text-gray-300" />
-                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-medium" style={{ backgroundColor: STATUS_OPTIONS.find(s => s.key === act.newValue)?.bg || '#f3f4f6', color: STATUS_OPTIONS.find(s => s.key === act.newValue)?.color || '#6b7280' }}>
+                              <ChevronRight className="h-3 w-3 text-muted-foreground/60" />
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-medium" style={{ backgroundColor: STATUS_OPTIONS.find(s => s.key === act.newValue)?.bg || 'transparent', color: STATUS_OPTIONS.find(s => s.key === act.newValue)?.color || '#6b7280' }}>
                                 <div className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: STATUS_OPTIONS.find(s => s.key === act.newValue)?.color || '#9ca3af' }} />
                                 {statusLabel(act.newValue)}
                               </span>
@@ -548,28 +548,28 @@ export function TaskDetailPanel({ task, onClose, onUpdate, onDelete, isUpdating 
                           )}
                           {act.action === 'priority_changed' && act.oldValue && act.newValue && (
                             <div className="flex items-center gap-1.5 mt-1">
-                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-medium bg-gray-100 text-gray-500">
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-medium bg-muted text-muted-foreground">
                                 {priorityLabel(act.oldValue)}
                               </span>
-                              <ChevronRight className="h-3 w-3 text-gray-300" />
-                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-medium" style={{ backgroundColor: PRIORITY_OPTIONS.find(p => p.value === act.newValue)?.bg || '#f3f4f6', color: PRIORITY_OPTIONS.find(p => p.value === act.newValue)?.color || '#6b7280' }}>
+                              <ChevronRight className="h-3 w-3 text-muted-foreground/60" />
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-medium" style={{ backgroundColor: PRIORITY_OPTIONS.find(p => p.value === act.newValue)?.bg || 'transparent', color: PRIORITY_OPTIONS.find(p => p.value === act.newValue)?.color || '#6b7280' }}>
                                 {priorityLabel(act.newValue)}
                               </span>
                             </div>
                           )}
                           {act.action === 'title_changed' && act.oldValue && act.newValue && (
                             <div className="mt-1 text-[11px]">
-                              <span className="line-through text-gray-400">{act.oldValue}</span>
-                              <span className="mx-1.5 text-gray-300">→</span>
-                              <span className="text-gray-600 font-medium">{act.newValue}</span>
+                              <span className="line-through text-muted-foreground">{act.oldValue}</span>
+                              <span className="mx-1.5 text-muted-foreground/60">→</span>
+                              <span className="text-muted-foreground font-medium">{act.newValue}</span>
                             </div>
                           )}
                           {act.action === 'comment_added' && act.newValue && (
-                            <p className="mt-1 text-[11px] text-gray-500 bg-gray-50 rounded-lg px-2.5 py-1.5 border border-gray-100 line-clamp-2">
+                            <p className="mt-1 text-[11px] text-muted-foreground bg-muted rounded-lg px-2.5 py-1.5 border border-border line-clamp-2">
                               &ldquo;{act.newValue}&rdquo;
                             </p>
                           )}
-                          <span className="text-[10px] text-gray-300 mt-1 block">
+                          <span className="text-[10px] text-muted-foreground/60 mt-1 block">
                             {timeAgo(act.createdAt)}
                           </span>
                         </div>
@@ -584,12 +584,12 @@ export function TaskDetailPanel({ task, onClose, onUpdate, onDelete, isUpdating 
       </div>
 
       {/* Footer actions */}
-      <div className="px-5 py-3 border-t border-gray-100 flex items-center justify-between">
+      <div className="px-5 py-3 border-t border-border flex items-center justify-between">
         {task.status !== 'DONE' ? (
           <Button
             size="sm"
             onClick={() => onUpdate(task.id, { status: 'DONE' })}
-            className="h-8 text-xs bg-green-500 hover:bg-green-600 text-white gap-1.5 rounded-lg"
+            className="h-8 text-xs bg-green-500/100/100 hover:bg-green-600 text-white gap-1.5 rounded-lg"
           >
             <CheckCircle2 className="h-3.5 w-3.5" />
             Mark Done
@@ -608,7 +608,7 @@ export function TaskDetailPanel({ task, onClose, onUpdate, onDelete, isUpdating 
         {showDeleteConfirm ? (
           <div className="flex items-center gap-2">
             <span className="text-xs text-red-500 font-medium">Delete?</span>
-            <Button size="sm" variant="ghost" onClick={() => { onDelete(task.id); onClose(); }} className="h-7 text-xs text-red-500 hover:text-red-600 hover:bg-red-50">Yes</Button>
+            <Button size="sm" variant="ghost" onClick={() => { onDelete(task.id); onClose(); }} className="h-7 text-xs text-red-500 hover:text-red-600 hover:bg-red-500/100/100/100/10">Yes</Button>
             <Button size="sm" variant="ghost" onClick={() => setShowDeleteConfirm(false)} className="h-7 text-xs">No</Button>
           </div>
         ) : (
@@ -616,7 +616,7 @@ export function TaskDetailPanel({ task, onClose, onUpdate, onDelete, isUpdating 
             size="sm"
             variant="ghost"
             onClick={() => setShowDeleteConfirm(true)}
-            className="h-8 text-xs text-gray-400 hover:text-red-500 gap-1.5"
+            className="h-8 text-xs text-muted-foreground hover:text-red-500 gap-1.5"
           >
             <Trash2 className="h-3.5 w-3.5" />
             Delete

@@ -89,16 +89,16 @@ export default function CalendarPage() {
     <div className="max-w-6xl mx-auto space-y-5">
       {/* Header */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-        <h1 className="text-xl font-semibold text-[#1a1a2e]">Calendar</h1>
+        <h1 className="text-xl font-semibold text-foreground">Calendar</h1>
         <div className="flex items-center gap-2 flex-wrap">
-          <button onClick={today} className="px-3 py-1.5 border border-gray-200 text-gray-600 text-sm rounded-lg hover:bg-gray-50 transition-colors">Today</button>
-          <div className="flex items-center border border-gray-200 rounded-lg">
-            <button className="p-1.5 hover:bg-gray-50 rounded-l-lg" onClick={prevMonth}>
-              <ChevronLeft className="h-4 w-4 text-gray-500" />
+          <button onClick={today} className="px-3 py-1.5 border border-border text-muted-foreground text-sm rounded-lg hover:bg-accent transition-colors">Today</button>
+          <div className="flex items-center border border-border rounded-lg">
+            <button className="p-1.5 hover:bg-accent rounded-l-lg" onClick={prevMonth}>
+              <ChevronLeft className="h-4 w-4 text-muted-foreground" />
             </button>
-            <span className="px-3 text-sm font-medium text-[#1a1a2e] min-w-40 text-center">{monthName}</span>
-            <button className="p-1.5 hover:bg-gray-50 rounded-r-lg" onClick={nextMonth}>
-              <ChevronRight className="h-4 w-4 text-gray-500" />
+            <span className="px-3 text-sm font-medium text-foreground min-w-40 text-center">{monthName}</span>
+            <button className="p-1.5 hover:bg-accent rounded-r-lg" onClick={nextMonth}>
+              <ChevronRight className="h-4 w-4 text-muted-foreground" />
             </button>
           </div>
           <button
@@ -112,11 +112,11 @@ export default function CalendarPage() {
       </div>
 
       {/* Calendar Grid */}
-      <div className="border border-gray-100 rounded-xl overflow-x-auto bg-white">
+      <div className="border border-border rounded-xl overflow-x-auto bg-card">
         {/* Days header */}
-        <div className="grid grid-cols-7 bg-gray-50 min-w-140">
+        <div className="grid grid-cols-7 bg-muted min-w-140">
           {days.map(d => (
-            <div key={d} className="p-2 text-center text-xs font-medium text-gray-400 border-b border-gray-100">
+            <div key={d} className="p-2 text-center text-xs font-medium text-muted-foreground border-b border-border">
               {d}
             </div>
           ))}
@@ -125,7 +125,7 @@ export default function CalendarPage() {
         {/* Calendar cells */}
         <div className="grid grid-cols-7 min-w-140">
           {Array.from({ length: firstDay }, (_, i) => (
-            <div key={`empty-${i}`} className="min-h-25 border-b border-r border-gray-50 bg-gray-50/30" />
+            <div key={`empty-${i}`} className="min-h-25 border-b border-r border-border/50 bg-muted/30" />
           ))}
 
           {Array.from({ length: daysInMonth }, (_, i) => {
@@ -135,7 +135,7 @@ export default function CalendarPage() {
               <div
                 key={day}
                 className={cn(
-                  'min-h-25 border-b border-r border-gray-50 p-1.5 cursor-pointer hover:bg-gray-50/50 transition-colors',
+                  'min-h-25 border-b border-r border-border/50 p-1.5 cursor-pointer hover:bg-muted/50 transition-colors',
                   isToday(day) && 'bg-[#7b68ee]/5'
                 )}
                 onClick={() => {
@@ -146,7 +146,7 @@ export default function CalendarPage() {
               >
                 <span className={cn(
                   'text-xs font-medium inline-flex h-6 w-6 items-center justify-center rounded-full',
-                  isToday(day) ? 'bg-[#7b68ee] text-white' : 'text-gray-600'
+                  isToday(day) ? 'bg-[#7b68ee] text-white' : 'text-muted-foreground'
                 )}>
                   {day}
                 </span>
@@ -165,7 +165,7 @@ export default function CalendarPage() {
                     </div>
                   ))}
                   {dayEvents.length > 3 && (
-                    <span className="text-[10px] text-gray-400">+{dayEvents.length - 3} more</span>
+                    <span className="text-[10px] text-muted-foreground">+{dayEvents.length - 3} more</span>
                   )}
                 </div>
               </div>
@@ -176,19 +176,19 @@ export default function CalendarPage() {
 
       {/* Create Event Dialog */}
       <Dialog open={showCreate} onOpenChange={setShowCreate}>
-        <DialogContent className="bg-white">
+        <DialogContent className="bg-card">
           <DialogHeader>
-            <DialogTitle className="text-[#1a1a2e]">Add Event</DialogTitle>
+            <DialogTitle className="text-foreground">Add Event</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             <div className="space-y-1.5">
-              <label className="text-[13px] font-medium text-gray-600">Title</label>
-              <Input value={newEvent.title} onChange={(e) => setNewEvent({ ...newEvent, title: e.target.value })} placeholder="Event title" className="border-gray-200 focus:border-[#7b68ee]" />
+              <label className="text-[13px] font-medium text-muted-foreground">Title</label>
+              <Input value={newEvent.title} onChange={(e) => setNewEvent({ ...newEvent, title: e.target.value })} placeholder="Event title" className="border-border focus:border-[#7b68ee]" />
             </div>
             <div className="space-y-1.5">
-              <label className="text-[13px] font-medium text-gray-600">Type</label>
+              <label className="text-[13px] font-medium text-muted-foreground">Type</label>
               <Select value={newEvent.type} onValueChange={(v) => setNewEvent({ ...newEvent, type: v })}>
-                <SelectTrigger className="border-gray-200"><SelectValue /></SelectTrigger>
+                <SelectTrigger className="border-border"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   {EVENT_TYPES.map(t => <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>)}
                 </SelectContent>
@@ -196,17 +196,17 @@ export default function CalendarPage() {
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1.5">
-                <label className="text-[13px] font-medium text-gray-600">Start Date</label>
-                <Input type="date" value={newEvent.startDate} onChange={(e) => setNewEvent({ ...newEvent, startDate: e.target.value })} className="border-gray-200 focus:border-[#7b68ee]" />
+                <label className="text-[13px] font-medium text-muted-foreground">Start Date</label>
+                <Input type="date" value={newEvent.startDate} onChange={(e) => setNewEvent({ ...newEvent, startDate: e.target.value })} className="border-border focus:border-[#7b68ee]" />
               </div>
               <div className="space-y-1.5">
-                <label className="text-[13px] font-medium text-gray-600">End Date</label>
-                <Input type="date" value={newEvent.endDate} onChange={(e) => setNewEvent({ ...newEvent, endDate: e.target.value })} className="border-gray-200 focus:border-[#7b68ee]" />
+                <label className="text-[13px] font-medium text-muted-foreground">End Date</label>
+                <Input type="date" value={newEvent.endDate} onChange={(e) => setNewEvent({ ...newEvent, endDate: e.target.value })} className="border-border focus:border-[#7b68ee]" />
               </div>
             </div>
           </div>
           <DialogFooter>
-            <button onClick={() => setShowCreate(false)} className="px-4 py-2 text-sm font-medium text-gray-500 hover:text-gray-700 rounded-lg hover:bg-gray-50 transition-colors">Cancel</button>
+            <button onClick={() => setShowCreate(false)} className="px-4 py-2 text-sm font-medium text-muted-foreground hover:text-foreground/80 rounded-lg hover:bg-accent transition-colors">Cancel</button>
             <button
               onClick={() => createMutation.mutate(newEvent)}
               disabled={!newEvent.title || !newEvent.startDate}

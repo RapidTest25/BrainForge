@@ -57,7 +57,7 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex bg-white">
+    <div className="min-h-screen flex bg-card">
       {/* Left branding panel */}
       <div className="hidden lg:flex lg:w-[480px] bg-gradient-to-br from-[#7b68ee] to-[#6c5ce7] relative overflow-hidden">
         <div className="absolute inset-0 opacity-10">
@@ -67,7 +67,7 @@ export default function LoginPage() {
         </div>
         <div className="relative flex flex-col justify-between p-10 w-full">
           <Link href="/" className="flex items-center gap-2">
-            <div className="h-8 w-8 rounded-lg bg-white/20 flex items-center justify-center">
+            <div className="h-8 w-8 rounded-lg bg-card/20 flex items-center justify-center">
               <Brain className="h-4 w-4 text-white" />
             </div>
             <span className="text-lg font-bold text-white">BrainForge</span>
@@ -109,11 +109,11 @@ export default function LoginPage() {
             <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-[#7b68ee] to-[#a78bfa] flex items-center justify-center">
               <Brain className="h-4 w-4 text-white" />
             </div>
-            <span className="text-lg font-bold text-[#1a1a2e]">BrainForge</span>
+            <span className="text-lg font-bold text-foreground">BrainForge</span>
           </div>
 
-          <h1 className="text-2xl font-bold text-[#1a1a2e] mb-1">Welcome back</h1>
-          <p className="text-gray-500 text-sm mb-8">Sign in to your workspace</p>
+          <h1 className="text-2xl font-bold text-foreground mb-1">Welcome back</h1>
+          <p className="text-muted-foreground text-sm mb-8">Sign in to your workspace</p>
 
           <form onSubmit={handleSubmit} className="space-y-4">
             {error && (
@@ -128,15 +128,15 @@ export default function LoginPage() {
             )}
 
             <div className="space-y-1.5">
-              <label className="text-sm font-medium text-gray-700">Email</label>
+              <label className="text-sm font-medium text-foreground/80">Email</label>
               <div className="relative">
-                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
                   type="email"
                   placeholder="you@example.com"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="pl-10 h-10 border-gray-200 focus:border-[#7b68ee] focus:ring-[#7b68ee]/20"
+                  className="pl-10 h-10 border-border focus:border-[#7b68ee] focus:ring-[#7b68ee]/20"
                   required
                 />
               </div>
@@ -144,25 +144,25 @@ export default function LoginPage() {
 
             <div className="space-y-1.5">
               <div className="flex items-center justify-between">
-                <label className="text-sm font-medium text-gray-700">Password</label>
+                <label className="text-sm font-medium text-foreground/80">Password</label>
                 <Link href="/forgot-password" className="text-xs text-[#7b68ee] hover:underline">
                   Forgot password?
                 </Link>
               </div>
               <div className="relative">
-                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
                   type={showPassword ? 'text' : 'password'}
                   placeholder="Enter your password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="pl-10 pr-10 h-10 border-gray-200 focus:border-[#7b68ee] focus:ring-[#7b68ee]/20"
+                  className="pl-10 pr-10 h-10 border-border focus:border-[#7b68ee] focus:ring-[#7b68ee]/20"
                   required
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-muted-foreground transition-colors"
                   tabIndex={-1}
                 >
                   {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
@@ -178,7 +178,7 @@ export default function LoginPage() {
                 className={`h-4 w-4 rounded border flex items-center justify-center transition-colors ${
                   rememberMe
                     ? 'bg-[#7b68ee] border-[#7b68ee]'
-                    : 'border-gray-300 hover:border-gray-400'
+                    : 'border-border hover:border-gray-400'
                 }`}
               >
                 {rememberMe && (
@@ -188,7 +188,7 @@ export default function LoginPage() {
                 )}
               </button>
               <label
-                className="text-sm text-gray-600 cursor-pointer select-none"
+                className="text-sm text-muted-foreground cursor-pointer select-none"
                 onClick={() => setRememberMe(!rememberMe)}
               >
                 Remember me
@@ -210,10 +210,10 @@ export default function LoginPage() {
 
           <div className="relative my-6">
             <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-gray-200" />
+              <div className="w-full border-t border-border" />
             </div>
             <div className="relative flex justify-center text-xs">
-              <span className="bg-white px-3 text-gray-400">or</span>
+              <span className="bg-card px-3 text-muted-foreground">or</span>
             </div>
           </div>
 
@@ -223,7 +223,7 @@ export default function LoginPage() {
             label="Sign in with Google"
           />
 
-          <p className="mt-6 text-center text-sm text-gray-500">
+          <p className="mt-6 text-center text-sm text-muted-foreground">
             Don&apos;t have an account?{' '}
             <Link href="/register" className="text-[#7b68ee] font-medium hover:underline">
               Sign up
@@ -231,7 +231,7 @@ export default function LoginPage() {
           </p>
 
           <div className="mt-4 text-center">
-            <Link href="/" className="text-xs text-gray-400 hover:text-gray-600 transition-colors">
+            <Link href="/" className="text-xs text-muted-foreground hover:text-muted-foreground transition-colors">
               &larr; Back to home
             </Link>
           </div>

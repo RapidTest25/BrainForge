@@ -17,6 +17,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
 import { useTeamStore } from '@/stores/team-store';
+import { useProjectStore } from '@/stores/project-store';
 import { api } from '@/lib/api';
 import { toast } from 'sonner';
 
@@ -475,6 +476,7 @@ function DiagramEditor({ diagram, dtype, nodes: initNodes, edges: initEdges, onB
 
 export default function DiagramsPage() {
   const { activeTeam } = useTeamStore();
+  const activeProject = useProjectStore((s) => s.activeProject);
   const teamId = activeTeam?.id;
   const queryClient = useQueryClient();
   const [activeDiagram, setActiveDiagram] = useState<string | null>(null);
@@ -490,8 +492,8 @@ export default function DiagramsPage() {
   const [search, setSearch] = useState('');
 
   const { data: diagrams } = useQuery({
-    queryKey: ['diagrams', teamId],
-    queryFn: () => api.get<{ data: any[] }>(`/teams/${teamId}/diagrams`),
+    queryKey: ['diagrams', teamId, activeProject?.id],
+    queryFn: () => api.get<{ data: any[] }>(`/teams/${teamId}/diagrams${activeProject?.id ? `?projectId=${activeProject.id}` : ''}`),
     enabled: !!teamId,
   });
 
@@ -507,7 +509,7 @@ export default function DiagramsPage() {
   });
 
   const createMutation = useMutation({
-    mutationFn: (data: any) => api.post(`/teams/${teamId}/diagrams`, data),
+    mutationFn: (data: any) => api.post(`/teams/${teamId}/diagrams`, { ...data, projectId: activeProject?.id }),
     onSuccess: (res: any) => {
       queryClient.invalidateQueries({ queryKey: ['diagrams', teamId] });
       setActiveDiagram(res.data.id);

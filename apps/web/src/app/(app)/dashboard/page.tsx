@@ -7,6 +7,7 @@ import {
   Target, BarChart3, Activity
 } from 'lucide-react';
 import { useTeamStore } from '@/stores/team-store';
+import { useProjectStore } from '@/stores/project-store';
 import { useAuthStore } from '@/stores/auth-store';
 import { useRouter } from 'next/navigation';
 import { api } from '@/lib/api';
@@ -14,31 +15,32 @@ import Link from 'next/link';
 
 export default function DashboardPage() {
   const { activeTeam } = useTeamStore();
+  const activeProject = useProjectStore((s) => s.activeProject);
   const { user } = useAuthStore();
   const router = useRouter();
   const teamId = activeTeam?.id;
 
   const { data: tasks } = useQuery({
-    queryKey: ['tasks', teamId],
-    queryFn: () => api.get<{ data: any[] }>(`/teams/${teamId}/tasks`),
+    queryKey: ['tasks', teamId, activeProject?.id],
+    queryFn: () => api.get<{ data: any[] }>(`/teams/${teamId}/tasks${activeProject?.id ? `?projectId=${activeProject.id}` : ''}`),
     enabled: !!teamId,
   });
 
   const { data: brainstorms } = useQuery({
-    queryKey: ['brainstorms', teamId],
-    queryFn: () => api.get<{ data: any[] }>(`/teams/${teamId}/brainstorm`),
+    queryKey: ['brainstorms', teamId, activeProject?.id],
+    queryFn: () => api.get<{ data: any[] }>(`/teams/${teamId}/brainstorm${activeProject?.id ? `?projectId=${activeProject.id}` : ''}`),
     enabled: !!teamId,
   });
 
   const { data: diagrams } = useQuery({
-    queryKey: ['diagrams', teamId],
-    queryFn: () => api.get<{ data: any[] }>(`/teams/${teamId}/diagrams`),
+    queryKey: ['diagrams', teamId, activeProject?.id],
+    queryFn: () => api.get<{ data: any[] }>(`/teams/${teamId}/diagrams${activeProject?.id ? `?projectId=${activeProject.id}` : ''}`),
     enabled: !!teamId,
   });
 
   const { data: sprints } = useQuery({
-    queryKey: ['sprints', teamId],
-    queryFn: () => api.get<{ data: any[] }>(`/teams/${teamId}/sprints`),
+    queryKey: ['sprints', teamId, activeProject?.id],
+    queryFn: () => api.get<{ data: any[] }>(`/teams/${teamId}/sprints${activeProject?.id ? `?projectId=${activeProject.id}` : ''}`),
     enabled: !!teamId,
   });
 

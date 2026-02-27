@@ -14,8 +14,9 @@ export async function taskRoutes(app: FastifyInstance) {
   // POST /api/teams/:teamId/tasks
   app.post('/:teamId/tasks', { preHandler: [teamGuard()] }, async (request, reply) => {
     const { teamId } = request.params as { teamId: string };
+    const { projectId } = request.body as { projectId?: string };
     const body = createTaskSchema.parse(request.body);
-    const task = await taskService.create(teamId, body, request.user.id);
+    const task = await taskService.create(teamId, { ...body, projectId }, request.user.id);
     return reply.status(201).send({ success: true, data: task });
   });
 

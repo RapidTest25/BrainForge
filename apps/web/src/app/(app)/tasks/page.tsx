@@ -25,6 +25,7 @@ import {
 import { Sheet, SheetContent } from '@/components/ui/sheet';
 import { TaskDetailPanel } from '@/components/task-detail-panel';
 import { useTeamStore } from '@/stores/team-store';
+import { useProjectStore } from '@/stores/project-store';
 import { api } from '@/lib/api';
 import { cn } from '@/lib/utils';
 
@@ -44,6 +45,7 @@ const PRIORITY_OPTIONS = [
 
 export default function TasksPage() {
   const { activeTeam } = useTeamStore();
+  const activeProject = useProjectStore((s) => s.activeProject);
   const teamId = activeTeam?.id;
   const queryClient = useQueryClient();
   const [view, setView] = useState<'list' | 'board'>('board');
@@ -58,13 +60,18 @@ export default function TasksPage() {
   }, [searchParams]);
 
   const { data: tasks, isLoading } = useQuery({
-    queryKey: ['tasks', teamId, search],
-    queryFn: () => api.get<{ data: any[] }>(`/teams/${teamId}/tasks${search ? `?search=${search}` : ''}`),
+    queryKey: ['tasks', teamId, activeProject?.id, search],
+    queryFn: () => {
+      const p = new URLSearchParams();
+      if (search) p.set('search', search);
+      if (activeProject?.id) p.set('projectId', activeProject.id);
+      return api.get<{ data: any[] }>(`/teams/${teamId}/tasks${p.toString() ? `?${p}` : ''}`);
+    },
     enabled: !!teamId,
   });
 
   const createMutation = useMutation({
-    mutationFn: (data: any) => api.post(`/teams/${teamId}/tasks`, data),
+    mutationFn: (data: any) => api.post(`/teams/${teamId}/tasks`, { ...data, projectId: activeProject?.id }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['tasks', teamId] });
       setShowCreateDialog(false);

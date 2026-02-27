@@ -34,7 +34,7 @@ Consider team size, deadline, and distribute tasks evenly.
 ONLY output JSON, no other text.`;
 
 class SprintService {
-  async create(teamId: string, userId: string, data: { title: string; goal: string; deadline: string; teamSize?: number }) {
+  async create(teamId: string, userId: string, data: { title: string; goal: string; deadline: string; teamSize?: number; projectId?: string }) {
     return prisma.sprintPlan.create({
       data: {
         teamId,
@@ -45,14 +45,15 @@ class SprintService {
         teamSize: data.teamSize ?? 3,
         status: 'DRAFT',
         data: {},
+        projectId: data.projectId,
       },
       include: { creator: { select: { id: true, name: true, avatarUrl: true } } },
     });
   }
 
-  async findByTeam(teamId: string) {
+  async findByTeam(teamId: string, projectId?: string) {
     return prisma.sprintPlan.findMany({
-      where: { teamId },
+      where: { teamId, ...(projectId && { projectId }) },
       include: { creator: { select: { id: true, name: true, avatarUrl: true } } },
       orderBy: { createdAt: 'desc' },
     });

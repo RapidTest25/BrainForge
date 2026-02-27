@@ -9,14 +9,15 @@ export const goalRoutes: FastifyPluginAsync = async (app) => {
   // List goals
   app.get('/:teamId/goals', { preHandler: [teamGuard()] }, async (request, reply) => {
     const { teamId } = request.params as { teamId: string };
-    const goals = await goalService.findByTeam(teamId);
+    const { projectId } = request.query as { projectId?: string };
+    const goals = await goalService.findByTeam(teamId, projectId);
     return reply.send({ success: true, data: goals });
   });
 
   // Create goal
   app.post('/:teamId/goals', { preHandler: [teamGuard()] }, async (request, reply) => {
     const { teamId } = request.params as { teamId: string };
-    const body = request.body as { title: string; description?: string; dueDate?: string };
+    const body = request.body as { title: string; description?: string; dueDate?: string; projectId?: string };
     if (!body.title) {
       return reply.status(400).send({ success: false, error: { message: 'Title is required' } });
     }

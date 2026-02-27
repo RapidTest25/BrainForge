@@ -217,8 +217,10 @@ export function Sidebar({ collapsed, onToggle, mobile, onMobileClose }: SidebarP
 
       {/* ── Project Switcher (expanded only) ── */}
       <div className={cn(
-        'overflow-hidden transition-all duration-300',
-        isExpanded && projectList.length > 0 ? 'max-h-20 opacity-100 px-2 pt-2 pb-1' : 'max-h-0 opacity-0 px-2'
+        'transition-all duration-300',
+        isExpanded && projectList.length > 0
+          ? 'max-h-20 opacity-100 px-2 pt-2 pb-1'
+          : 'max-h-0 opacity-0 px-2 overflow-hidden'
       )}>
         <div className="relative" ref={projectPickerRef}>
           <button

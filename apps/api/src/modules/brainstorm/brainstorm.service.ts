@@ -4,7 +4,7 @@ import { NotFoundError } from '../../lib/errors.js';
 const USER_SELECT = { id: true, name: true, avatarUrl: true };
 
 class BrainstormService {
-  async createSession(teamId: string, userId: string, data: { title: string; mode: string; context?: string }) {
+  async createSession(teamId: string, userId: string, data: { title: string; mode: string; context?: string; projectId?: string }) {
     return prisma.brainstormSession.create({
       data: {
         teamId,
@@ -12,14 +12,15 @@ class BrainstormService {
         title: data.title,
         mode: data.mode as any,
         context: data.context,
+        projectId: data.projectId,
       },
       include: { creator: { select: USER_SELECT } },
     });
   }
 
-  async findByTeam(teamId: string) {
+  async findByTeam(teamId: string, projectId?: string) {
     return prisma.brainstormSession.findMany({
-      where: { teamId },
+      where: { teamId, ...(projectId && { projectId }) },
       include: {
         creator: { select: USER_SELECT },
         _count: { select: { messages: true } },

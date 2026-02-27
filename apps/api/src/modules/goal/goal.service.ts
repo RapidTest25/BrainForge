@@ -12,6 +12,7 @@ class GoalService {
     title: string;
     description?: string;
     dueDate?: string;
+    projectId?: string;
   }) {
     return prisma.goal.create({
       data: {
@@ -20,14 +21,15 @@ class GoalService {
         title: data.title,
         description: data.description,
         dueDate: data.dueDate ? new Date(data.dueDate) : undefined,
+        projectId: data.projectId,
       },
       include: GOAL_INCLUDE,
     });
   }
 
-  async findByTeam(teamId: string) {
+  async findByTeam(teamId: string, projectId?: string) {
     return prisma.goal.findMany({
-      where: { teamId },
+      where: { teamId, ...(projectId && { projectId }) },
       include: GOAL_INCLUDE,
       orderBy: { createdAt: 'desc' },
     });

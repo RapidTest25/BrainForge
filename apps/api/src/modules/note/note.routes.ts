@@ -9,14 +9,16 @@ export async function noteRoutes(app: FastifyInstance) {
 
   app.get('/:teamId/notes', { preHandler: [teamGuard()] }, async (request, reply) => {
     const { teamId } = request.params as { teamId: string };
-    const notes = await noteService.findByTeam(teamId);
+    const { projectId } = request.query as { projectId?: string };
+    const notes = await noteService.findByTeam(teamId, projectId);
     return reply.send({ success: true, data: notes });
   });
 
   app.post('/:teamId/notes', { preHandler: [teamGuard()] }, async (request, reply) => {
     const { teamId } = request.params as { teamId: string };
+    const { projectId } = request.body as { projectId?: string };
     const body = createNoteSchema.parse(request.body);
-    const note = await noteService.create(teamId, request.user.id, body);
+    const note = await noteService.create(teamId, request.user.id, { ...body, projectId });
     return reply.status(201).send({ success: true, data: note });
   });
 

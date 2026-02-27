@@ -25,7 +25,7 @@ Rules:
 - ONLY output the JSON, no other text`;
 
 class DiagramService {
-  async create(teamId: string, userId: string, data: { title: string; type: string; description?: string }) {
+  async create(teamId: string, userId: string, data: { title: string; type: string; description?: string; projectId?: string }) {
     return prisma.diagram.create({
       data: {
         teamId,
@@ -34,14 +34,15 @@ class DiagramService {
         type: data.type as any,
         description: data.description,
         data: { nodes: [], edges: [] },
+        projectId: data.projectId,
       },
       include: { creator: { select: { id: true, name: true, avatarUrl: true } } },
     });
   }
 
-  async findByTeam(teamId: string) {
+  async findByTeam(teamId: string, projectId?: string) {
     return prisma.diagram.findMany({
-      where: { teamId },
+      where: { teamId, ...(projectId && { projectId }) },
       include: { creator: { select: { id: true, name: true, avatarUrl: true } } },
       orderBy: { updatedAt: 'desc' },
     });

@@ -9,15 +9,16 @@ export async function aiChatRoutes(app: FastifyInstance) {
   // GET /:teamId/ai-chat — list chats
   app.get('/:teamId/ai-chat', { preHandler: [teamGuard()] }, async (request, reply) => {
     const { teamId } = request.params as { teamId: string };
-    const chats = await aiChatService.listChats(teamId, request.user.id);
+    const { projectId } = request.query as { projectId?: string };
+    const chats = await aiChatService.listChats(teamId, request.user.id, projectId);
     return reply.send({ success: true, data: chats });
   });
 
   // POST /:teamId/ai-chat — create chat
   app.post('/:teamId/ai-chat', { preHandler: [teamGuard()] }, async (request, reply) => {
     const { teamId } = request.params as { teamId: string };
-    const { title } = request.body as { title: string };
-    const chat = await aiChatService.createChat(teamId, request.user.id, title || 'New Chat');
+    const { title, projectId } = request.body as { title: string; projectId?: string };
+    const chat = await aiChatService.createChat(teamId, request.user.id, title || 'New Chat', projectId);
     return reply.send({ success: true, data: chat });
   });
 

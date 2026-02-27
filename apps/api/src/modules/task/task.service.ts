@@ -31,6 +31,7 @@ export class TaskService {
         dueDate: input.dueDate ? new Date(input.dueDate) : undefined,
         estimation: input.estimation,
         sprintId: input.sprintId,
+        projectId: (input as any).projectId || undefined,
         createdBy: userId,
         orderIndex: (maxOrder._max.orderIndex ?? 0) + 1,
         assignees: input.assigneeIds
@@ -78,6 +79,9 @@ export class TaskService {
     }
     if (filters?.sprintId) {
       where.sprintId = filters.sprintId;
+    }
+    if (filters?.projectId) {
+      where.projectId = filters.projectId;
     }
     if (filters?.search) {
       where.OR = [

@@ -34,6 +34,7 @@ export const taskFiltersSchema = z.object({
   assigneeId: z.string().optional(),
   labelId: z.string().optional(),
   sprintId: z.string().optional(),
+  projectId: z.string().optional(),
   search: z.string().optional(),
   groupBy: z.enum(['status', 'priority', 'assignee', 'label', 'sprint']).optional(),
   sortBy: z.enum(['priority', 'dueDate', 'createdAt', 'title', 'status']).optional(),

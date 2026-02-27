@@ -16,6 +16,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
 import { useTeamStore } from '@/stores/team-store';
+import { useProjectStore } from '@/stores/project-store';
 import { api } from '@/lib/api';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
@@ -24,6 +25,7 @@ const PROVIDERS = ['openai', 'claude', 'gemini', 'groq', 'openrouter'];
 
 export default function SprintsPage() {
   const { activeTeam } = useTeamStore();
+  const activeProject = useProjectStore((s) => s.activeProject);
   const teamId = activeTeam?.id;
   const queryClient = useQueryClient();
   const searchParams = useSearchParams();
@@ -46,8 +48,8 @@ export default function SprintsPage() {
   }, [searchParams]);
 
   const { data: sprints } = useQuery({
-    queryKey: ['sprints', teamId],
-    queryFn: () => api.get<{ data: any[] }>(`/teams/${teamId}/sprints`),
+    queryKey: ['sprints', teamId, activeProject?.id],
+    queryFn: () => api.get<{ data: any[] }>(`/teams/${teamId}/sprints${activeProject?.id ? `?projectId=${activeProject.id}` : ''}`),
     enabled: !!teamId,
   });
 
@@ -57,7 +59,7 @@ export default function SprintsPage() {
   });
 
   const createMutation = useMutation({
-    mutationFn: (data: any) => api.post(`/teams/${teamId}/sprints`, data),
+    mutationFn: (data: any) => api.post(`/teams/${teamId}/sprints`, { ...data, projectId: activeProject?.id }),
     onSuccess: (data: any) => {
       queryClient.invalidateQueries({ queryKey: ['sprints', teamId] });
       setShowCreate(false);

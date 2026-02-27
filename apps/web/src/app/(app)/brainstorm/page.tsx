@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useTeamStore } from '@/stores/team-store';
+import { useProjectStore } from '@/stores/project-store';
 import { api } from '@/lib/api';
 import { cn } from '@/lib/utils';
 
@@ -22,18 +23,19 @@ const MODES = [
 export default function BrainstormPage() {
   const router = useRouter();
   const { activeTeam } = useTeamStore();
+  const activeProject = useProjectStore((s) => s.activeProject);
   const teamId = activeTeam?.id;
   const queryClient = useQueryClient();
   const [creatingMode, setCreatingMode] = useState<string | null>(null);
 
   const { data: sessions } = useQuery({
-    queryKey: ['brainstorm-sessions', teamId],
-    queryFn: () => api.get<{ data: any[] }>(`/teams/${teamId}/brainstorm`),
+    queryKey: ['brainstorm-sessions', teamId, activeProject?.id],
+    queryFn: () => api.get<{ data: any[] }>(`/teams/${teamId}/brainstorm${activeProject?.id ? `?projectId=${activeProject.id}` : ''}`),
     enabled: !!teamId,
   });
 
   const createMutation = useMutation({
-    mutationFn: (data: any) => api.post(`/teams/${teamId}/brainstorm`, data),
+    mutationFn: (data: any) => api.post(`/teams/${teamId}/brainstorm`, { ...data, projectId: activeProject?.id }),
     onSuccess: (res: any) => {
       queryClient.invalidateQueries({ queryKey: ['brainstorm-sessions', teamId] });
       setCreatingMode(null);

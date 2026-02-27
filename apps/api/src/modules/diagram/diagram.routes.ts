@@ -9,14 +9,16 @@ export async function diagramRoutes(app: FastifyInstance) {
 
   app.get('/:teamId/diagrams', { preHandler: [teamGuard()] }, async (request, reply) => {
     const { teamId } = request.params as { teamId: string };
-    const diagrams = await diagramService.findByTeam(teamId);
+    const { projectId } = request.query as { projectId?: string };
+    const diagrams = await diagramService.findByTeam(teamId, projectId);
     return reply.send({ success: true, data: diagrams });
   });
 
   app.post('/:teamId/diagrams', { preHandler: [teamGuard()] }, async (request, reply) => {
     const { teamId } = request.params as { teamId: string };
+    const { projectId } = request.body as { projectId?: string };
     const body = createDiagramSchema.parse(request.body);
-    const diagram = await diagramService.create(teamId, request.user.id, body);
+    const diagram = await diagramService.create(teamId, request.user.id, { ...body, projectId });
     return reply.status(201).send({ success: true, data: diagram });
   });
 

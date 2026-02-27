@@ -9,14 +9,15 @@ export async function sprintRoutes(app: FastifyInstance) {
 
   app.get('/:teamId/sprints', { preHandler: [teamGuard()] }, async (request, reply) => {
     const { teamId } = request.params as { teamId: string };
-    const sprints = await sprintService.findByTeam(teamId);
+    const { projectId } = request.query as { projectId?: string };
+    const sprints = await sprintService.findByTeam(teamId, projectId);
     return reply.send({ success: true, data: sprints });
   });
 
   app.post('/:teamId/sprints', { preHandler: [teamGuard()] }, async (request, reply) => {
     const { teamId } = request.params as { teamId: string };
     const body = createSprintSchema.parse(request.body);
-    const sprint = await sprintService.create(teamId, request.user.id, { title: body.title, goal: body.goal, deadline: body.deadline, teamSize: body.teamSize });
+    const sprint = await sprintService.create(teamId, request.user.id, { title: body.title, goal: body.goal, deadline: body.deadline, teamSize: body.teamSize, projectId: (request.body as any).projectId });
     return reply.status(201).send({ success: true, data: sprint });
   });
 

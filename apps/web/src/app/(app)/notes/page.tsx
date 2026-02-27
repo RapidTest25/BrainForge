@@ -18,6 +18,7 @@ import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { useTeamStore } from '@/stores/team-store';
+import { useProjectStore } from '@/stores/project-store';
 import { api } from '@/lib/api';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
@@ -35,6 +36,7 @@ const PROVIDERS = ['openai', 'claude', 'gemini', 'groq', 'openrouter'];
 
 export default function NotesPage() {
   const { activeTeam } = useTeamStore();
+  const activeProject = useProjectStore((s) => s.activeProject);
   const teamId = activeTeam?.id;
   const queryClient = useQueryClient();
   const [selectedNote, setSelectedNote] = useState<any>(null);
@@ -53,8 +55,8 @@ export default function NotesPage() {
   const [aiModel, setAiModel] = useState('gpt-4o');
 
   const { data: notes } = useQuery({
-    queryKey: ['notes', teamId],
-    queryFn: () => api.get<{ data: any[] }>(`/teams/${teamId}/notes`),
+    queryKey: ['notes', teamId, activeProject?.id],
+    queryFn: () => api.get<{ data: any[] }>(`/teams/${teamId}/notes${activeProject?.id ? `?projectId=${activeProject.id}` : ''}`),
     enabled: !!teamId,
   });
 
@@ -70,7 +72,7 @@ export default function NotesPage() {
   });
 
   const createMutation = useMutation({
-    mutationFn: (data: any) => api.post(`/teams/${teamId}/notes`, data),
+    mutationFn: (data: any) => api.post(`/teams/${teamId}/notes`, { ...data, projectId: activeProject?.id }),
     onSuccess: (data: any) => {
       queryClient.invalidateQueries({ queryKey: ['notes', teamId] });
       setShowCreate(false);

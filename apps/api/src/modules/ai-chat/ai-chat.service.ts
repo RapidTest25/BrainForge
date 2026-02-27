@@ -3,9 +3,9 @@ import { aiService } from '../../ai/ai.service.js';
 import type { ChatMsg } from '../../ai/providers/base.js';
 
 class AiChatService {
-  async listChats(teamId: string, userId: string) {
+  async listChats(teamId: string, userId: string, projectId?: string) {
     return prisma.aiChat.findMany({
-      where: { teamId, createdBy: userId },
+      where: { teamId, createdBy: userId, ...(projectId && { projectId }) },
       orderBy: { updatedAt: 'desc' },
       include: {
         _count: { select: { messages: true } },
@@ -22,9 +22,9 @@ class AiChatService {
     });
   }
 
-  async createChat(teamId: string, userId: string, title: string) {
+  async createChat(teamId: string, userId: string, title: string, projectId?: string) {
     return prisma.aiChat.create({
-      data: { teamId, createdBy: userId, title },
+      data: { teamId, createdBy: userId, title, ...(projectId && { projectId }) },
       include: { _count: { select: { messages: true } } },
     });
   }

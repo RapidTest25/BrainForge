@@ -4,21 +4,22 @@ import { NotFoundError } from '../../lib/errors.js';
 import type { ChatMsg } from '../../ai/providers/base.js';
 
 class NoteService {
-  async create(teamId: string, userId: string, data: { title: string; content?: string }) {
+  async create(teamId: string, userId: string, data: { title: string; content?: string; projectId?: string }) {
     return prisma.note.create({
       data: {
         teamId,
         createdBy: userId,
         title: data.title,
         content: data.content || '',
+        projectId: data.projectId,
       },
       include: { creator: { select: { id: true, name: true, avatarUrl: true } } },
     });
   }
 
-  async findByTeam(teamId: string) {
+  async findByTeam(teamId: string, projectId?: string) {
     return prisma.note.findMany({
-      where: { teamId },
+      where: { teamId, ...(projectId && { projectId }) },
       include: { creator: { select: { id: true, name: true, avatarUrl: true } } },
       orderBy: { updatedAt: 'desc' },
     });

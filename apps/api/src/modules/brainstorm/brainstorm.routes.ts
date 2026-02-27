@@ -14,15 +14,17 @@ export async function brainstormRoutes(app: FastifyInstance) {
   // GET /api/teams/:teamId/brainstorm
   app.get('/:teamId/brainstorm', { preHandler: [teamGuard()] }, async (request, reply) => {
     const { teamId } = request.params as { teamId: string };
-    const sessions = await brainstormService.findByTeam(teamId);
+    const { projectId } = request.query as { projectId?: string };
+    const sessions = await brainstormService.findByTeam(teamId, projectId);
     return reply.send({ success: true, data: sessions });
   });
 
   // POST /api/teams/:teamId/brainstorm
   app.post('/:teamId/brainstorm', { preHandler: [teamGuard()] }, async (request, reply) => {
     const { teamId } = request.params as { teamId: string };
+    const { projectId } = request.body as { projectId?: string };
     const body = createSessionSchema.parse(request.body);
-    const session = await brainstormService.createSession(teamId, request.user.id, body);
+    const session = await brainstormService.createSession(teamId, request.user.id, { ...body, projectId });
     return reply.status(201).send({ success: true, data: session });
   });
 

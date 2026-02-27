@@ -16,6 +16,7 @@ import {
 } from '@/components/ui/select';
 import { toast } from 'sonner';
 import { useTeamStore } from '@/stores/team-store';
+import { useProjectStore } from '@/stores/project-store';
 import { api } from '@/lib/api';
 
 type Goal = {
@@ -36,6 +37,7 @@ const STATUS_STYLES: Record<string, { label: string; color: string; bg: string }
 
 export default function GoalsPage() {
   const { activeTeam } = useTeamStore();
+  const activeProject = useProjectStore((s) => s.activeProject);
   const teamId = activeTeam?.id;
   const queryClient = useQueryClient();
   const [showCreate, setShowCreate] = useState(false);
@@ -45,13 +47,13 @@ export default function GoalsPage() {
   const [aiForm, setAiForm] = useState({ prompt: '', provider: 'GEMINI', model: 'gemini-2.5-flash' });
 
   const { data: goalsRes } = useQuery({
-    queryKey: ['goals', teamId],
-    queryFn: () => api.get<{ data: Goal[] }>(`/teams/${teamId}/goals`),
+    queryKey: ['goals', teamId, activeProject?.id],
+    queryFn: () => api.get<{ data: Goal[] }>(`/teams/${teamId}/goals${activeProject?.id ? `?projectId=${activeProject.id}` : ''}`),
     enabled: !!teamId,
   });
 
   const createMutation = useMutation({
-    mutationFn: (data: any) => api.post(`/teams/${teamId}/goals`, data),
+    mutationFn: (data: any) => api.post(`/teams/${teamId}/goals`, { ...data, projectId: activeProject?.id }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['goals', teamId] });
       setShowCreate(false);

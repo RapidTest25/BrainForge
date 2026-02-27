@@ -291,7 +291,7 @@ export function TaskDetailPanel({ task, onClose, onUpdate, onDelete, isUpdating 
                 <div className={cn(
                   'flex items-center gap-2 px-3 py-2 rounded-xl border text-sm',
                   new Date(task.dueDate) < new Date()
-                    ? 'border-red-200 bg-red-500/100/10 text-red-600'
+                    ? 'border-red-200 bg-red-500/10 text-red-600'
                     : 'border-border bg-muted text-foreground/80'
                 )}>
                   <CalendarIcon className="h-3.5 w-3.5" />
@@ -589,7 +589,7 @@ export function TaskDetailPanel({ task, onClose, onUpdate, onDelete, isUpdating 
           <Button
             size="sm"
             onClick={() => onUpdate(task.id, { status: 'DONE' })}
-            className="h-8 text-xs bg-green-500/100/100 hover:bg-green-600 text-white gap-1.5 rounded-lg"
+            className="h-8 text-xs bg-green-500 hover:bg-green-600 text-white gap-1.5 rounded-lg"
           >
             <CheckCircle2 className="h-3.5 w-3.5" />
             Mark Done
@@ -608,7 +608,7 @@ export function TaskDetailPanel({ task, onClose, onUpdate, onDelete, isUpdating 
         {showDeleteConfirm ? (
           <div className="flex items-center gap-2">
             <span className="text-xs text-red-500 font-medium">Delete?</span>
-            <Button size="sm" variant="ghost" onClick={() => { onDelete(task.id); onClose(); }} className="h-7 text-xs text-red-500 hover:text-red-600 hover:bg-red-500/100/100/100/10">Yes</Button>
+            <Button size="sm" variant="ghost" onClick={() => { onDelete(task.id); onClose(); }} className="h-7 text-xs text-red-500 hover:text-red-600 hover:bg-red-500/10">Yes</Button>
             <Button size="sm" variant="ghost" onClick={() => setShowDeleteConfirm(false)} className="h-7 text-xs">No</Button>
           </div>
         ) : (

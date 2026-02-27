@@ -198,7 +198,7 @@ export default function NotesPage() {
 
             <button
               onClick={() => { if (confirm('Delete this note?')) deleteMutation.mutate(selectedNote.id); }}
-              className="px-2.5 py-1 text-xs text-red-500 hover:bg-red-500/100/100/100/10 rounded-lg transition-colors"
+              className="px-2.5 py-1 text-xs text-red-500 hover:bg-red-500/10 rounded-lg transition-colors"
             >
               Delete
             </button>

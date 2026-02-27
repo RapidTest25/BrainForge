@@ -3,19 +3,58 @@
 import { useState, useRef, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
-  Bot, Send, Plus, Trash2, Loader2, MessageSquare,
+  Bot, Plus, Trash2, Loader2, MessageSquare,
   Sparkles, Target, BarChart3, Clock,
   Edit2, Check, X, PanelLeftClose, PanelLeftOpen,
-  ArrowUp, Zap,
+  ArrowUp, Zap, AlertCircle, Search, ChevronDown,
 } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
-import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-} from '@/components/ui/select';
+import { Input } from '@/components/ui/input';
 import { useTeamStore } from '@/stores/team-store';
 import { api } from '@/lib/api';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
+
+const PROVIDER_INFO: Record<string, { label: string; icon: string; color: string }> = {
+  OPENAI: { label: 'OpenAI', icon: '🟢', color: '#10a37f' },
+  CLAUDE: { label: 'Anthropic', icon: '🟠', color: '#d4a574' },
+  GEMINI: { label: 'Google Gemini', icon: '🔵', color: '#4285f4' },
+  GROQ: { label: 'Groq', icon: '🔴', color: '#f55036' },
+  OPENROUTER: { label: 'OpenRouter', icon: '🟣', color: '#6366f1' },
+  COPILOT: { label: 'GitHub Copilot', icon: '⚫', color: '#6e40c9' },
+  MISTRAL: { label: 'Mistral', icon: '🌀', color: '#ff7000' },
+  DEEPSEEK: { label: 'DeepSeek', icon: '🌊', color: '#4d6bfe' },
+  OLLAMA: { label: 'Ollama', icon: '🦙', color: '#1a1a2e' },
+};
+
+const MODEL_CATEGORY_RULES = [
+  { test: (id: string) => id.startsWith('gpt-'), label: 'GPT', icon: '🟢' },
+  { test: (id: string) => /^o[1-4]/.test(id), label: 'Reasoning', icon: '🧠' },
+  { test: (id: string) => id.startsWith('claude-'), label: 'Claude', icon: '🟠' },
+  { test: (id: string) => id.startsWith('gemini-'), label: 'Gemini', icon: '🔵' },
+  { test: (id: string) => id.startsWith('grok-'), label: 'Grok', icon: '⚡' },
+  { test: (id: string) => id.startsWith('llama') || id.startsWith('meta-'), label: 'Meta', icon: '🦙' },
+  { test: (id: string) => id.startsWith('deepseek'), label: 'DeepSeek', icon: '🌊' },
+  { test: (id: string) => id.startsWith('mistral') || id.startsWith('mixtral'), label: 'Mistral', icon: '🌀' },
+  { test: (id: string) => id.startsWith('qwen'), label: 'Qwen', icon: '🌟' },
+];
+
+function categorizeModels(models: any[]) {
+  const groups: { label: string; icon: string; models: any[] }[] = [];
+  const used = new Set<string>();
+  for (const rule of MODEL_CATEGORY_RULES) {
+    const matching = models.filter(m => rule.test(m.id) && !used.has(m.id));
+    if (matching.length > 0) {
+      matching.forEach(m => used.add(m.id));
+      groups.push({ label: rule.label, icon: rule.icon, models: matching });
+    }
+  }
+  const remaining = models.filter(m => !used.has(m.id));
+  if (remaining.length > 0) {
+    groups.push({ label: 'Other', icon: '⚪', models: remaining });
+  }
+  return groups;
+}
 
 const QUICK_ACTIONS = [
   { label: 'Summarize project', description: 'Get a comprehensive status overview', prompt: 'Please give me a comprehensive summary of the current project status, including progress on tasks, goals, and any recent brainstorm sessions.', icon: BarChart3, color: 'from-blue-500/10 to-blue-600/5 text-blue-600' },
@@ -31,8 +70,10 @@ export default function AiChatPage() {
   const [activeChatId, setActiveChatId] = useState<string | null>(null);
   const [message, setMessage] = useState('');
   const [sending, setSending] = useState(false);
-  const [provider, setProvider] = useState('GEMINI');
-  const [model, setModel] = useState('gemini-2.5-flash');
+  const [provider, setProvider] = useState('');
+  const [model, setModel] = useState('');
+  const [modelFilter, setModelFilter] = useState('');
+  const [modelSelectorOpen, setModelSelectorOpen] = useState(false);
   const [editingTitle, setEditingTitle] = useState<string | null>(null);
   const [titleDraft, setTitleDraft] = useState('');
   const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -58,6 +99,36 @@ export default function AiChatPage() {
     queryKey: ['ai-models'],
     queryFn: () => api.get<{ data: Record<string, any[]> }>('/ai/models'),
   });
+
+  // Fetch connected keys
+  const { data: keysData } = useQuery({
+    queryKey: ['ai-keys'],
+    queryFn: () => api.get<{ data: any[] }>('/ai/keys'),
+  });
+
+  const connectedProviders = new Set((keysData?.data || []).map((k: any) => k.provider.toUpperCase()));
+
+  // Auto-select first connected provider
+  useEffect(() => {
+    if (modelsData?.data && connectedProviders.size > 0 && !connectedProviders.has(provider)) {
+      const firstConnected = Object.keys(modelsData.data).find(p => connectedProviders.has(p));
+      if (firstConnected) {
+        setProvider(firstConnected);
+        const firstModel = modelsData.data[firstConnected]?.[0];
+        if (firstModel) setModel(firstModel.id);
+      }
+    }
+  }, [modelsData, keysData]);
+
+  // When provider changes, auto-select first model & clear filter
+  useEffect(() => {
+    if (!provider) return;
+    const providerModels = modelsData?.data?.[provider];
+    if (providerModels?.length && !providerModels.find((m: any) => m.id === model)) {
+      setModel(providerModels[0].id);
+    }
+    setModelFilter('');
+  }, [provider, modelsData]);
 
   const chats = chatsRes?.data || [];
   const activeChat = chatRes?.data;
@@ -108,12 +179,28 @@ export default function AiChatPage() {
   // Send message
   const handleSend = async (content?: string) => {
     const text = content || message.trim();
-    if (!text || !activeChatId) return;
+    if (!text) return;
     setMessage('');
     setSending(true);
 
+    let chatId = activeChatId;
+
+    // Auto-create chat if none active
+    if (!chatId) {
+      try {
+        const res: any = await api.post(`/teams/${teamId}/ai-chat`, { title: text.slice(0, 50) || 'New Chat' });
+        queryClient.invalidateQueries({ queryKey: ['ai-chats', teamId] });
+        chatId = res.data.id;
+        setActiveChatId(chatId);
+      } catch {
+        toast.error('Failed to create chat');
+        setSending(false);
+        return;
+      }
+    }
+
     try {
-      queryClient.setQueryData(['ai-chat', activeChatId], (old: any) => {
+      queryClient.setQueryData(['ai-chat', chatId], (old: any) => {
         if (!old?.data) return old;
         return {
           ...old,
@@ -129,15 +216,15 @@ export default function AiChatPage() {
         };
       });
 
-      await api.post(`/teams/${teamId}/ai-chat/${activeChatId}/messages`, {
+      await api.post(`/teams/${teamId}/ai-chat/${chatId}/messages`, {
         content: text,
         provider,
         model,
       });
-      queryClient.invalidateQueries({ queryKey: ['ai-chat', activeChatId] });
+      queryClient.invalidateQueries({ queryKey: ['ai-chat', chatId] });
     } catch (err: any) {
       toast.error(err.message || 'Failed to send message');
-      queryClient.invalidateQueries({ queryKey: ['ai-chat', activeChatId] });
+      queryClient.invalidateQueries({ queryKey: ['ai-chat', chatId] });
     } finally {
       setSending(false);
     }
@@ -148,33 +235,7 @@ export default function AiChatPage() {
   };
 
   const handleQuickAction = async (prompt: string) => {
-    if (!activeChatId) {
-      try {
-        const res: any = await api.post(`/teams/${teamId}/ai-chat`, { title: 'New Chat' });
-        queryClient.invalidateQueries({ queryKey: ['ai-chats', teamId] });
-        setActiveChatId(res.data.id);
-        setTimeout(async () => {
-          setMessage('');
-          setSending(true);
-          try {
-            await api.post(`/teams/${teamId}/ai-chat/${res.data.id}/messages`, {
-              content: prompt,
-              provider,
-              model,
-            });
-            queryClient.invalidateQueries({ queryKey: ['ai-chat', res.data.id] });
-          } catch (err: any) {
-            toast.error(err.message || 'AI request failed');
-          } finally {
-            setSending(false);
-          }
-        }, 100);
-      } catch {
-        toast.error('Failed to create chat');
-      }
-    } else {
-      handleSend(prompt);
-    }
+    handleSend(prompt);
   };
 
   const renderMarkdown = (text: string) => {
@@ -192,10 +253,8 @@ export default function AiChatPage() {
       .replace(/\n/g, '<br/>');
   };
 
-  const currentModelName = (modelsData?.data?.[provider] || []).find((m: any) => m.id === model)?.name || model;
-
   return (
-    <div className="flex h-[calc(100vh-3.5rem)]">
+    <div className="flex h-[calc(100vh-5.5rem)] md:h-[calc(100vh-6.5rem)]">
       {/* ── Sidebar: Chat History ── */}
       <div className={cn(
         'shrink-0 flex flex-col bg-muted/30 border-r border-border transition-all duration-300 ease-in-out',
@@ -355,20 +414,13 @@ export default function AiChatPage() {
                 Start New Chat
               </button>
 
-              {/* Model indicator */}
-              <div className="mt-6 flex items-center justify-center gap-2">
-                <div className="flex items-center gap-1.5 px-3 py-1.5 bg-muted rounded-full">
-                  <Zap className="h-3 w-3 text-amber-500" />
-                  <span className="text-[11px] text-muted-foreground font-medium">{currentModelName}</span>
-                </div>
-              </div>
             </div>
           </div>
         ) : (
           /* ── Active Chat ── */
           <>
             {/* Messages area */}
-            <div className="flex-1 overflow-y-auto">
+            <div className="flex-1 overflow-y-auto min-h-0">
               <div className="max-w-3xl mx-auto px-4 py-6 space-y-6">
                 {activeChat?.messages?.length === 0 && !sending && (
                   <div className="flex flex-col items-center justify-center py-20 text-center">
@@ -453,32 +505,138 @@ export default function AiChatPage() {
                 <div ref={messagesEndRef} />
               </div>
             </div>
+          </>
+        )}
 
-            {/* ── Input Area ── */}
-            <div className="border-t border-border bg-background/80 backdrop-blur-sm">
+            {/* ── Input Area (always visible) ── */}
+            <div className="border-t border-border bg-background/80 backdrop-blur-sm shrink-0">
               <div className="max-w-3xl mx-auto px-4 py-3">
-                {/* Model selector row */}
-                <div className="flex items-center gap-2 mb-2">
-                  <Select value={provider} onValueChange={(v) => { setProvider(v); const models = modelsData?.data?.[v]; if (models?.[0]) setModel(models[0].id); }}>
-                    <SelectTrigger className="h-7 w-auto min-w-25 text-[11px] border-border/60 bg-muted/50 rounded-lg gap-1 px-2.5 font-medium">
-                      <SelectValue placeholder="Provider" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {Object.keys(modelsData?.data || {}).map(p => (
-                        <SelectItem key={p} value={p} className="text-xs">{p}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <Select value={model} onValueChange={setModel}>
-                    <SelectTrigger className="h-7 w-auto min-w-35 text-[11px] border-border/60 bg-muted/50 rounded-lg gap-1 px-2.5 font-medium">
-                      <SelectValue placeholder="Model" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {(modelsData?.data?.[provider] || []).map((m: any) => (
-                        <SelectItem key={m.id} value={m.id} className="text-xs">{m.name}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                {/* Provider pills & model selector */}
+                <div className="space-y-2 mb-2">
+                  {/* Provider pills */}
+                  <div className="flex flex-wrap gap-1.5">
+                    {connectedProviders.size === 0 ? (
+                      <div className="w-full flex items-center gap-2 px-3 py-2 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-500 text-[11px]">
+                        <AlertCircle className="h-3.5 w-3.5 shrink-0" />
+                        No API keys connected. Go to Settings → AI Integration.
+                      </div>
+                    ) : (
+                      Object.keys(modelsData?.data || {}).filter(p => connectedProviders.has(p)).map(p => {
+                        const info = PROVIDER_INFO[p];
+                        const isSelected = provider === p;
+                        return (
+                          <button
+                            key={p}
+                            onClick={() => setProvider(p)}
+                            className={cn(
+                              'flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-medium transition-all border',
+                              isSelected
+                                ? 'border-primary bg-primary/5 text-primary'
+                                : 'border-border bg-card text-muted-foreground hover:bg-muted'
+                            )}
+                          >
+                            <span className="text-xs leading-none">{info?.icon || '⚪'}</span>
+                            {info?.label || p}
+                          </button>
+                        );
+                      })
+                    )}
+                  </div>
+
+                  {/* Model selector toggle */}
+                  <button
+                    onClick={() => setModelSelectorOpen(!modelSelectorOpen)}
+                    className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg border border-border/60 bg-muted/30 hover:bg-muted/50 transition-colors w-full text-left"
+                  >
+                    <Zap className="h-3 w-3 text-amber-500 shrink-0" />
+                    <span className="text-[11px] font-medium text-foreground truncate flex-1">
+                      {(modelsData?.data?.[provider] || []).find((m: any) => m.id === model)?.name || model || 'Select model'}
+                    </span>
+                    <ChevronDown className={cn('h-3 w-3 text-muted-foreground transition-transform', modelSelectorOpen && 'rotate-180')} />
+                  </button>
+
+                  {/* Expanded model list */}
+                  {modelSelectorOpen && (
+                    <div className="rounded-xl border border-border bg-card shadow-lg overflow-hidden">
+                      {/* Search */}
+                      {(modelsData?.data?.[provider] || []).length > 6 && (
+                        <div className="relative border-b border-border">
+                          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground" />
+                          <Input
+                            placeholder="Search models..."
+                            value={modelFilter}
+                            onChange={(e) => setModelFilter(e.target.value)}
+                            className="h-8 pl-8 text-[11px] rounded-none border-0 bg-transparent focus-visible:ring-0"
+                          />
+                        </div>
+                      )}
+                      <div className="max-h-[220px] overflow-y-auto p-1">
+                        {(() => {
+                          const allProviderModels = modelsData?.data?.[provider] || [];
+                          const filtered = modelFilter
+                            ? allProviderModels.filter((m: any) =>
+                                m.name.toLowerCase().includes(modelFilter.toLowerCase()) ||
+                                m.id.toLowerCase().includes(modelFilter.toLowerCase())
+                              )
+                            : allProviderModels;
+
+                          if (filtered.length === 0) {
+                            return (
+                              <div className="text-center py-4">
+                                <Search className="h-4 w-4 mx-auto text-muted-foreground/30 mb-1" />
+                                <p className="text-[11px] text-muted-foreground">No models match &quot;{modelFilter}&quot;</p>
+                              </div>
+                            );
+                          }
+
+                          const groups = categorizeModels(filtered);
+                          const showHeaders = groups.length > 1;
+
+                          return groups.map(group => (
+                            <div key={group.label}>
+                              {showHeaders && (
+                                <div className="sticky top-0 z-10 flex items-center gap-1.5 px-2 py-1 mt-1 first:mt-0 text-[10px] font-bold text-muted-foreground uppercase tracking-wider bg-card/95 backdrop-blur-sm">
+                                  <span className="text-xs leading-none">{group.icon}</span>
+                                  {group.label}
+                                  <span className="text-[9px] font-normal ml-auto opacity-50">{group.models.length}</span>
+                                </div>
+                              )}
+                              {group.models.map((m: any) => {
+                                const isSelected = model === m.id;
+                                const isFree = m.costPer1kInput === 0 && m.costPer1kOutput === 0;
+                                return (
+                                  <button
+                                    key={m.id}
+                                    onClick={() => { setModel(m.id); setModelSelectorOpen(false); }}
+                                    className={cn(
+                                      'w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg transition-all text-left',
+                                      isSelected
+                                        ? 'bg-primary/10 text-primary'
+                                        : 'hover:bg-muted/50 text-foreground'
+                                    )}
+                                  >
+                                    <div className={cn(
+                                      'h-3.5 w-3.5 rounded-full border-2 flex items-center justify-center shrink-0',
+                                      isSelected ? 'border-primary' : 'border-muted-foreground/30'
+                                    )}>
+                                      {isSelected && <div className="h-1.5 w-1.5 rounded-full bg-primary" />}
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                      <div className="flex items-center gap-1.5">
+                                        <span className="text-[12px] font-medium truncate">{m.name}</span>
+                                        {isFree && <span className="text-[8px] font-bold px-1 rounded bg-green-500/10 text-green-500">FREE</span>}
+                                      </div>
+                                    </div>
+                                    <span className="text-[10px] text-muted-foreground shrink-0">{(m.contextWindow / 1000).toFixed(0)}K</span>
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          ));
+                        })()}
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 {/* Input */}
@@ -506,8 +664,6 @@ export default function AiChatPage() {
                 <p className="text-[10px] text-muted-foreground/50 text-center mt-1.5">Press Enter to send, Shift+Enter for new line</p>
               </div>
             </div>
-          </>
-        )}
       </div>
     </div>
   );

@@ -202,7 +202,7 @@ export function Header({ onMobileMenuToggle }: HeaderProps) {
           >
             <Bell className="h-4 w-4 text-muted-foreground" />
             {unreadCount > 0 && (
-              <span className="absolute -top-0.5 -right-0.5 h-4 min-w-[16px] flex items-center justify-center px-1 bg-red-500/100/100 text-white text-[10px] font-bold rounded-full">
+              <span className="absolute -top-0.5 -right-0.5 h-4 min-w-[16px] flex items-center justify-center px-1 bg-red-500 text-white text-[10px] font-bold rounded-full">
                 {unreadCount > 9 ? '9+' : unreadCount}
               </span>
             )}

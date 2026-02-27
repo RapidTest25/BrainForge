@@ -83,8 +83,8 @@ export default function TeamSettingsPage() {
 
   const getRoleStyle = (role: string) => {
     switch (role) {
-      case 'OWNER': return 'bg-amber-500/100/10 text-amber-600';
-      case 'ADMIN': return 'bg-blue-500/100/10 text-blue-600';
+      case 'OWNER': return 'bg-amber-500/10 text-amber-600';
+      case 'ADMIN': return 'bg-blue-500/10 text-blue-600';
       default: return 'bg-muted text-muted-foreground';
     }
   };
@@ -295,7 +295,7 @@ export default function TeamSettingsPage() {
             </button>
             <button
               onClick={() => { removeMutation.mutate(removingMember.id); setRemovingMember(null); }}
-              className="px-4 py-2 bg-red-500/100/100 text-white text-sm font-medium rounded-lg hover:bg-red-600 transition-colors"
+              className="px-4 py-2 bg-red-500 text-white text-sm font-medium rounded-lg hover:bg-red-600 transition-colors"
             >
               Remove Member
             </button>

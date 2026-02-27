@@ -129,8 +129,8 @@ export default function SprintsPage() {
     switch (status) {
       case 'DRAFT': return 'bg-muted text-muted-foreground';
       case 'ACTIVE': return 'bg-[#7b68ee]/10 text-[#7b68ee]';
-      case 'COMPLETED': return 'bg-green-500/100/10 text-green-600';
-      case 'ARCHIVED': return 'bg-amber-500/100/10 text-amber-600';
+      case 'COMPLETED': return 'bg-green-500/10 text-green-600';
+      case 'ARCHIVED': return 'bg-amber-500/10 text-amber-600';
       default: return 'bg-muted text-muted-foreground';
     }
   };
@@ -180,7 +180,7 @@ export default function SprintsPage() {
             {selectedSprint.id && (
               <button
                 onClick={() => { if (confirm('Delete this sprint?')) deleteMutation.mutate(selectedSprint.id); }}
-                className="flex items-center gap-1 px-2.5 py-1.5 text-red-500 text-sm rounded-lg hover:bg-red-500/100/100/100/10 transition-colors"
+                className="flex items-center gap-1 px-2.5 py-1.5 text-red-500 text-sm rounded-lg hover:bg-red-500/10 transition-colors"
               >
                 <Trash2 className="h-3.5 w-3.5" />
               </button>
@@ -244,8 +244,8 @@ export default function SprintsPage() {
                   <div className="flex items-center gap-2 ml-6 sm:ml-0 shrink-0 flex-wrap">
                     <span className={cn(
                       'text-[11px] px-2 py-0.5 rounded font-medium',
-                      task.priority === 'HIGH' || task.priority === 'CRITICAL' ? 'bg-red-500/100/10 text-red-600' :
-                      task.priority === 'MEDIUM' ? 'bg-amber-500/100/10 text-amber-600' : 'bg-muted text-muted-foreground'
+                      task.priority === 'HIGH' || task.priority === 'CRITICAL' ? 'bg-red-500/10 text-red-600' :
+                      task.priority === 'MEDIUM' ? 'bg-amber-500/10 text-amber-600' : 'bg-muted text-muted-foreground'
                     )}>
                       {task.priority || 'MEDIUM'}
                     </span>
@@ -295,7 +295,7 @@ export default function SprintsPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             {(plan.risks || []).map((r: any, i: number) => (
               <div key={i} className="bg-card border border-border rounded-xl p-4 flex items-start gap-3">
-                <div className="h-8 w-8 rounded-lg bg-amber-500/100/10 flex items-center justify-center shrink-0">
+                <div className="h-8 w-8 rounded-lg bg-amber-500/10 flex items-center justify-center shrink-0">
                   <AlertTriangle className="h-4 w-4 text-amber-500" />
                 </div>
                 <div className="flex-1 min-w-0">
@@ -304,7 +304,7 @@ export default function SprintsPage() {
                 </div>
                 <span className={cn(
                   'text-[11px] px-2 py-0.5 rounded-full font-medium whitespace-nowrap shrink-0',
-                  r.severity === 'HIGH' ? 'bg-red-500/100/10 text-red-600' : 'bg-muted text-muted-foreground'
+                  r.severity === 'HIGH' ? 'bg-red-500/10 text-red-600' : 'bg-muted text-muted-foreground'
                 )}>
                   {r.severity || 'MEDIUM'}
                 </span>

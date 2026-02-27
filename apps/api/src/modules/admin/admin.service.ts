@@ -24,7 +24,7 @@ class AdminService {
     // AI usage logs (last 30 days)
     const aiUsageLogs = await prisma.aIUsageLog.aggregate({
       where: { createdAt: { gte: thirtyDaysAgo } },
-      _sum: { inputTokens: true, outputTokens: true, cost: true },
+      _sum: { promptTokens: true, completionTokens: true, estimatedCost: true },
       _count: true,
     });
 
@@ -40,9 +40,9 @@ class AdminService {
       newUsersThisMonth,
       aiUsage: {
         requests: aiUsageLogs._count,
-        inputTokens: aiUsageLogs._sum.inputTokens || 0,
-        outputTokens: aiUsageLogs._sum.outputTokens || 0,
-        totalCost: Number(aiUsageLogs._sum.cost || 0),
+        inputTokens: aiUsageLogs._sum.promptTokens || 0,
+        outputTokens: aiUsageLogs._sum.completionTokens || 0,
+        totalCost: Number(aiUsageLogs._sum.estimatedCost || 0),
       },
     };
   }

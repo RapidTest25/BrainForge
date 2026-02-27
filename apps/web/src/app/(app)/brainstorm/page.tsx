@@ -133,7 +133,7 @@ export default function BrainstormPage() {
                 </span>
                 <button
                   onClick={(e) => { e.stopPropagation(); deleteMutation.mutate(s.id); }}
-                  className="opacity-0 group-hover:opacity-100 h-7 w-7 flex items-center justify-center rounded-lg hover:bg-red-500/100/100/100/10 text-muted-foreground/60 hover:text-red-500 transition-all"
+                  className="opacity-0 group-hover:opacity-100 h-7 w-7 flex items-center justify-center rounded-lg hover:bg-red-500/10 text-muted-foreground/60 hover:text-red-500 transition-all"
                 >
                   <Trash2 className="h-3.5 w-3.5" />
                 </button>

@@ -210,7 +210,7 @@ function DiagramEditor({ diagram, dtype, nodes: initNodes, edges: initEdges, onB
               <Save className="h-3.5 w-3.5" /> Save
             </button>
           )}
-          <button onClick={onDelete} className="p-1.5 rounded-lg text-muted-foreground/60 hover:text-red-500 hover:bg-red-500/100/10 transition-colors">
+          <button onClick={onDelete} className="p-1.5 rounded-lg text-muted-foreground/60 hover:text-red-500 hover:bg-red-500/10 transition-colors">
             <Trash2 className="h-4 w-4" />
           </button>
         </div>
@@ -454,7 +454,7 @@ function DiagramEditor({ diagram, dtype, nodes: initNodes, edges: initEdges, onB
                             <PencilLine className="h-2.5 w-2.5 text-white" />
                           </button>
                           <button
-                            className="h-5 w-5 bg-red-500/100 rounded-full flex items-center justify-center shadow-sm hover:bg-red-600"
+                            className="h-5 w-5 bg-red-500 rounded-full flex items-center justify-center shadow-sm hover:bg-red-600"
                             onClick={(e) => { e.stopPropagation(); deleteNode(node.id); }}
                             title="Delete"
                           >

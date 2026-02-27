@@ -294,11 +294,11 @@ export function Sidebar({ collapsed, onToggle, mobile, onMobileClose }: SidebarP
               {isExpanded && <span className="flex-1 truncate">{label}</span>}
               {label === 'Notifications' && unreadCount > 0 && (
                 isExpanded ? (
-                  <span className="h-4.5 min-w-5 rounded-full bg-red-500/100/100 text-white text-[10px] font-bold flex items-center justify-center px-1.5">
+                  <span className="h-4.5 min-w-5 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center px-1.5">
                     {unreadCount > 99 ? '99+' : unreadCount}
                   </span>
                 ) : (
-                  <span className="absolute -top-0.5 -right-0.5 h-4 min-w-4 rounded-full bg-red-500/100/100 text-white text-[9px] font-bold flex items-center justify-center px-1">
+                  <span className="absolute -top-0.5 -right-0.5 h-4 min-w-4 rounded-full bg-red-500 text-white text-[9px] font-bold flex items-center justify-center px-1">
                     {unreadCount > 99 ? '99+' : unreadCount}
                   </span>
                 )
@@ -400,7 +400,7 @@ export function Sidebar({ collapsed, onToggle, mobile, onMobileClose }: SidebarP
               className={cn(
                 'flex items-center rounded-md transition-colors',
                 isExpanded ? 'gap-2.5 px-2.5 py-1.5 text-[13px]' : 'justify-center h-8',
-                checkActive(ADMIN_NAV.href) ? 'bg-red-500/100/10 text-red-600 font-medium' : 'text-red-400 hover:bg-red-500/100/100/100/10 hover:text-red-600'
+                checkActive(ADMIN_NAV.href) ? 'bg-red-500/10 text-red-600 font-medium' : 'text-red-400 hover:bg-red-500/10 hover:text-red-600'
               )}
             >
               <ADMIN_NAV.icon className="h-4 w-4 shrink-0" />

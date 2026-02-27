@@ -709,7 +709,7 @@ export default function BrainstormSessionPage() {
                       autoFocus
                     />
                     <button onClick={saveTitle} className="p-1 rounded hover:bg-green-500/10 text-green-600"><Check className="h-3.5 w-3.5" /></button>
-                    <button onClick={() => setEditingTitle(false)} className="p-1 rounded hover:bg-red-500/100/100/100/10 text-red-500"><X className="h-3.5 w-3.5" /></button>
+                    <button onClick={() => setEditingTitle(false)} className="p-1 rounded hover:bg-red-500/10 text-red-500"><X className="h-3.5 w-3.5" /></button>
                   </div>
                 ) : (
                   <button
@@ -901,7 +901,7 @@ export default function BrainstormSessionPage() {
                             onClick={() => {
                               if (confirm('Delete this message?')) deleteMutation.mutate(msg.id);
                             }}
-                            className="h-6 w-6 flex items-center justify-center rounded-md hover:bg-red-500/100/100/100/10 text-muted-foreground hover:text-red-500 transition-colors"
+                            className="h-6 w-6 flex items-center justify-center rounded-md hover:bg-red-500/10 text-muted-foreground hover:text-red-500 transition-colors"
                             title="Delete"
                           >
                             <Trash2 className="h-3 w-3" />
@@ -1009,7 +1009,7 @@ export default function BrainstormSessionPage() {
             </Select>
             <div className="flex-1" />
             <button onClick={undoCanvas} title="Undo" className="h-8 w-8 flex items-center justify-center rounded-lg text-muted-foreground hover:bg-accent transition-colors"><RotateCcw className="h-4 w-4" /></button>
-            <button onClick={clearCanvas} title="Clear" className="h-8 w-8 flex items-center justify-center rounded-lg text-muted-foreground hover:bg-red-500/100/100/100/10 hover:text-red-500 transition-colors"><Trash2 className="h-4 w-4" /></button>
+            <button onClick={clearCanvas} title="Clear" className="h-8 w-8 flex items-center justify-center rounded-lg text-muted-foreground hover:bg-red-500/10 hover:text-red-500 transition-colors"><Trash2 className="h-4 w-4" /></button>
             <button onClick={exportCanvas} title="Export" className="h-8 w-8 flex items-center justify-center rounded-lg text-muted-foreground hover:bg-accent transition-colors"><Download className="h-4 w-4" /></button>
           </div>
           <div className="flex-1 relative bg-card cursor-crosshair">
@@ -1046,7 +1046,7 @@ export default function BrainstormSessionPage() {
                 <span className="text-xs font-medium text-[#7b68ee] animate-pulse">Click a target port...</span>
                 <button
                   onClick={() => setConnectingFrom(null)}
-                  className="h-7 px-2.5 rounded-lg text-xs font-medium text-red-500 hover:bg-red-500/100/100/100/10 transition-colors"
+                  className="h-7 px-2.5 rounded-lg text-xs font-medium text-red-500 hover:bg-red-500/10 transition-colors"
                 >
                   Cancel
                 </button>
@@ -1067,7 +1067,7 @@ export default function BrainstormSessionPage() {
                 </button>
                 <button
                   onClick={() => deleteFlowNode(selectedNode)}
-                  className="h-8 w-8 flex items-center justify-center rounded-lg text-muted-foreground hover:bg-red-500/100/100/100/10 hover:text-red-500 transition-colors"
+                  className="h-8 w-8 flex items-center justify-center rounded-lg text-muted-foreground hover:bg-red-500/10 hover:text-red-500 transition-colors"
                   title="Delete"
                 >
                   <Trash2 className="h-3.5 w-3.5" />

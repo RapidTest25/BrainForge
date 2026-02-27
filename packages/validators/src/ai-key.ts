@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
 const providerEnum = z.enum([
-  'OPENAI', 'CLAUDE', 'GEMINI', 'GROQ', 'MISTRAL', 'DEEPSEEK', 'OPENROUTER', 'OLLAMA', 'CUSTOM',
+  'OPENAI', 'CLAUDE', 'GEMINI', 'GROQ', 'MISTRAL', 'DEEPSEEK', 'OPENROUTER', 'OLLAMA', 'COPILOT', 'CUSTOM',
 ]);
 
 export const addAIKeySchema = z.object({

@@ -252,7 +252,7 @@ export default function SettingsPage() {
                 className={cn(
                   'px-5 py-2.5 text-sm font-medium rounded-xl transition-all',
                   profileSaved
-                    ? 'bg-green-500/100 text-white'
+                    ? 'bg-green-500 text-white'
                     : 'bg-gradient-to-r from-[#7b68ee] to-[#6c5ce7] text-white hover:shadow-lg hover:shadow-[#7b68ee]/25 disabled:opacity-50'
                 )}
               >
@@ -317,7 +317,7 @@ export default function SettingsPage() {
               className={cn(
                 'px-5 py-2.5 text-sm font-medium rounded-xl transition-all',
                 passwordSaved
-                  ? 'bg-green-500/100 text-white'
+                  ? 'bg-green-500 text-white'
                   : 'bg-gradient-to-r from-red-500 to-rose-500 text-white hover:shadow-lg hover:shadow-red-500/25 disabled:opacity-50'
               )}
             >
@@ -374,7 +374,7 @@ export default function SettingsPage() {
               className={cn(
                 'px-5 py-2.5 text-sm font-medium rounded-xl transition-all',
                 passwordSaved
-                  ? 'bg-green-500/100 text-white'
+                  ? 'bg-green-500 text-white'
                   : 'bg-gradient-to-r from-[#7b68ee] to-[#6c5ce7] text-white hover:shadow-lg hover:shadow-[#7b68ee]/25 disabled:opacity-50'
               )}
             >
@@ -425,7 +425,7 @@ export default function SettingsPage() {
             <button
               onClick={() => unlinkGoogleMutation.mutate()}
               disabled={unlinkGoogleMutation.isPending}
-              className="flex items-center gap-1.5 px-4 py-2 text-xs font-medium text-red-600 bg-red-500/10 hover:bg-red-500/100/20 rounded-lg transition-colors disabled:opacity-50"
+              className="flex items-center gap-1.5 px-4 py-2 text-xs font-medium text-red-600 bg-red-500/10 hover:bg-red-500/20 rounded-lg transition-colors disabled:opacity-50"
             >
               {unlinkGoogleMutation.isPending ? (
                 <Loader2 className="h-3 w-3 animate-spin" />

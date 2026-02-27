@@ -274,7 +274,7 @@ export default function TasksPage() {
                       {task.dueDate && (
                         <span className={cn(
                           'text-[10px] px-1.5 py-0.5 rounded flex items-center gap-0.5',
-                          new Date(task.dueDate) < new Date() ? 'text-red-500 bg-red-500/100/10' : 'text-muted-foreground bg-muted'
+                          new Date(task.dueDate) < new Date() ? 'text-red-500 bg-red-500/10' : 'text-muted-foreground bg-muted'
                         )}>
                           <CalendarIcon className="h-2.5 w-2.5" />
                           {new Date(task.dueDate).toLocaleDateString()}

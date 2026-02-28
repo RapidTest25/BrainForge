@@ -11,17 +11,58 @@ Output MUST be valid JSON with this structure:
     { "id": "1", "type": "default", "position": { "x": 0, "y": 0 }, "data": { "label": "Node Name", "description": "Optional description" } }
   ],
   "edges": [
-    { "id": "e1-2", "source": "1", "target": "2", "label": "relationship", "animated": false }
+    { "id": "e1-2", "source": "1", "target": "2", "label": "relationship" }
   ]
 }
 
-Rules:
-- Position nodes in a readable layout (spread them out, avoid overlaps)
+TYPE-SPECIFIC RULES:
+
+FLOWCHART:
+- Position nodes top-to-bottom (increment y by 120 for each step)
+- Use meaningful labels. Start first node with "Start", end with "End"
+- Decision nodes should have labels ending with "?"
+- Edge labels: "Yes", "No" for decisions, or action descriptions
+- Spread x positions (200px apart) for parallel branches
+
+ERD (Entity Relationship Diagram):
+- Each node is a database table. Label = table name (e.g. "Users", "Orders")
+- Description MUST list columns, one per line in format: "column_name: TYPE (PK)" or "column_name: TYPE (FK)"
+  Example description: "id: UUID (PK)\nname: VARCHAR\nemail: VARCHAR\ncreated_at: TIMESTAMP"
+- Position tables in a grid layout (x increments of 300, y increments of 250)
+- Edge labels should show relationship type: "1:N", "1:1", "N:M", or "has many", "belongs to"
+
+MINDMAP:
+- First node is the CENTRAL topic, position at center (x:350, y:250)
+- Branch nodes radiate outward from center
+- Level 1 branches: position at radius ~200px from center in a circle
+- Level 2 branches: position at radius ~350px from center
+- Edge connections flow outward from center. No labels needed on edges.
+- Use short, concise labels
+
+ARCHITECTURE:
+- Nodes represent system components/services/layers
+- Use labels like "API Gateway", "Auth Service", "Database Layer", "CDN"
+- Position in logical layers: top=presentation, middle=business, bottom=data
+- Space nodes 250px apart in x, 180px in y
+- Edge labels: "REST", "gRPC", "WebSocket", "SQL", etc.
+
+SEQUENCE:
+- Nodes represent actors/participants (e.g. "Client", "Server", "Database")
+- Position ALL nodes horizontally at y:30, spaced 200px apart in x
+- Edge labels describe messages: "POST /login", "SELECT * FROM users", "200 OK"
+- Multiple edges between same nodes represent sequential messages
+
+COMPONENT:
+- Nodes represent software modules/components
+- Labels: "AuthModule", "UserService", "PaymentGateway", etc.
+- Position in a logical dependency layout
+- Edge labels: "uses", "implements", "depends on", "provides"
+
+GENERAL RULES:
+- Position nodes in a readable layout (spread them out, avoid overlaps, minimum 150px apart)
 - Use meaningful labels and descriptions
 - Create logical connections between nodes
-- For ERD: include columns in description field as bullet list
-- For flowcharts: use animated edges for primary flow
-- For mind maps: use a radial layout pattern
+- Generate 5-10 nodes and appropriate edges for a comprehensive diagram
 - ONLY output the JSON, no other text`;
 
 class DiagramService {

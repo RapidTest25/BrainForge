@@ -6,7 +6,7 @@ import { useAnimation } from 'framer-motion';
 
 type AnimationControls = ReturnType<typeof useAnimation>;
 
-export type HeroScene = 'A' | 'B' | 'C' | 'D' | 'E';
+export type HeroScene = 'A' | 'B' | 'C' | 'D';
 
 export interface HeroTimeline {
   scene: HeroScene;
@@ -69,25 +69,26 @@ export function useHeroTimeline(): HeroTimeline {
       });
       if (cancelled.current) break;
 
-      await showcase.start({
-        opacity: 1,
-        scale: 1,
-        y: 0,
-        transition: { duration: 0.7, ease: SMOOTH },
-      });
+      // Show showcase AND kanban together for visual harmony
+      await Promise.all([
+        showcase.start({
+          opacity: 1,
+          scale: 1,
+          y: 0,
+          transition: { duration: 0.7, ease: SMOOTH },
+        }),
+        kanban.start({
+          opacity: 1,
+          transition: { duration: 0.7, ease: SMOOTH },
+        }),
+      ]);
       if (cancelled.current) break;
       await delay(2000);
       if (cancelled.current) break;
 
-      // ── Scene C: Kanban cards move (4.5s) ──
+      // ── Scene C: Kanban cards move (4s) ──
       setScene('C');
       setProgress(0);
-
-      await kanban.start({
-        opacity: 1,
-        transition: { duration: 0.25, ease: 'easeOut' },
-      });
-      if (cancelled.current) break;
       await delay(4000);
       if (cancelled.current) break;
 
@@ -104,17 +105,14 @@ export function useHeroTimeline(): HeroTimeline {
       await delay(3500);
       if (cancelled.current) break;
 
-      // ── Scene E: Fade out + loop (2s) ──
-      setScene('E');
-      setProgress(0);
-
+      // ── Direct crossfade: D → A (no empty state) ──
+      // Fade out showcase while simultaneously preparing floating cards
+      floatingCards.set({ opacity: 0, y: 30, scale: 0.95 });
       await Promise.all([
-        showcase.start({ opacity: 0, scale: 0.97, y: 8, transition: { duration: 0.6, ease: DECEL } }),
-        aiChat.start({ opacity: 0, x: 30, transition: { duration: 0.5, ease: DECEL } }),
-        kanban.start({ opacity: 0, transition: { duration: 0.4, ease: 'easeOut' } }),
+        showcase.start({ opacity: 0, scale: 0.97, y: 8, transition: { duration: 0.4, ease: DECEL } }),
+        aiChat.start({ opacity: 0, x: 30, transition: { duration: 0.3, ease: DECEL } }),
+        kanban.start({ opacity: 0, transition: { duration: 0.3, ease: 'easeOut' } }),
       ]);
-      if (cancelled.current) break;
-      await delay(1200);
       if (cancelled.current) break;
     }
   }, [floatingCards, showcase, kanban, aiChat]);

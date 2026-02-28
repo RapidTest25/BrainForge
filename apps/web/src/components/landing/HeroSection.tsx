@@ -17,18 +17,18 @@ export default function HeroSection() {
   const { scene, floatingCards, showcase, kanban, aiChat } = useHeroTimeline();
 
   return (
-    <section className="relative pt-24 sm:pt-28 pb-16 sm:pb-20 px-4 sm:px-6 overflow-hidden">
+    <section className="relative pt-18 sm:pt-22 pb-6 sm:pb-8 px-4 sm:px-6 overflow-hidden">
       <AnimatedBackground />
 
       <div className="relative max-w-5xl mx-auto">
         {/* Text block */}
-        <div className="text-center mb-8 sm:mb-12">
+        <div className="text-center mb-5 sm:mb-6">
           <motion.div
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.4, ease: SMOOTH }}
           >
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/8 text-primary text-xs font-medium mb-5 sm:mb-6 border border-primary/15">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/8 text-primary text-xs font-medium mb-3 sm:mb-4 border border-primary/15">
               <span className="relative flex h-1.5 w-1.5">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75" />
                 <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-primary" />
@@ -38,7 +38,7 @@ export default function HeroSection() {
           </motion.div>
 
           <motion.h1
-            className="text-3xl sm:text-4xl md:text-5xl lg:text-[56px] font-bold tracking-tight leading-[1.1] mb-4 sm:mb-5 text-foreground"
+            className="text-3xl sm:text-4xl md:text-5xl lg:text-[56px] font-bold tracking-tight leading-[1.1] mb-2 sm:mb-3 text-foreground"
             initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: 0.08, ease: SMOOTH }}
@@ -51,7 +51,7 @@ export default function HeroSection() {
           </motion.h1>
 
           <motion.p
-            className="text-sm sm:text-base md:text-lg text-muted-foreground max-w-xl mx-auto mb-6 sm:mb-8 leading-relaxed"
+            className="text-sm sm:text-base md:text-lg text-muted-foreground max-w-xl mx-auto mb-4 sm:mb-5 leading-relaxed"
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: 0.16, ease: 'easeOut' }}
@@ -91,7 +91,7 @@ export default function HeroSection() {
         </div>
 
         {/* Animated showcase area - responsive, single layout */}
-        <div className="relative min-h-65 sm:min-h-80 md:min-h-95">
+        <div className="relative min-h-50 sm:min-h-65 md:min-h-75">
           {/* Scene A: Floating feature cards */}
           <motion.div
             className="absolute inset-0 flex items-center justify-center"
@@ -124,9 +124,9 @@ export default function HeroSection() {
           </motion.div>
         </div>
 
-        {/* Scene indicator */}
-        <div className="flex items-center justify-center gap-1.5 mt-4 sm:mt-6">
-          {(['A', 'B', 'C', 'D', 'E'] as const).map((s) => (
+        {/* Scene indicator — only show 4 main scenes (E is just a quick transition) */}
+        <div className="flex items-center justify-center gap-1.5 mt-2 sm:mt-3">
+          {(['A', 'B', 'C', 'D'] as const).map((s) => (
             <motion.div
               key={s}
               className="h-1 sm:h-1.5 rounded-full bg-primary"

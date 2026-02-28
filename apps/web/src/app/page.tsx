@@ -94,9 +94,9 @@ export default function Home() {
       <HeroSection />
 
       {/* Features */}
-      <section className="px-6 py-20 bg-muted/60">
+      <section className="px-6 py-8 sm:py-10 bg-muted/60">
         <div className="max-w-5xl mx-auto">
-          <div className="text-center mb-14">
+          <div className="text-center mb-6">
             <h2 className="text-2xl sm:text-3xl font-bold mb-3 text-foreground">
               Everything your team needs
             </h2>
@@ -125,12 +125,12 @@ export default function Home() {
       </section>
 
       {/* CTA */}
-      <section className="px-6 py-20">
+      <section className="px-6 py-8 sm:py-10">
         <div className="max-w-2xl mx-auto text-center">
           <h2 className="text-2xl sm:text-3xl font-bold mb-3 text-foreground">
             Ready to get started?
           </h2>
-          <p className="text-muted-foreground mb-8 text-base">
+          <p className="text-muted-foreground mb-6 text-base">
             Free forever. Bring your own API keys. No credit card required.
           </p>
           <Link href="/register">
@@ -143,7 +143,7 @@ export default function Home() {
       </section>
 
       {/* Footer */}
-      <footer className="border-t border-border px-6 py-6">
+      <footer className="border-t border-border px-6 py-4">
         <div className="max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-3">
           <div className="flex items-center gap-2">
             <div className="h-6 w-6 rounded bg-gradient-to-br from-[#7b68ee] to-[#a78bfa] flex items-center justify-center">

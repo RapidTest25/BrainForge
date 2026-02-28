@@ -308,7 +308,7 @@ class AdminService {
       by: ['provider'],
       where: { createdAt: { gte: thirtyDaysAgo } },
       _sum: { promptTokens: true, completionTokens: true, estimatedCost: true },
-      _count: { _all: true },
+      _count: true,
     });
 
     // Per-model breakdown 
@@ -316,7 +316,7 @@ class AdminService {
       by: ['provider', 'model'],
       where: { createdAt: { gte: thirtyDaysAgo } },
       _sum: { promptTokens: true, completionTokens: true, estimatedCost: true },
-      _count: { _all: true },
+      _count: true,
       orderBy: { _sum: { promptTokens: 'desc' } },
       take: 20,
     });
@@ -326,7 +326,7 @@ class AdminService {
       by: ['feature'],
       where: { createdAt: { gte: thirtyDaysAgo } },
       _sum: { promptTokens: true, completionTokens: true, estimatedCost: true },
-      _count: { _all: true },
+      _count: true,
     });
 
     // Top users by usage
@@ -334,7 +334,7 @@ class AdminService {
       by: ['userId'],
       where: { createdAt: { gte: thirtyDaysAgo } },
       _sum: { promptTokens: true, completionTokens: true, estimatedCost: true },
-      _count: { _all: true },
+      _count: true,
       orderBy: { _sum: { promptTokens: 'desc' } },
       take: 10,
     });
@@ -363,7 +363,7 @@ class AdminService {
     return {
       byProvider: byProvider.map(p => ({
         provider: p.provider,
-        requests: p._count._all,
+        requests: p._count,
         inputTokens: p._sum.promptTokens || 0,
         outputTokens: p._sum.completionTokens || 0,
         cost: Number(p._sum.estimatedCost || 0),
@@ -371,21 +371,21 @@ class AdminService {
       byModel: byModel.map(m => ({
         provider: m.provider,
         model: m.model,
-        requests: m._count._all,
+        requests: m._count,
         inputTokens: m._sum.promptTokens || 0,
         outputTokens: m._sum.completionTokens || 0,
         cost: Number(m._sum.estimatedCost || 0),
       })),
       byFeature: byFeature.map(f => ({
         feature: f.feature,
-        requests: f._count._all,
+        requests: f._count,
         inputTokens: f._sum.promptTokens || 0,
         outputTokens: f._sum.completionTokens || 0,
         cost: Number(f._sum.estimatedCost || 0),
       })),
       topUsers: topUsers.map(u => ({
         user: userMap.get(u.userId) || { id: u.userId, name: 'Unknown', email: '', avatarUrl: null },
-        requests: u._count._all,
+        requests: u._count,
         inputTokens: u._sum.promptTokens || 0,
         outputTokens: u._sum.completionTokens || 0,
         cost: Number(u._sum.estimatedCost || 0),

@@ -55,7 +55,7 @@ export function KanbanMiniDemo({ controls, scene }: KanbanMiniDemoProps) {
   const [movingCard, setMovingCard] = useState<string | null>(null);
 
   useEffect(() => {
-    if (scene === 'A' || scene === 'E') {
+    if (scene === 'A') {
       setCards(INITIAL_CARDS);
       setMovingCard(null);
     }

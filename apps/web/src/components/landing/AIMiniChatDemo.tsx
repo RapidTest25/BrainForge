@@ -53,7 +53,7 @@ export function AIMiniChatDemo({ controls, scene }: AIMiniChatDemoProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (scene === 'A' || scene === 'E') {
+    if (scene === 'A') {
       setVisibleMessages([]);
       setIsTyping(false);
       setDisplayedAIText('');

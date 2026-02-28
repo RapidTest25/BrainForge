@@ -7,6 +7,7 @@ type AnimationControls = ReturnType<typeof useAnimation>;
 import { Brain, Home, CheckSquare, MessageSquare, GitBranch, Calendar, Zap } from 'lucide-react';
 import { KanbanMiniDemo } from './KanbanMiniDemo';
 import { AIMiniChatDemo } from './AIMiniChatDemo';
+import { AnimatedCursor } from './AnimatedCursor';
 import type { HeroScene } from './useHeroTimeline';
 
 interface ProductShowcaseProps {
@@ -36,7 +37,9 @@ export function ProductShowcase({
       animate={showcaseControls}
       className="w-full max-w-4xl mx-auto"
     >
-      <div className="rounded-xl border border-border bg-card overflow-hidden shadow-md">
+      <div className="relative rounded-xl border border-border bg-card overflow-hidden shadow-md">
+        {/* Animated fake cursor */}
+        <AnimatedCursor scene={scene} />
         {/* Window chrome */}
         <div className="flex items-center gap-0 px-3 sm:px-4 border-b border-border bg-muted/40">
           <div className="flex items-center gap-1.5 pr-3 sm:pr-4 py-2 sm:py-2.5">
@@ -59,7 +62,7 @@ export function ProductShowcase({
         </div>
 
         {/* App body */}
-        <div className="flex h-55 sm:h-70 md:h-80">
+        <div className="flex h-45 sm:h-55 md:h-65">
           {/* Sidebar - hidden on mobile, icons only on tablet, full on desktop */}
           <div className="hidden md:block w-36 lg:w-40 border-r border-border bg-card p-2 space-y-0.5">
             <div className="flex items-center gap-2 mb-3 px-2 pt-0.5">

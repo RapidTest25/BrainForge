@@ -23,8 +23,8 @@ export async function diagramRoutes(app: FastifyInstance) {
   });
 
   app.get('/:teamId/diagrams/:diagramId', { preHandler: [teamGuard()] }, async (request, reply) => {
-    const { diagramId } = request.params as { diagramId: string };
-    const diagram = await diagramService.findById(diagramId);
+    const { teamId, diagramId } = request.params as { teamId: string; diagramId: string };
+    const diagram = await diagramService.findById(diagramId, teamId);
     return reply.send({ success: true, data: diagram });
   });
 
@@ -45,8 +45,9 @@ export async function diagramRoutes(app: FastifyInstance) {
   app.post('/:teamId/diagrams/ai-generate', { preHandler: [teamGuard()] }, async (request, reply) => {
     const { teamId } = request.params as { teamId: string };
     const body = aiGenerateDiagramSchema.parse(request.body);
+    const { projectId } = request.body as { projectId?: string };
     const diagram = await diagramService.generateAndSave(
-      teamId, request.user.id, body.provider, body.model, body.title, body.prompt, body.type
+      teamId, request.user.id, body.provider, body.model, body.title, body.prompt, body.type, projectId
     );
     return reply.status(201).send({ success: true, data: diagram });
   });

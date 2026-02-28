@@ -62,7 +62,7 @@ export function ProductShowcase({
         </div>
 
         {/* App body */}
-        <div className="flex h-45 sm:h-55 md:h-65">
+        <div className="flex h-52 sm:h-55 md:h-65">
           {/* Sidebar - hidden on mobile, icons only on tablet, full on desktop */}
           <div className="hidden md:block w-36 lg:w-40 border-r border-border bg-card p-2 space-y-0.5">
             <div className="flex items-center gap-2 mb-3 px-2 pt-0.5">

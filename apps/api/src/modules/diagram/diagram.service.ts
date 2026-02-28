@@ -1,6 +1,6 @@
 import { prisma } from '../../lib/prisma.js';
 import { aiService } from '../../ai/ai.service.js';
-import { NotFoundError } from '../../lib/errors.js';
+import { AppError, NotFoundError } from '../../lib/errors.js';
 import type { ChatMsg } from '../../ai/providers/base.js';
 
 const DIAGRAM_PROMPT = `You are an expert software architect and diagram designer. Generate diagram data based on user descriptions.
@@ -89,12 +89,15 @@ class DiagramService {
     });
   }
 
-  async findById(diagramId: string) {
+  async findById(diagramId: string, teamId?: string) {
     const diagram = await prisma.diagram.findUnique({
       where: { id: diagramId },
       include: { creator: { select: { id: true, name: true, avatarUrl: true } } },
     });
     if (!diagram) throw new NotFoundError('Diagram not found');
+    if (teamId && diagram.teamId !== teamId) {
+      throw new NotFoundError('Diagram not found');
+    }
     return diagram;
   }
 
@@ -153,18 +156,25 @@ class DiagramService {
     model?: string,
     title?: string,
     description?: string,
-    diagramType?: string
+    diagramType?: string,
+    projectId?: string
   ) {
-    const diagramData = await this.generateWithAI(userId, provider || '', model || '', description || '', diagramType || 'FREEFORM');
+    const diagramData = await this.generateWithAI(userId, provider || '', model || '', description || '', diagramType || 'FLOWCHART');
+
+    // If AI failed to parse, throw instead of saving empty diagram
+    if (diagramData.error) {
+      throw new AppError(422, 'AI_PARSE_ERROR', diagramData.error);
+    }
 
     return prisma.diagram.create({
       data: {
         teamId,
         createdBy: userId,
         title: title || 'AI Generated Diagram',
-        type: (diagramType || 'FREEFORM') as any,
+        type: (diagramType || 'FLOWCHART') as any,
         description,
         data: diagramData,
+        projectId,
       },
       include: { creator: { select: { id: true, name: true, avatarUrl: true } } },
     });

@@ -279,6 +279,17 @@ export class AuthService {
     const valid = await bcrypt.compare(input.currentPassword, user.passwordHash);
     if (!valid) throw new UnauthorizedError('Current password is incorrect');
 
+    // Validate new password complexity
+    if (!input.newPassword || input.newPassword.length < 8) {
+      throw new AppError(422, 'VALIDATION_ERROR', 'Password must be at least 8 characters');
+    }
+    if (!/[A-Z]/.test(input.newPassword)) {
+      throw new AppError(422, 'VALIDATION_ERROR', 'Password must contain at least one uppercase letter');
+    }
+    if (!/[0-9]/.test(input.newPassword)) {
+      throw new AppError(422, 'VALIDATION_ERROR', 'Password must contain at least one number');
+    }
+
     const passwordHash = await bcrypt.hash(input.newPassword, 12);
     await prisma.user.update({ where: { id: userId }, data: { passwordHash } });
     return { message: 'Password updated successfully' };
@@ -294,6 +305,12 @@ export class AuthService {
 
     if (!newPassword || newPassword.length < 8) {
       throw new AppError(422, 'VALIDATION_ERROR', 'Password must be at least 8 characters');
+    }
+    if (!/[A-Z]/.test(newPassword)) {
+      throw new AppError(422, 'VALIDATION_ERROR', 'Password must contain at least one uppercase letter');
+    }
+    if (!/[0-9]/.test(newPassword)) {
+      throw new AppError(422, 'VALIDATION_ERROR', 'Password must contain at least one number');
     }
 
     const passwordHash = await bcrypt.hash(newPassword, 12);

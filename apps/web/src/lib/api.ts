@@ -98,6 +98,14 @@ class ApiClient {
       const data = await res.json();
       const newTokens = data.data;
       localStorage.setItem('brainforge_tokens', JSON.stringify(newTokens));
+      // Sync Zustand auth store to avoid stale tokens in memory
+      try {
+        const { useAuthStore } = await import('@/stores/auth-store');
+        const state = useAuthStore.getState();
+        if (state.user) {
+          useAuthStore.setState({ tokens: newTokens });
+        }
+      } catch {}
       return newTokens.accessToken;
     } catch {
       return null;

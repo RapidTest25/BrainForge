@@ -89,8 +89,8 @@ export function KanbanMiniDemo({ controls, scene }: KanbanMiniDemoProps) {
 
   return (
     <motion.div animate={controls} className="flex-1 p-2 sm:p-2.5 flex gap-1.5 sm:gap-2 overflow-hidden">
-      {COLUMNS.map((col) => (
-        <div key={col.id} className="flex-1 min-w-0">
+      {COLUMNS.map((col, colIdx) => (
+        <div key={col.id} className={`flex-1 min-w-0 ${colIdx === 2 ? 'hidden sm:block' : ''}`}>
           <div className="flex items-center gap-1 sm:gap-1.5 mb-1.5 px-0.5 sm:px-1">
             <div
               className="h-1.5 w-1.5 rounded-full shrink-0"

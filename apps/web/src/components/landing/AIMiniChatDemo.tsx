@@ -103,7 +103,7 @@ export function AIMiniChatDemo({ controls, scene }: AIMiniChatDemoProps) {
   return (
     <motion.div
       animate={controls}
-      className="w-45 sm:w-55 shrink-0 border-l border-border bg-card flex flex-col"
+      className="hidden sm:flex w-45 sm:w-55 shrink-0 border-l border-border bg-card flex-col"
     >
       {/* Header */}
       <div className="flex items-center gap-1.5 px-2 sm:px-3 py-2 border-b border-border">

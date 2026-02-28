@@ -50,7 +50,7 @@ export function AnimatedCursor({ scene }: AnimatedCursorProps) {
       {visible && keyframes.length > 0 && (
         <motion.div
           key={scene}
-          className="absolute z-50 pointer-events-none"
+          className="absolute z-50 pointer-events-none hidden sm:block"
           initial={{
             left: keyframes[0].x,
             top: keyframes[0].y,

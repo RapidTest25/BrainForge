@@ -377,7 +377,7 @@ function InlineEditForm({ editLabel, editDesc, onEditLabelChange, onEditDescChan
 
 // ── Type-Specific Edge Renderers ──
 
-function renderEdgeSVG(edge: any, source: any, target: any, color: string, diagramType: string, onDelete: (id: string) => void) {
+function renderEdgeSVG(edge: any, source: any, target: any, color: string, diagramType: string, onDelete: (id: string) => void, edgeIndex?: number, allNodes?: any[], allEdges?: any[]) {
   const sx = (source.position?.x || 0) + 70;
   const sy = (source.position?.y || 0) + 25;
   const tx = (target.position?.x || 0) + 70;
@@ -408,7 +408,7 @@ function renderEdgeSVG(edge: any, source: any, target: any, color: string, diagr
       const cpx2 = sx + (tx - sx) * 0.6;
       const cpy2 = ty;
       pathD = `M ${sx} ${sy} C ${cpx1} ${cpy1}, ${cpx2} ${cpy2}, ${tx} ${ty}`;
-      strokeWidth = level0Edge(edge, source) ? 3 : 2;
+      strokeWidth = level0Edge(edge, source, allNodes || [], allEdges || []) ? 3 : 2;
       opacity = 0.35;
       showArrow = false;
       break;
@@ -418,7 +418,10 @@ function renderEdgeSVG(edge: any, source: any, target: any, color: string, diagr
       opacity = 0.4;
       break;
     case 'SEQUENCE':
-      pathD = `M ${sx} ${Math.max(sy, ty) + 50} L ${tx} ${Math.max(sy, ty) + 50}`;
+      // Each message gets an incrementally lower Y based on its index
+      const seqBaseY = Math.max(sy, ty) + 60;
+      const seqOffsetY = seqBaseY + (edgeIndex || 0) * 40;
+      pathD = `M ${sx} ${seqOffsetY} L ${tx} ${seqOffsetY}`;
       opacity = 0.7;
       strokeWidth = 1.5;
       break;
@@ -432,7 +435,7 @@ function renderEdgeSVG(edge: any, source: any, target: any, color: string, diagr
   }
 
   const labelX = diagramType === 'SEQUENCE' ? mx : mx;
-  const labelY = diagramType === 'SEQUENCE' ? Math.max(sy, ty) + 42 : my - 8;
+  const labelY = diagramType === 'SEQUENCE' ? (Math.max(sy, ty) + 60 + (edgeIndex || 0) * 40) - 8 : my - 8;
 
   return (
     <g key={edge.id} className="cursor-pointer" onClick={(e) => e.stopPropagation()}>
@@ -472,7 +475,11 @@ function renderEdgeSVG(edge: any, source: any, target: any, color: string, diagr
   );
 }
 
-function level0Edge(edge: any, source: any) { return false; }
+function level0Edge(edge: any, source: any, nodes: any[], edges: any[]) {
+  if (!nodes.length) return false;
+  const centerNodeId = nodes[0]?.id;
+  return edge.source === centerNodeId || edge.target === centerNodeId;
+}
 
 // ── Interactive Diagram Editor ──
 
@@ -494,6 +501,7 @@ function DiagramEditor({ diagram, dtype, nodes: initNodes, edges: initEdges, onB
   const [newDesc, setNewDesc] = useState('');
   const addInputRef = useRef<HTMLInputElement>(null);
   const [linkingFrom, setLinkingFrom] = useState<string | null>(null);
+  const hasDraggedRef = useRef(false);
 
   useEffect(() => { setNodes(initNodes); setEdges(initEdges); setHasChanges(false); }, [initNodes, initEdges]);
   useEffect(() => { if (addingNode && addInputRef.current) addInputRef.current.focus(); }, [addingNode]);
@@ -511,6 +519,7 @@ function DiagramEditor({ diagram, dtype, nodes: initNodes, edges: initEdges, onB
 
   const handleMouseMove = (e: React.MouseEvent) => {
     if (!draggingNode || !canvasRef.current) return;
+    hasDraggedRef.current = true;
     const rect = canvasRef.current.getBoundingClientRect();
     const x = Math.max(0, e.clientX - rect.left - dragOffset.x);
     const y = Math.max(0, e.clientY - rect.top - dragOffset.y);
@@ -518,7 +527,13 @@ function DiagramEditor({ diagram, dtype, nodes: initNodes, edges: initEdges, onB
     setHasChanges(true);
   };
 
-  const handleMouseUp = () => setDraggingNode(null);
+  const handleMouseUp = () => {
+    if (draggingNode) {
+      // Set a small timeout to prevent the click event from firing right after drag
+      setTimeout(() => { hasDraggedRef.current = false; }, 50);
+    }
+    setDraggingNode(null);
+  };
 
   const addNode = () => {
     if (!newLabel.trim()) return;
@@ -526,9 +541,20 @@ function DiagramEditor({ diagram, dtype, nodes: initNodes, edges: initEdges, onB
     const maxX = Math.max(0, ...nodes.map(n => (n.position?.x || 0)));
     const maxY = Math.max(0, ...nodes.map(n => (n.position?.y || 0)));
     // Type-specific default positioning
-    let pos = { x: maxX + 200, y: nodes.length % 2 === 0 ? 50 : maxY + 100 };
-    if (diagram.type === 'SEQUENCE') pos = { x: nodes.length * 200 + 50, y: 30 };
-    if (diagram.type === 'MINDMAP' && nodes.length === 0) pos = { x: 350, y: 250 };
+    let pos = { x: 50, y: 50 };
+    if (diagram.type === 'SEQUENCE') {
+      pos = { x: nodes.length * 200 + 50, y: 30 };
+    } else if (diagram.type === 'MINDMAP' && nodes.length === 0) {
+      pos = { x: 350, y: 250 };
+    } else if (nodes.length > 0) {
+      // Place new nodes in a grid layout to avoid overlap
+      const cols = diagram.type === 'ERD' ? 3 : 4;
+      const spacingX = diagram.type === 'ERD' ? 300 : 220;
+      const spacingY = diagram.type === 'ERD' ? 280 : 150;
+      const col = nodes.length % cols;
+      const row = Math.floor(nodes.length / cols);
+      pos = { x: col * spacingX + 50, y: row * spacingY + 50 };
+    }
 
     setNodes(prev => [...prev, { id, type: 'default', position: pos, data: { label: newLabel, description: newDesc } }]);
     setNewLabel(''); setNewDesc(''); setAddingNode(false); setHasChanges(true);
@@ -697,7 +723,7 @@ function DiagramEditor({ diagram, dtype, nodes: initNodes, edges: initEdges, onB
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
         onMouseLeave={handleMouseUp}
-        onClick={() => { setSelectedNode(null); setEditingNodeId(null); }}
+        onClick={() => { if (!hasDraggedRef.current) { setSelectedNode(null); setEditingNodeId(null); } }}
       >
         <div className="absolute inset-0 opacity-30" style={{
           backgroundImage: diagramType === 'MINDMAP'
@@ -721,11 +747,11 @@ function DiagramEditor({ diagram, dtype, nodes: initNodes, edges: initEdges, onB
         ) : (
           <div className="relative" style={{ minHeight: '500px' }}>
             <svg className="absolute inset-0 w-full h-full" style={{ minHeight: '500px', zIndex: 1 }}>
-              {edges.map((edge: any) => {
+              {edges.map((edge: any, edgeIdx: number) => {
                 const source = nodes.find((n: any) => n.id === edge.source);
                 const target = nodes.find((n: any) => n.id === edge.target);
                 if (!source || !target) return null;
-                return renderEdgeSVG(edge, source, target, color, diagramType, deleteEdge);
+                return renderEdgeSVG(edge, source, target, color, diagramType, deleteEdge, edgeIdx, nodes, edges);
               })}
               <defs>
                 {['FLOWCHART', 'ARCHITECTURE', 'SEQUENCE', 'COMPONENT'].map(t => (
@@ -802,6 +828,10 @@ export default function DiagramsPage() {
       queryClient.invalidateQueries({ queryKey: ['diagrams', teamId] });
       setActiveDiagram(res.data.id);
       setShowCreate(false);
+      toast.success('Diagram created');
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || 'Failed to create diagram');
     },
   });
 
@@ -824,6 +854,10 @@ export default function DiagramsPage() {
       queryClient.invalidateQueries({ queryKey: ['diagrams', teamId] });
       setActiveDiagram(res.data.id);
       setShowAIGenerate(false);
+      toast.success('Diagram generated with AI');
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || 'AI generation failed. Check your API key and try again.');
     },
   });
 

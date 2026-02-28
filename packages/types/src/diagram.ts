@@ -9,7 +9,8 @@ export type DiagramType =
   | 'SEQUENCE'
   | 'MINDMAP'
   | 'USERFLOW'
-  | 'FREEFORM';
+  | 'FREEFORM'
+  | 'COMPONENT';
 
 export interface Diagram {
   id: string;

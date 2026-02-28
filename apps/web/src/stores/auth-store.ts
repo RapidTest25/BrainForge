@@ -56,8 +56,27 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       const tokens = localStorage.getItem('brainforge_tokens');
       const user = localStorage.getItem('brainforge_user');
       if (tokens && user) {
+        const parsedTokens = JSON.parse(tokens);
+        // Check if access token is expired by decoding JWT payload
+        try {
+          const payload = JSON.parse(atob(parsedTokens.accessToken.split('.')[1]));
+          if (payload.exp && payload.exp * 1000 < Date.now()) {
+            // Access token expired — still hydrate (refresh will handle it)
+            // but if refresh token is also expired, clear everything
+            if (parsedTokens.refreshToken) {
+              const refreshPayload = JSON.parse(atob(parsedTokens.refreshToken.split('.')[1]));
+              if (refreshPayload.exp && refreshPayload.exp * 1000 < Date.now()) {
+                localStorage.removeItem('brainforge_tokens');
+                localStorage.removeItem('brainforge_user');
+                return;
+              }
+            }
+          }
+        } catch {
+          // If token decode fails, still try to hydrate
+        }
         set({
-          tokens: JSON.parse(tokens),
+          tokens: parsedTokens,
           user: JSON.parse(user),
           isAuthenticated: true,
         });

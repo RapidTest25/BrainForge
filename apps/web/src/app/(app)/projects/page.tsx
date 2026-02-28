@@ -54,7 +54,7 @@ export const PROJECT_ICON_MAP: Record<string, LucideIcon> = {
 
 const PROJECT_ICONS = Object.keys(PROJECT_ICON_MAP);
 
-export function ProjectIcon({ icon, className, style }: { icon: string; className?: string; style?: React.CSSProperties }) {
+function ProjectIcon({ icon, className, style }: { icon: string; className?: string; style?: React.CSSProperties }) {
   const Icon = PROJECT_ICON_MAP[icon] || FolderKanban;
   return <Icon className={className} style={style} />;
 }

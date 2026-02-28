@@ -91,7 +91,7 @@ export default function HeroSection() {
         </div>
 
         {/* Animated showcase area - responsive, single layout */}
-        <div className="relative min-h-50 sm:min-h-65 md:min-h-75">
+        <div className="relative min-h-60 sm:min-h-65 md:min-h-75">
           {/* Scene A: Floating feature cards */}
           <motion.div
             className="absolute inset-0 flex items-center justify-center"

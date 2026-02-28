@@ -94,10 +94,15 @@ export async function authRoutes(app: FastifyInstance) {
 
   // POST /api/auth/logout
   app.post('/logout', { preHandler: [authGuard] }, async (request, reply) => {
-    const refreshToken = (request.body as any)?.refreshToken ?? '';
-    const accessToken = request.headers.authorization?.slice(7) ?? '';
-    await authService.logout(refreshToken, accessToken);
-    return reply.send({ success: true, data: { message: 'Logged out successfully' } });
+    try {
+      const refreshToken = (request.body as any)?.refreshToken ?? '';
+      const accessToken = request.headers.authorization?.slice(7) ?? '';
+      await authService.logout(refreshToken, accessToken);
+      return reply.send({ success: true, data: { message: 'Logged out successfully' } });
+    } catch (error) {
+      // Logout should not fail for the user even if Redis is down
+      return reply.send({ success: true, data: { message: 'Logged out successfully' } });
+    }
   });
 
   // GET /api/auth/me

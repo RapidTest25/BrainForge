@@ -206,7 +206,7 @@ export default function TasksPage() {
         <DragDropContext onDragEnd={handleDragEnd}>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 h-[calc(100vh-10rem)] overflow-x-auto">
             {STATUS_COLUMNS.map(({ key, label, color, dotColor }) => (
-              <div key={key} className="flex flex-col rounded-xl bg-muted/80 border border-border">
+              <div key={key} className="flex flex-col rounded-xl bg-muted/80 border border-border overflow-hidden">
                 <div className="flex items-center gap-2 px-3 py-2.5 border-b border-border">
                   <div className="h-2 w-2 rounded-full" style={{ backgroundColor: dotColor }} />
                   <span className="text-[13px] font-medium text-foreground/80">{label}</span>
@@ -220,8 +220,8 @@ export default function TasksPage() {
                       ref={provided.innerRef}
                       {...provided.droppableProps}
                       className={cn(
-                        'flex-1 overflow-y-auto p-2 space-y-2 transition-colors min-h-[60px]',
-                        snapshot.isDraggingOver && 'bg-[#7b68ee]/5 ring-2 ring-inset ring-[#7b68ee]/20 rounded-b-xl'
+                        'flex-1 overflow-y-auto p-2 space-y-1.5 transition-all duration-200 min-h-[60px]',
+                        snapshot.isDraggingOver && 'bg-[#7b68ee]/5 ring-2 ring-inset ring-[#7b68ee]/20'
                       )}
                     >
                       {getTasksByStatus(key).map((task: any, index: number) => (
@@ -230,23 +230,25 @@ export default function TasksPage() {
                             <div
                               ref={provided.innerRef}
                               {...provided.draggableProps}
+                              {...provided.dragHandleProps}
                               onClick={(e) => handleTaskClick(task, e)}
                               className={cn(
-                                'bg-card rounded-lg border p-3 transition-all group relative cursor-pointer',
+                                'bg-card rounded-lg border p-3 group relative cursor-grab active:cursor-grabbing',
                                 snapshot.isDragging
-                                  ? 'shadow-xl border-[#7b68ee] ring-2 ring-[#7b68ee]/20 rotate-[2deg]'
-                                  : 'hover:shadow-md',
+                                  ? 'shadow-2xl border-[#7b68ee] ring-2 ring-[#7b68ee]/30 scale-[1.02] z-50'
+                                  : 'hover:shadow-md transition-all duration-150',
                                 selectedTask?.id === task.id && !snapshot.isDragging
                                   ? 'border-[#7b68ee] ring-1 ring-[#7b68ee]/20 shadow-sm'
-                                  : !snapshot.isDragging && 'border-border hover:border-border'
+                                  : !snapshot.isDragging && 'border-border hover:border-border/80'
                               )}
+                              style={{
+                                ...provided.draggableProps.style,
+                                ...(snapshot.isDragging ? { rotate: '1.5deg' } : {}),
+                              }}
                             >
                               <div className="flex items-start justify-between mb-1">
                                 <div className="flex items-start gap-1.5 flex-1 min-w-0">
-                                  <div
-                                    {...provided.dragHandleProps}
-                                    className="mt-0.5 opacity-0 group-hover:opacity-100 transition-opacity cursor-grab active:cursor-grabbing shrink-0"
-                                  >
+                                  <div className="mt-0.5 opacity-0 group-hover:opacity-60 transition-opacity shrink-0">
                                     <GripVertical className="h-3.5 w-3.5 text-muted-foreground" />
                                   </div>
                                   <p className="text-sm font-medium text-foreground flex-1 pr-2">{task.title}</p>
@@ -256,6 +258,7 @@ export default function TasksPage() {
                                     <button
                                       data-dropdown-trigger
                                       className="h-6 w-6 flex items-center justify-center rounded hover:bg-accent opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
+                                      onClick={(e) => e.stopPropagation()}
                                     >
                                       <MoreHorizontal className="h-3.5 w-3.5 text-muted-foreground" />
                                     </button>

@@ -2,17 +2,20 @@
 
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Plus, ChevronLeft, ChevronRight, Calendar as CalendarIcon } from 'lucide-react';
+import { Plus, ChevronLeft, ChevronRight, Calendar as CalendarIcon, X, Clock, Trash2, Edit3, ChevronRight as ChevronRightIcon } from 'lucide-react';
 import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from '@/components/ui/dialog';
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
+import { Sheet, SheetContent } from '@/components/ui/sheet';
 import { useTeamStore } from '@/stores/team-store';
 import { api } from '@/lib/api';
 import { cn } from '@/lib/utils';
+import { toast } from 'sonner';
 
 const EVENT_TYPES = [
   { value: 'MEETING', label: 'Meeting', color: '#3b82f6' },
@@ -39,6 +42,9 @@ export default function CalendarPage() {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [showCreate, setShowCreate] = useState(false);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  const [selectedDayEvents, setSelectedDayEvents] = useState<any[]>([]);
+  const [showDayPanel, setShowDayPanel] = useState(false);
+  const [editingEvent, setEditingEvent] = useState<any>(null);
   const [newEvent, setNewEvent] = useState({
     title: '', type: 'MEETING', startDate: '', endDate: '', description: '', allDay: true,
   });
@@ -63,7 +69,20 @@ export default function CalendarPage() {
       queryClient.invalidateQueries({ queryKey: ['calendar', teamId] });
       setShowCreate(false);
       setNewEvent({ title: '', type: 'MEETING', startDate: '', endDate: '', description: '', allDay: true });
+      toast.success('Event created');
     },
+    onError: () => toast.error('Failed to create event'),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (eventId: string) => api.delete(`/teams/${teamId}/calendar/${eventId}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['calendar', teamId] });
+      // Refresh the panel events
+      setSelectedDayEvents(prev => prev.filter((e: any) => e.id !== deleteMutation.variables));
+      toast.success('Event deleted');
+    },
+    onError: () => toast.error('Failed to delete event'),
   });
 
   const prevMonth = () => setCurrentDate(new Date(year, month - 1, 1));
@@ -142,8 +161,16 @@ export default function CalendarPage() {
                 )}
                 onClick={() => {
                   const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-                  setNewEvent({ ...newEvent, startDate: dateStr, endDate: dateStr });
-                  setShowCreate(true);
+                  if (dayEvents.length > 0) {
+                    // Show detail panel for this day
+                    setSelectedDate(dateStr);
+                    setSelectedDayEvents(dayEvents);
+                    setShowDayPanel(true);
+                  } else {
+                    // Open create dialog for empty day
+                    setNewEvent({ ...newEvent, startDate: dateStr, endDate: dateStr });
+                    setShowCreate(true);
+                  }
                 }}
               >
                 <span className={cn(
@@ -196,6 +223,16 @@ export default function CalendarPage() {
                 </SelectContent>
               </Select>
             </div>
+            <div className="space-y-1.5">
+              <label className="text-[13px] font-medium text-muted-foreground">Description <span className="font-normal">(optional)</span></label>
+              <Textarea
+                value={newEvent.description}
+                onChange={(e) => setNewEvent({ ...newEvent, description: e.target.value })}
+                placeholder="Add event details..."
+                className="border-border focus:border-[#7b68ee] min-h-[60px]"
+                rows={2}
+              />
+            </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1.5">
                 <label className="text-[13px] font-medium text-muted-foreground">Start Date</label>
@@ -219,6 +256,127 @@ export default function CalendarPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Day Events Side Panel */}
+      <Sheet open={showDayPanel} onOpenChange={(open) => { if (!open) setShowDayPanel(false); }}>
+        <SheetContent side="right" hideClose className="w-full sm:w-[420px] md:w-[480px] p-0 border-l border-border">
+          <div className="flex flex-col h-full bg-card">
+            {/* Panel Header */}
+            <div className="flex items-center justify-between px-5 py-3.5 border-b border-border">
+              <div className="flex items-center gap-2">
+                <CalendarIcon className="h-4 w-4 text-[#7b68ee]" />
+                <span className="text-sm font-semibold text-foreground">
+                  {selectedDate ? new Date(selectedDate + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' }) : ''}
+                </span>
+              </div>
+              <button
+                onClick={() => setShowDayPanel(false)}
+                className="h-7 w-7 flex items-center justify-center rounded-md hover:bg-accent transition-colors"
+              >
+                <X className="h-4 w-4 text-muted-foreground" />
+              </button>
+            </div>
+
+            {/* Events list */}
+            <div className="flex-1 overflow-y-auto px-5 py-4 space-y-3">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                  {selectedDayEvents.length} Event{selectedDayEvents.length !== 1 ? 's' : ''}
+                </span>
+                <button
+                  onClick={() => {
+                    setNewEvent({ ...newEvent, startDate: selectedDate || '', endDate: selectedDate || '' });
+                    setShowCreate(true);
+                  }}
+                  className="flex items-center gap-1 text-xs text-[#7b68ee] hover:text-[#6c5ce7] font-medium transition-colors"
+                >
+                  <Plus className="h-3 w-3" />
+                  Add Event
+                </button>
+              </div>
+
+              {selectedDayEvents.map((event: any) => {
+                const typeInfo = EVENT_TYPES.find(t => t.value === event.type) || EVENT_TYPES[4];
+                const eventColor = event.color || typeInfo.color;
+                return (
+                  <div
+                    key={event.id}
+                    className="rounded-xl border border-border bg-card hover:shadow-md transition-all group"
+                  >
+                    {/* Color bar */}
+                    <div className="h-1.5 rounded-t-xl" style={{ backgroundColor: eventColor }} />
+                    
+                    <div className="p-4 space-y-3">
+                      {/* Title & actions */}
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1 min-w-0">
+                          <h3 className="text-sm font-semibold text-foreground">{event.title}</h3>
+                          <div className="flex items-center gap-2 mt-1">
+                            <span
+                              className="text-[10px] font-medium px-2 py-0.5 rounded-full"
+                              style={{ color: eventColor, backgroundColor: `${eventColor}15` }}
+                            >
+                              {typeInfo.label}
+                            </span>
+                            {event.allDay && (
+                              <span className="text-[10px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded">All day</span>
+                            )}
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => {
+                            if (confirm('Delete this event?')) {
+                              deleteMutation.mutate(event.id);
+                            }
+                          }}
+                          className="h-7 w-7 flex items-center justify-center rounded-md hover:bg-red-500/10 opacity-0 group-hover:opacity-100 transition-all shrink-0"
+                        >
+                          <Trash2 className="h-3.5 w-3.5 text-red-500" />
+                        </button>
+                      </div>
+
+                      {/* Description */}
+                      {event.description && (
+                        <p className="text-xs text-muted-foreground leading-relaxed">{event.description}</p>
+                      )}
+
+                      {/* Time info */}
+                      <div className="flex items-center gap-3 text-[11px] text-muted-foreground">
+                        <div className="flex items-center gap-1">
+                          <Clock className="h-3 w-3" />
+                          <span>{new Date(event.startDate).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}</span>
+                        </div>
+                        {event.endDate && event.endDate !== event.startDate && (
+                          <>
+                            <span>→</span>
+                            <span>{new Date(event.endDate).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}</span>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+
+              {selectedDayEvents.length === 0 && (
+                <div className="text-center py-12">
+                  <CalendarIcon className="h-8 w-8 mx-auto text-muted-foreground/30 mb-2" />
+                  <p className="text-sm text-muted-foreground">No events on this day</p>
+                  <button
+                    onClick={() => {
+                      setNewEvent({ ...newEvent, startDate: selectedDate || '', endDate: selectedDate || '' });
+                      setShowCreate(true);
+                    }}
+                    className="mt-2 text-xs text-[#7b68ee] hover:text-[#6c5ce7] font-medium"
+                  >
+                    Create one
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }

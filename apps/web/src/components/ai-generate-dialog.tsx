@@ -307,7 +307,7 @@ export function AIGenerateDialog({ open, onOpenChange }: AIGenerateDialogProps) 
                       />
                     </div>
                   )}
-                  <div className="max-h-[260px] overflow-y-auto space-y-1 pr-0.5 scrollbar-thin">
+                  <div className="max-h-[260px] overflow-y-auto space-y-0.5 pr-0.5 scrollbar-thin">
                     {(() => {
                       const allProviderModels = modelsData?.data?.[provider] || [];
                       const filtered = modelFilter
@@ -332,7 +332,7 @@ export function AIGenerateDialog({ open, onOpenChange }: AIGenerateDialogProps) 
                       return groups.map(group => (
                         <div key={group.label}>
                           {showHeaders && (
-                            <div className="sticky top-0 z-10 flex items-center gap-1.5 px-2 py-1 mt-2 first:mt-0 text-[10px] font-bold text-muted-foreground uppercase tracking-wider bg-background/95 backdrop-blur-sm border-b border-border/30">
+                            <div className="sticky top-0 z-10 flex items-center gap-1.5 px-2 py-1 mt-1.5 first:mt-0 text-[10px] font-bold text-muted-foreground uppercase tracking-wider bg-background/95 backdrop-blur-sm border-b border-border/30">
                               <span className="text-sm leading-none">{group.icon}</span>
                               <span>{group.label}</span>
                               <span className="text-[9px] font-normal ml-auto tabular-nums opacity-60">{group.models.length}</span>
@@ -347,28 +347,26 @@ export function AIGenerateDialog({ open, onOpenChange }: AIGenerateDialogProps) 
                                 key={m.id}
                                 onClick={() => setModel(m.id)}
                                 className={cn(
-                                  'w-full flex items-start gap-3 px-3 py-2.5 rounded-xl border transition-all text-left',
+                                  'w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg transition-all text-left',
                                   isSelected
-                                    ? 'border-[#7b68ee] bg-[#7b68ee]/5'
-                                    : 'border-border/50 hover:border-border hover:bg-muted/50'
+                                    ? 'bg-[#7b68ee]/8 ring-1 ring-[#7b68ee]/30'
+                                    : 'hover:bg-muted/50'
                                 )}
                               >
                                 <div className={cn(
-                                  'mt-0.5 h-4 w-4 rounded-full border-2 flex items-center justify-center shrink-0',
+                                  'h-3.5 w-3.5 rounded-full border-2 flex items-center justify-center shrink-0',
                                   isSelected ? 'border-[#7b68ee]' : 'border-muted-foreground/30'
                                 )}>
-                                  {isSelected && <div className="h-2 w-2 rounded-full bg-[#7b68ee]" />}
+                                  {isSelected && <div className="h-1.5 w-1.5 rounded-full bg-[#7b68ee]" />}
                                 </div>
                                 <div className="flex-1 min-w-0">
                                   <div className="flex items-center gap-1.5">
-                                    <span className="text-[13px] font-medium text-foreground truncate">{m.name}</span>
-                                    {isFree && <span className="text-[8px] font-bold px-1 py-0.5 rounded bg-green-500/10 text-green-500 shrink-0">FREE</span>}
+                                    <span className="text-[12px] font-medium text-foreground truncate">{m.name}</span>
+                                    {isFree && <span className="text-[8px] font-bold px-1 py-0.5 rounded bg-green-500/10 text-green-500 shrink-0 leading-none">FREE</span>}
+                                    <span className="text-[9px] text-muted-foreground/60 ml-auto shrink-0 tabular-nums">{(m.contextWindow / 1000).toFixed(0)}K</span>
+                                    {!isFree && m.costPer1kInput > 0 && <span className="text-[9px] text-muted-foreground/60 shrink-0 tabular-nums">${m.costPer1kInput.toFixed(3)}</span>}
                                   </div>
-                                  {desc && <p className="text-[10px] text-muted-foreground truncate mt-0.5">{desc}</p>}
-                                </div>
-                                <div className="text-right text-[10px] text-muted-foreground shrink-0 mt-0.5">
-                                  <p>{(m.contextWindow / 1000).toFixed(0)}K ctx</p>
-                                  {!isFree && m.costPer1kInput > 0 && <p>${m.costPer1kInput.toFixed(5)}/1K</p>}
+                                  {desc && <p className="text-[10px] text-muted-foreground/70 line-clamp-1 mt-0.5">{desc}</p>}
                                 </div>
                               </button>
                             );

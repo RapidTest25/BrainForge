@@ -27,10 +27,38 @@ const MAIN_NAV = [
   { label: 'AI Chat', href: '/ai-chat', icon: Bot },
 ];
 
-const FAVORITES = [
-  { label: 'My Tasks', href: '/tasks', icon: CheckSquare, color: '#7b68ee' },
-  { label: 'Sprint Board', href: '/sprints', icon: Zap, color: '#ef4444' },
+const DEFAULT_FAVORITES = ['/tasks', '/sprints'];
+
+// All favoritable items (MAIN_NAV + SPACE_NAV + BOTTOM_NAV)
+const ALL_NAV_ITEMS: Array<{ label: string; href: string; icon: any; color?: string }> = [
+  { label: 'Home', href: '/dashboard', icon: Home },
+  { label: 'Notifications', href: '/notifications', icon: Bell },
+  { label: 'Projects', href: '/projects', icon: FolderKanban },
+  { label: 'Goals', href: '/goals', icon: Target },
+  { label: 'AI Chat', href: '/ai-chat', icon: Bot },
+  { label: 'Tasks', href: '/tasks', icon: CheckSquare, color: '#7b68ee' },
+  { label: 'Brainstorm', href: '/brainstorm', icon: MessageSquare, color: '#22c55e' },
+  { label: 'Diagrams', href: '/diagrams', icon: GitBranch, color: '#f59e0b' },
+  { label: 'Calendar', href: '/calendar', icon: Calendar, color: '#3b82f6' },
+  { label: 'Sprints', href: '/sprints', icon: Zap, color: '#ef4444' },
+  { label: 'Notes', href: '/notes', icon: FileText, color: '#8b5cf6' },
+  { label: 'Docs', href: '/docs', icon: BookOpen },
+  { label: 'AI Keys', href: '/settings/ai-keys', icon: Key },
+  { label: 'Team', href: '/settings/team', icon: Users },
+  { label: 'Settings', href: '/settings', icon: Settings },
 ];
+
+const LS_FAV_KEY = 'brainforge-favorites';
+function loadFavorites(): string[] {
+  if (typeof window === 'undefined') return DEFAULT_FAVORITES;
+  try {
+    const v = localStorage.getItem(LS_FAV_KEY);
+    return v ? JSON.parse(v) : DEFAULT_FAVORITES;
+  } catch { return DEFAULT_FAVORITES; }
+}
+function saveFavorites(favs: string[]) {
+  try { localStorage.setItem(LS_FAV_KEY, JSON.stringify(favs)); } catch {}
+}
 
 const SPACE_NAV = [
   { label: 'Tasks', href: '/tasks', icon: CheckSquare, color: '#7b68ee' },
@@ -94,14 +122,77 @@ function NavTooltip({ children, label, show }: { children: React.ReactNode; labe
   );
 }
 
+// ── Right-click context menu ──
+function ContextMenu({ x, y, href, isFav, onToggleFav, onClose }: {
+  x: number; y: number; href: string; isFav: boolean;
+  onToggleFav: () => void; onClose: () => void;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const handle = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) onClose();
+    };
+    document.addEventListener('mousedown', handle);
+    return () => document.removeEventListener('mousedown', handle);
+  }, [onClose]);
+  useEffect(() => {
+    const handle = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    document.addEventListener('keydown', handle);
+    return () => document.removeEventListener('keydown', handle);
+  }, [onClose]);
+  return (
+    <div
+      ref={ref}
+      className="fixed z-100 min-w-40 rounded-lg border border-border bg-popover shadow-lg py-1 animate-in fade-in zoom-in-95 duration-100"
+      style={{ top: y, left: x }}
+    >
+      <button
+        onClick={() => { onToggleFav(); onClose(); }}
+        className="flex items-center gap-2 w-full px-3 py-1.5 text-[13px] hover:bg-accent transition-colors text-left"
+      >
+        <Star className={cn('h-3.5 w-3.5', isFav ? 'fill-yellow-400 text-yellow-400' : 'text-muted-foreground')} />
+        <span className={isFav ? 'text-foreground' : 'text-muted-foreground'}>
+          {isFav ? 'Remove from Favorites' : 'Add to Favorites'}
+        </span>
+      </button>
+    </div>
+  );
+}
+
 export function Sidebar({ collapsed, onToggle, mobile, onMobileClose }: SidebarProps) {
   const [sections, setSections] = useState<SectionState>({ favorites: true, spaces: true });
   const [showProjectPicker, setShowProjectPicker] = useState(false);
+  const [favoriteHrefs, setFavoriteHrefs] = useState<string[]>(DEFAULT_FAVORITES);
+  const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number; href: string } | null>(null);
   const pathname = usePathname();
   const { activeTeam } = useTeamStore();
   const { user } = useAuthStore();
   const { activeProject, setActiveProject, setProjects } = useProjectStore();
   const projectPickerRef = useRef<HTMLDivElement>(null);
+
+  // Load favorites from localStorage on mount
+  useEffect(() => { setFavoriteHrefs(loadFavorites()); }, []);
+
+  const toggleFavorite = useCallback((href: string) => {
+    setFavoriteHrefs(prev => {
+      const next = prev.includes(href) ? prev.filter(h => h !== href) : [...prev, href];
+      saveFavorites(next);
+      return next;
+    });
+  }, []);
+
+  const isFavorite = useCallback((href: string) => favoriteHrefs.includes(href), [favoriteHrefs]);
+
+  // Resolve favorite items from ALL_NAV_ITEMS
+  const favoriteItems = favoriteHrefs
+    .map(href => ALL_NAV_ITEMS.find(item => item.href === href))
+    .filter(Boolean) as typeof ALL_NAV_ITEMS;
+
+  const handleContextMenu = useCallback((e: React.MouseEvent, href: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setCtxMenu({ x: e.clientX, y: e.clientY, href });
+  }, []);
 
   const toggle = (key: keyof SectionState) =>
     setSections(prev => ({ ...prev, [key]: !prev[key] }));
@@ -284,6 +375,7 @@ export function Sidebar({ collapsed, onToggle, mobile, onMobileClose }: SidebarP
             <Link
               href={href}
               onClick={handleNavClick}
+              onContextMenu={(e) => handleContextMenu(e, href)}
               className={cn(
                 'relative flex items-center rounded-md transition-colors',
                 isExpanded ? 'gap-2.5 px-2.5 py-1.5 text-[13px]' : 'justify-center h-8',
@@ -316,6 +408,7 @@ export function Sidebar({ collapsed, onToggle, mobile, onMobileClose }: SidebarP
         {isExpanded ? (
           <>
             {/* Favorites */}
+            {favoriteItems.length > 0 && (
             <div>
               <button onClick={() => toggle('favorites')} className="flex items-center justify-between w-full px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground hover:text-foreground transition-colors group">
                 <div className="flex items-center gap-1.5"><Star className="h-3 w-3" /><span>Favorites</span></div>
@@ -323,18 +416,26 @@ export function Sidebar({ collapsed, onToggle, mobile, onMobileClose }: SidebarP
               </button>
               <div className={cn(
                 'overflow-hidden transition-all duration-200',
-                sections.favorites ? 'max-h-40 opacity-100 mt-1' : 'max-h-0 opacity-0'
+                sections.favorites ? 'max-h-60 opacity-100 mt-1' : 'max-h-0 opacity-0'
               )}>
                 <div className="space-y-0.5">
-                  {FAVORITES.map(({ label, href, icon: Icon, color }) => (
-                    <Link key={`fav-${label}`} href={href} onClick={handleNavClick} className={cn('flex items-center gap-2.5 px-3 py-1.5 rounded-md text-[13px] transition-colors', checkActive(href) ? 'bg-primary/8 text-foreground font-medium' : 'text-muted-foreground hover:bg-accent hover:text-foreground')}>
-                      <div className="h-5 w-5 rounded flex items-center justify-center shrink-0" style={{ backgroundColor: `${color}18` }}><Icon className="h-3 w-3" style={{ color }} /></div>
+                  {favoriteItems.map(({ label, href, icon: Icon, color }) => (
+                    <Link
+                      key={`fav-${href}`}
+                      href={href}
+                      onClick={handleNavClick}
+                      onContextMenu={(e) => handleContextMenu(e, href)}
+                      className={cn('flex items-center gap-2.5 px-3 py-1.5 rounded-md text-[13px] transition-colors', checkActive(href) ? 'bg-primary/8 text-foreground font-medium' : 'text-muted-foreground hover:bg-accent hover:text-foreground')}
+                    >
+                      <div className="h-5 w-5 rounded flex items-center justify-center shrink-0" style={{ backgroundColor: `${color || '#6b7280'}18` }}><Icon className="h-3 w-3" style={{ color: color || '#6b7280' }} /></div>
                       <span className="truncate">{label}</span>
+                      <Star className="h-3 w-3 shrink-0 fill-yellow-400 text-yellow-400 ml-auto opacity-60" />
                     </Link>
                   ))}
                 </div>
               </div>
             </div>
+            )}
 
             {/* Spaces */}
             <div>
@@ -348,7 +449,13 @@ export function Sidebar({ collapsed, onToggle, mobile, onMobileClose }: SidebarP
               )}>
                 <div className="space-y-0.5">
                   {SPACE_NAV.map(({ label, href, icon: Icon, color }) => (
-                    <Link key={`space-${label}`} href={href} onClick={handleNavClick} className={cn('flex items-center gap-2.5 px-3 py-1.5 rounded-md text-[13px] transition-colors', checkActive(href) ? 'bg-primary/8 text-foreground font-medium' : 'text-muted-foreground hover:bg-accent hover:text-foreground')}>
+                    <Link
+                      key={`space-${label}`}
+                      href={href}
+                      onClick={handleNavClick}
+                      onContextMenu={(e) => handleContextMenu(e, href)}
+                      className={cn('flex items-center gap-2.5 px-3 py-1.5 rounded-md text-[13px] transition-colors', checkActive(href) ? 'bg-primary/8 text-foreground font-medium' : 'text-muted-foreground hover:bg-accent hover:text-foreground')}
+                    >
                       <div className="h-5 w-5 rounded flex items-center justify-center shrink-0" style={{ backgroundColor: `${color}18` }}><Icon className="h-3 w-3" style={{ color }} /></div>
                       <span className="truncate">{label}</span>
                     </Link>
@@ -381,6 +488,7 @@ export function Sidebar({ collapsed, onToggle, mobile, onMobileClose }: SidebarP
             <Link
               href={href}
               onClick={handleNavClick}
+              onContextMenu={(e) => handleContextMenu(e, href)}
               className={cn(
                 'flex items-center rounded-md transition-colors',
                 isExpanded ? 'gap-2.5 px-2.5 py-1.5 text-[13px]' : 'justify-center h-8',
@@ -436,6 +544,18 @@ export function Sidebar({ collapsed, onToggle, mobile, onMobileClose }: SidebarP
             </NavTooltip>
           )}
         </div>
+      )}
+
+      {/* ── Right-click context menu ── */}
+      {ctxMenu && (
+        <ContextMenu
+          x={ctxMenu.x}
+          y={ctxMenu.y}
+          href={ctxMenu.href}
+          isFav={isFavorite(ctxMenu.href)}
+          onToggleFav={() => toggleFavorite(ctxMenu.href)}
+          onClose={() => setCtxMenu(null)}
+        />
       )}
     </aside>
   );

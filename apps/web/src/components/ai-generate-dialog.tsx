@@ -35,34 +35,73 @@ const PROVIDER_INFO: Record<string, { label: string; icon: string; color: string
   COPILOT: { label: 'GitHub Copilot', icon: '⚫', color: '#6e40c9' },
 };
 
-// Categorize models by family for better organization
-const MODEL_CATEGORY_RULES = [
-  { test: (id: string) => id.startsWith('gpt-'), label: 'GPT', icon: '🟢' },
-  { test: (id: string) => /^o[1-4]/.test(id), label: 'Reasoning', icon: '🧠' },
-  { test: (id: string) => id.startsWith('claude-'), label: 'Claude', icon: '🟠' },
-  { test: (id: string) => id.startsWith('gemini-'), label: 'Gemini', icon: '🔵' },
-  { test: (id: string) => id.startsWith('grok-'), label: 'Grok', icon: '⚡' },
-  { test: (id: string) => id.startsWith('llama') || id.startsWith('meta-'), label: 'Meta', icon: '🦙' },
+// Map OpenRouter provider prefixes to categories
+const PROVIDER_PREFIX_MAP: Record<string, { label: string; icon: string }> = {
+  'openai': { label: 'OpenAI', icon: '🟢' },
+  'anthropic': { label: 'Anthropic', icon: '🟠' },
+  'google': { label: 'Google', icon: '🔵' },
+  'meta-llama': { label: 'Meta', icon: '🦙' },
+  'deepseek': { label: 'DeepSeek', icon: '🌊' },
+  'mistralai': { label: 'Mistral', icon: '🌀' },
+  'qwen': { label: 'Qwen', icon: '🌟' },
+  'x-ai': { label: 'xAI', icon: '⚡' },
+  'microsoft': { label: 'Microsoft', icon: '🔷' },
+  'nvidia': { label: 'NVIDIA', icon: '💚' },
+  'cohere': { label: 'Cohere', icon: '🟤' },
+  'amazon': { label: 'Amazon', icon: '📦' },
+  'perplexity': { label: 'Perplexity', icon: '🔍' },
+  'nous': { label: 'Nous', icon: '🧿' },
+  'together': { label: 'Together', icon: '🤝' },
+  'arcee-ai': { label: 'Arcee AI', icon: '🏹' },
+  'sophosympatheia': { label: 'Sophos', icon: '🧵' },
+  'thedrummer': { label: 'TheDrummer', icon: '🥁' },
+  'moonshotai': { label: 'Moonshot', icon: '🌙' },
+  'aion-labs': { label: 'Aion Labs', icon: '🧬' },
+};
+
+// Fallback rules for direct model IDs (non-OpenRouter)
+const DIRECT_CATEGORY_RULES = [
+  { test: (id: string) => id.startsWith('gpt-') || /^o[1-4]/.test(id), label: 'OpenAI', icon: '🟢' },
+  { test: (id: string) => id.startsWith('claude-'), label: 'Anthropic', icon: '🟠' },
+  { test: (id: string) => id.startsWith('gemini-'), label: 'Google', icon: '🔵' },
+  { test: (id: string) => id.startsWith('grok-'), label: 'xAI', icon: '⚡' },
+  { test: (id: string) => id.startsWith('llama'), label: 'Meta', icon: '🦙' },
   { test: (id: string) => id.startsWith('deepseek'), label: 'DeepSeek', icon: '🌊' },
   { test: (id: string) => id.startsWith('mistral') || id.startsWith('mixtral'), label: 'Mistral', icon: '🌀' },
   { test: (id: string) => id.startsWith('qwen'), label: 'Qwen', icon: '🌟' },
 ];
 
 function categorizeModels(models: any[]) {
-  const groups: { label: string; icon: string; models: any[] }[] = [];
-  const used = new Set<string>();
-  for (const rule of MODEL_CATEGORY_RULES) {
-    const matching = models.filter(m => rule.test(m.id) && !used.has(m.id));
-    if (matching.length > 0) {
-      matching.forEach(m => used.add(m.id));
-      groups.push({ label: rule.label, icon: rule.icon, models: matching });
+  const groups = new Map<string, { label: string; icon: string; models: any[] }>();
+
+  for (const m of models) {
+    let cat = { label: 'Other', icon: '⚪' };
+    const slashIdx = m.id.indexOf('/');
+
+    if (slashIdx > 0) {
+      // OpenRouter-style ID: extract provider prefix
+      const prefix = m.id.slice(0, slashIdx);
+      const mapped = PROVIDER_PREFIX_MAP[prefix];
+      cat = mapped || { label: prefix.split('-').map((w: string) => w.charAt(0).toUpperCase() + w.slice(1)).join(' '), icon: '⚪' };
+    } else {
+      // Direct model IDs (non-OpenRouter)
+      for (const rule of DIRECT_CATEGORY_RULES) {
+        if (rule.test(m.id)) {
+          cat = { label: rule.label, icon: rule.icon };
+          break;
+        }
+      }
     }
+
+    const key = cat.label;
+    if (!groups.has(key)) {
+      groups.set(key, { ...cat, models: [] });
+    }
+    groups.get(key)!.models.push(m);
   }
-  const remaining = models.filter(m => !used.has(m.id));
-  if (remaining.length > 0) {
-    groups.push({ label: 'Other', icon: '⚪', models: remaining });
-  }
-  return groups;
+
+  // Sort groups by model count descending
+  return Array.from(groups.values()).sort((a, b) => b.models.length - a.models.length);
 }
 
 interface AIGenerateDialogProps {
@@ -154,7 +193,7 @@ export function AIGenerateDialog({ open, onOpenChange }: AIGenerateDialogProps) 
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="bg-card sm:max-w-[540px] rounded-2xl">
+      <DialogContent className="bg-card sm:max-w-[540px] max-h-[90vh] overflow-y-auto rounded-2xl">
         <DialogHeader>
           <DialogTitle className="text-lg font-bold text-foreground flex items-center gap-2">
             <div className="h-8 w-8 rounded-xl bg-gradient-to-br from-[#7b68ee]/20 to-[#6c5ce7]/10 flex items-center justify-center">
@@ -266,7 +305,7 @@ export function AIGenerateDialog({ open, onOpenChange }: AIGenerateDialogProps) 
                       />
                     </div>
                   )}
-                  <div className="max-h-[260px] overflow-y-auto space-y-0.5 pr-0.5">
+                  <div className="max-h-[260px] overflow-y-auto space-y-1 pr-0.5 scrollbar-thin">
                     {(() => {
                       const allProviderModels = modelsData?.data?.[provider] || [];
                       const filtered = modelFilter
@@ -291,42 +330,43 @@ export function AIGenerateDialog({ open, onOpenChange }: AIGenerateDialogProps) 
                       return groups.map(group => (
                         <div key={group.label}>
                           {showHeaders && (
-                            <div className="sticky top-0 z-10 flex items-center gap-1.5 px-2 py-1.5 mt-1 first:mt-0 text-[10px] font-bold text-muted-foreground uppercase tracking-wider bg-background/95 backdrop-blur-sm">
-                              <span className="text-xs leading-none">{group.icon}</span>
-                              {group.label}
-                              <span className="text-[9px] font-normal ml-auto opacity-50">{group.models.length}</span>
+                            <div className="sticky top-0 z-10 flex items-center gap-1.5 px-2 py-1 mt-2 first:mt-0 text-[10px] font-bold text-muted-foreground uppercase tracking-wider bg-background/95 backdrop-blur-sm border-b border-border/30">
+                              <span className="text-sm leading-none">{group.icon}</span>
+                              <span>{group.label}</span>
+                              <span className="text-[9px] font-normal ml-auto tabular-nums opacity-60">{group.models.length}</span>
                             </div>
                           )}
                           {group.models.map((m: any) => {
                             const isSelected = model === m.id;
                             const isFree = m.costPer1kInput === 0 && m.costPer1kOutput === 0;
+                            const desc = m.description && m.description !== 'Free' ? m.description : undefined;
                             return (
                               <button
                                 key={m.id}
                                 onClick={() => setModel(m.id)}
                                 className={cn(
-                                  'w-full flex items-center gap-3 px-3 py-2 rounded-xl border transition-all text-left',
+                                  'w-full flex items-start gap-3 px-3 py-2.5 rounded-xl border transition-all text-left',
                                   isSelected
                                     ? 'border-[#7b68ee] bg-[#7b68ee]/5'
                                     : 'border-border/50 hover:border-border hover:bg-muted/50'
                                 )}
                               >
                                 <div className={cn(
-                                  'h-4 w-4 rounded-full border-2 flex items-center justify-center shrink-0',
+                                  'mt-0.5 h-4 w-4 rounded-full border-2 flex items-center justify-center shrink-0',
                                   isSelected ? 'border-[#7b68ee]' : 'border-muted-foreground/30'
                                 )}>
                                   {isSelected && <div className="h-2 w-2 rounded-full bg-[#7b68ee]" />}
                                 </div>
                                 <div className="flex-1 min-w-0">
                                   <div className="flex items-center gap-1.5">
-                                    <span className="text-[13px] font-medium text-foreground">{m.name}</span>
-                                    {isFree && <span className="text-[8px] font-bold px-1 py-0 rounded bg-green-500/10 text-green-500">FREE</span>}
+                                    <span className="text-[13px] font-medium text-foreground truncate">{m.name}</span>
+                                    {isFree && <span className="text-[8px] font-bold px-1 py-0.5 rounded bg-green-500/10 text-green-500 shrink-0">FREE</span>}
                                   </div>
-                                  {m.description && <p className="text-[10px] text-muted-foreground truncate">{m.description}</p>}
+                                  {desc && <p className="text-[10px] text-muted-foreground truncate mt-0.5">{desc}</p>}
                                 </div>
-                                <div className="text-right text-[10px] text-muted-foreground shrink-0">
+                                <div className="text-right text-[10px] text-muted-foreground shrink-0 mt-0.5">
                                   <p>{(m.contextWindow / 1000).toFixed(0)}K ctx</p>
-                                  {!isFree && <p>${m.costPer1kInput}/1K</p>}
+                                  {!isFree && m.costPer1kInput > 0 && <p>${m.costPer1kInput.toFixed(5)}/1K</p>}
                                 </div>
                               </button>
                             );

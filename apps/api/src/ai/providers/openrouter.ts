@@ -148,7 +148,7 @@ export class OpenRouterProvider implements AIProviderInterface {
             contextWindow,
             costPer1kInput,
             costPer1kOutput,
-            description: isFree ? 'Free' : m.description?.slice(0, 60) || undefined,
+            description: m.description?.slice(0, 80) || undefined,
           } as ModelDef;
         })
         // Sort: free first, then by name

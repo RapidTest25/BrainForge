@@ -7,7 +7,7 @@ import {
   Plus, ArrowLeft, Sparkles, Save, Loader2, Search, Clock,
   GitBranch, Network, Workflow, Database, Cpu, Share2, Trash2,
   PencilLine, X, GripVertical, Check, Link2, User, Key,
-  AlertTriangle, Box, Layers, ZoomIn, ZoomOut, Maximize2, Undo2, Redo2
+  AlertTriangle, Box, Layers, ZoomIn, ZoomOut, Maximize2, Undo2, Redo2, ChevronDown
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -20,6 +20,7 @@ import {
 import { useTeamStore } from '@/stores/team-store';
 import { useProjectStore } from '@/stores/project-store';
 import { api } from '@/lib/api';
+import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 
 const DIAGRAM_TYPES = [
@@ -985,6 +986,8 @@ export default function DiagramsPage() {
   const [newDiagram, setNewDiagram] = useState({ title: '', type: 'FLOWCHART', description: '' });
   const [aiForm, setAiForm] = useState({ title: '', type: 'FLOWCHART', description: '', provider: 'OPENROUTER', model: 'google/gemini-2.5-flash-preview-05-20' });
   const [search, setSearch] = useState('');
+  const [modelSearch, setModelSearch] = useState('');
+  const [modelDropOpen, setModelDropOpen] = useState(false);
 
   const { data: diagrams } = useQuery({
     queryKey: ['diagrams', teamId, activeProject?.id],
@@ -1262,6 +1265,8 @@ export default function DiagramsPage() {
                 <Select value={aiForm.provider} onValueChange={(v) => {
                   const models = modelsData?.data?.[v] || [];
                   setAiForm({ ...aiForm, provider: v, model: models[0]?.id || '' });
+                  setModelSearch('');
+                  setModelDropOpen(false);
                 }}>
                   <SelectTrigger className="border-border"><SelectValue /></SelectTrigger>
                   <SelectContent>
@@ -1269,21 +1274,105 @@ export default function DiagramsPage() {
                   </SelectContent>
                 </Select>
               </div>
-              <div className="space-y-1.5">
+              <div className="space-y-1.5 relative">
                 <label className="text-[13px] font-medium text-muted-foreground">Model</label>
-                <Select value={aiForm.model} onValueChange={(v) => setAiForm({ ...aiForm, model: v })}>
-                  <SelectTrigger className="border-border"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {(modelsData?.data?.[aiForm.provider] || []).map((m: any) => {
-                      const isFree = m.costPer1kInput === 0 && m.costPer1kOutput === 0;
-                      return (
-                        <SelectItem key={m.id} value={m.id}>
-                          {m.name}{isFree ? ' ✦ Free' : ''}
-                        </SelectItem>
-                      );
-                    })}
-                  </SelectContent>
-                </Select>
+                {(() => {
+                  const allModels = modelsData?.data?.[aiForm.provider] || [];
+                  const hasMany = allModels.length > 10;
+                  const selectedModel = allModels.find((m: any) => m.id === aiForm.model);
+
+                  if (!hasMany) {
+                    return (
+                      <Select value={aiForm.model} onValueChange={(v) => setAiForm({ ...aiForm, model: v })}>
+                        <SelectTrigger className="border-border"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          {allModels.map((m: any) => {
+                            const isFree = m.costPer1kInput === 0 && m.costPer1kOutput === 0;
+                            return <SelectItem key={m.id} value={m.id}>{m.name}{isFree ? ' ✦ Free' : ''}</SelectItem>;
+                          })}
+                        </SelectContent>
+                      </Select>
+                    );
+                  }
+
+                  // Searchable model selector for providers with many models (OpenRouter)
+                  const filtered = modelSearch
+                    ? allModels.filter((m: any) =>
+                        m.name.toLowerCase().includes(modelSearch.toLowerCase()) ||
+                        m.id.toLowerCase().includes(modelSearch.toLowerCase())
+                      )
+                    : allModels;
+
+                  return (
+                    <div className="relative">
+                      <button
+                        type="button"
+                        onClick={() => setModelDropOpen(!modelDropOpen)}
+                        className="flex items-center w-full h-9 px-3 text-sm border border-border rounded-md bg-background hover:bg-accent/50 transition-colors text-left"
+                      >
+                        <span className="truncate flex-1 text-foreground">
+                          {selectedModel?.name || aiForm.model || 'Select model'}
+                          {selectedModel && selectedModel.costPer1kInput === 0 && selectedModel.costPer1kOutput === 0 ? ' ✦ Free' : ''}
+                        </span>
+                        <ChevronDown className={cn('h-3.5 w-3.5 shrink-0 text-muted-foreground transition-transform', modelDropOpen && 'rotate-180')} />
+                      </button>
+                      {modelDropOpen && (
+                        <div className="absolute z-50 top-10 left-0 right-0 rounded-lg border border-border bg-card shadow-xl overflow-hidden">
+                          <div className="relative border-b border-border">
+                            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                            <input
+                              placeholder="Search models..."
+                              value={modelSearch}
+                              onChange={(e) => setModelSearch(e.target.value)}
+                              className="w-full h-8 pl-8 pr-3 text-xs bg-transparent border-0 outline-none text-foreground placeholder:text-muted-foreground"
+                              autoFocus
+                            />
+                          </div>
+                          <div className="max-h-[200px] overflow-y-auto p-1">
+                            {filtered.length === 0 ? (
+                              <div className="text-center py-3 text-xs text-muted-foreground">No models found</div>
+                            ) : (
+                              filtered.slice(0, 50).map((m: any) => {
+                                const isFree = m.costPer1kInput === 0 && m.costPer1kOutput === 0;
+                                return (
+                                  <button
+                                    key={m.id}
+                                    type="button"
+                                    onClick={() => {
+                                      setAiForm({ ...aiForm, model: m.id });
+                                      setModelDropOpen(false);
+                                      setModelSearch('');
+                                    }}
+                                    className={cn(
+                                      'w-full flex items-center gap-2 px-2.5 py-1.5 text-left rounded-md hover:bg-accent/60 transition-colors',
+                                      aiForm.model === m.id && 'bg-[#7b68ee]/10 text-[#7b68ee]'
+                                    )}
+                                  >
+                                    <div className="flex-1 min-w-0">
+                                      <div className="text-xs font-medium truncate">
+                                        {m.name}
+                                        {isFree && <span className="ml-1.5 text-[9px] font-bold px-1 py-0.5 rounded bg-green-500/10 text-green-500">FREE</span>}
+                                      </div>
+                                      <div className="text-[10px] text-muted-foreground/60 truncate font-mono">{m.id}</div>
+                                    </div>
+                                    <span className="text-[10px] text-muted-foreground shrink-0">
+                                      {(m.contextWindow / 1000).toFixed(0)}K
+                                    </span>
+                                  </button>
+                                );
+                              })
+                            )}
+                            {filtered.length > 50 && (
+                              <div className="text-center py-2 text-[10px] text-muted-foreground">
+                                Showing 50 of {filtered.length} — refine your search
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
               </div>
             </div>
           </div>

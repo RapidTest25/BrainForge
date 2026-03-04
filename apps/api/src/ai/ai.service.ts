@@ -63,6 +63,26 @@ class AIService {
     return result;
   }
 
+  /**
+   * Same as getAllModels but fetches OpenRouter models dynamically from their API.
+   * Uses 10-minute caching to avoid hammering the API.
+   */
+  async getAllModelsWithDynamic(): Promise<Record<string, ModelDef[]>> {
+    const result: Record<string, ModelDef[]> = {};
+    for (const [name, provider] of Object.entries(providers)) {
+      if (name === 'OPENROUTER' && 'fetchAllModels' in provider) {
+        try {
+          result[name] = await (provider as any).fetchAllModels();
+        } catch {
+          result[name] = provider.listModels();
+        }
+      } else {
+        result[name] = provider.listModels();
+      }
+    }
+    return result;
+  }
+
   async validateKey(providerName: string, apiKey: string): Promise<boolean> {
     const provider = this.getProvider(providerName);
     return provider.validateKey(apiKey);

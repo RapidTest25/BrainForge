@@ -116,9 +116,9 @@ export async function buildApp() {
   // Health check
   app.get('/api/health', async () => ({ status: 'ok', timestamp: new Date().toISOString() }));
 
-  // AI models list (public — no auth needed)
+  // AI models list (public — no auth needed, OpenRouter fetched dynamically)
   app.get('/api/ai/models', async (request, reply) => {
-    const models = aiService.getAllModels();
+    const models = await aiService.getAllModelsWithDynamic();
     return reply.send({ success: true, data: models });
   });
 

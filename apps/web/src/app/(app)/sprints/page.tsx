@@ -5,7 +5,7 @@ import { useSearchParams } from 'next/navigation';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   Plus, Zap, Target, AlertTriangle, Calendar, CheckCircle2, Clock, ListChecks,
-  ArrowRight, ArrowLeft, Trash2,
+  ArrowRight, ArrowLeft, Trash2, Search, ChevronDown,
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -21,7 +21,7 @@ import { api } from '@/lib/api';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 
-const PROVIDERS = ['openai', 'claude', 'gemini', 'groq', 'openrouter'];
+const PROVIDERS = ['OPENROUTER', 'OPENAI', 'CLAUDE', 'GEMINI', 'GROQ', 'COPILOT'];
 
 export default function SprintsPage() {
   const { activeTeam } = useTeamStore();
@@ -40,8 +40,10 @@ export default function SprintsPage() {
   });
 
   const [genForm, setGenForm] = useState({
-    title: '', goal: '', deadline: '', teamSize: 3, provider: 'openai', model: '',
+    title: '', goal: '', deadline: '', teamSize: 3, provider: 'OPENROUTER', model: 'google/gemini-2.5-flash-preview-05-20',
   });
+  const [sprintModelSearch, setSprintModelSearch] = useState('');
+  const [sprintModelOpen, setSprintModelOpen] = useState(false);
 
   useEffect(() => {
     if (searchParams.get('new') === 'true') setShowCreate(true);
@@ -73,7 +75,7 @@ export default function SprintsPage() {
     onSuccess: (data: any) => {
       queryClient.invalidateQueries({ queryKey: ['sprints', teamId] });
       setShowGenerate(false);
-      setGenForm({ title: '', goal: '', deadline: '', teamSize: 3, provider: 'openai', model: '' });
+      setGenForm({ title: '', goal: '', deadline: '', teamSize: 3, provider: 'OPENROUTER', model: 'google/gemini-2.5-flash-preview-05-20' });
       setSelectedSprint(data.data);
     },
   });
@@ -542,21 +544,77 @@ export default function SprintsPage() {
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1.5">
                 <label className="text-[13px] font-medium text-muted-foreground">AI Provider</label>
-                <Select value={genForm.provider} onValueChange={(v) => setGenForm({ ...genForm, provider: v, model: '' })}>
+                <Select value={genForm.provider} onValueChange={(v) => {
+                  const m = models?.data?.[v] || [];
+                  setGenForm({ ...genForm, provider: v, model: m[0]?.id || '' });
+                  setSprintModelSearch('');
+                  setSprintModelOpen(false);
+                }}>
                   <SelectTrigger className="border-border"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     {PROVIDERS.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>
-              <div className="space-y-1.5">
+              <div className="space-y-1.5 relative">
                 <label className="text-[13px] font-medium text-muted-foreground">Model</label>
-                <Select value={genForm.model} onValueChange={(v) => setGenForm({ ...genForm, model: v })}>
-                  <SelectTrigger className="border-border"><SelectValue placeholder="Select model" /></SelectTrigger>
-                  <SelectContent>
-                    {providerModels.map((m: any) => <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>)}
-                  </SelectContent>
-                </Select>
+                {(() => {
+                  const allModels = providerModels;
+                  const hasMany = allModels.length > 10;
+                  const selectedModel = allModels.find((m: any) => m.id === genForm.model);
+                  if (!hasMany) {
+                    return (
+                      <Select value={genForm.model} onValueChange={(v) => setGenForm({ ...genForm, model: v })}>
+                        <SelectTrigger className="border-border"><SelectValue placeholder="Select model" /></SelectTrigger>
+                        <SelectContent>
+                          {allModels.map((m: any) => {
+                            const isFree = m.costPer1kInput === 0 && m.costPer1kOutput === 0;
+                            return <SelectItem key={m.id} value={m.id}>{m.name}{isFree ? ' ✦ Free' : ''}</SelectItem>;
+                          })}
+                        </SelectContent>
+                      </Select>
+                    );
+                  }
+                  const filtered = sprintModelSearch
+                    ? allModels.filter((m: any) => m.name.toLowerCase().includes(sprintModelSearch.toLowerCase()) || m.id.toLowerCase().includes(sprintModelSearch.toLowerCase()))
+                    : allModels;
+                  return (
+                    <div className="relative">
+                      <button type="button" onClick={() => setSprintModelOpen(!sprintModelOpen)}
+                        className="flex items-center w-full h-9 px-3 text-sm border border-border rounded-md bg-background hover:bg-accent/50 transition-colors text-left">
+                        <span className="truncate flex-1 text-foreground">{selectedModel?.name || genForm.model || 'Select model'}{selectedModel && selectedModel.costPer1kInput === 0 && selectedModel.costPer1kOutput === 0 ? ' ✦ Free' : ''}</span>
+                        <ChevronDown className={cn('h-3.5 w-3.5 shrink-0 text-muted-foreground transition-transform', sprintModelOpen && 'rotate-180')} />
+                      </button>
+                      {sprintModelOpen && (
+                        <div className="absolute z-50 top-10 left-0 right-0 rounded-lg border border-border bg-card shadow-xl overflow-hidden">
+                          <div className="relative border-b border-border">
+                            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                            <input placeholder="Search models..." value={sprintModelSearch} onChange={(e) => setSprintModelSearch(e.target.value)}
+                              className="w-full h-8 pl-8 pr-3 text-xs bg-transparent border-0 outline-none text-foreground placeholder:text-muted-foreground" autoFocus />
+                          </div>
+                          <div className="max-h-[200px] overflow-y-auto p-1">
+                            {filtered.length === 0 ? (
+                              <div className="text-center py-3 text-xs text-muted-foreground">No models found</div>
+                            ) : filtered.slice(0, 50).map((m: any) => {
+                              const isFree = m.costPer1kInput === 0 && m.costPer1kOutput === 0;
+                              return (
+                                <button key={m.id} type="button" onClick={() => { setGenForm({ ...genForm, model: m.id }); setSprintModelOpen(false); setSprintModelSearch(''); }}
+                                  className={cn('w-full flex items-center gap-2 px-2.5 py-1.5 text-left rounded-md hover:bg-accent/60 transition-colors', genForm.model === m.id && 'bg-[#7b68ee]/10 text-[#7b68ee]')}>
+                                  <div className="flex-1 min-w-0">
+                                    <div className="text-xs font-medium truncate">{m.name}{isFree && <span className="ml-1.5 text-[9px] font-bold px-1 py-0.5 rounded bg-green-500/10 text-green-500">FREE</span>}</div>
+                                    <div className="text-[10px] text-muted-foreground/60 truncate font-mono">{m.id}</div>
+                                  </div>
+                                  <span className="text-[10px] text-muted-foreground shrink-0">{(m.contextWindow / 1000).toFixed(0)}K</span>
+                                </button>
+                              );
+                            })}
+                            {filtered.length > 50 && <div className="text-center py-2 text-[10px] text-muted-foreground">Showing 50 of {filtered.length} — refine your search</div>}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
               </div>
             </div>
           </div>

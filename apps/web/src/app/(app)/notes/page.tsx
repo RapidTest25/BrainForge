@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
-  Plus, FileText, Search, Clock, History, Wand2, Type, Maximize2, CheckCheck, Languages, AlignLeft, Sparkles, ArrowLeft,
+  Plus, FileText, Search, Clock, History, Wand2, Type, Maximize2, CheckCheck, Languages, AlignLeft, Sparkles, ArrowLeft, ChevronDown,
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -32,7 +32,7 @@ const AI_ACTIONS = [
   { value: 'generate_outline', label: 'Generate Outline', icon: Type },
 ];
 
-const PROVIDERS = ['openai', 'claude', 'gemini', 'groq', 'openrouter'];
+const PROVIDERS = ['OPENROUTER', 'OPENAI', 'CLAUDE', 'GEMINI', 'GROQ', 'COPILOT'];
 
 export default function NotesPage() {
   const { activeTeam } = useTeamStore();
@@ -51,8 +51,10 @@ export default function NotesPage() {
   const [editTitle, setEditTitle] = useState('');
   const [newTitle, setNewTitle] = useState('');
   const [search, setSearch] = useState('');
-  const [aiProvider, setAiProvider] = useState('openai');
-  const [aiModel, setAiModel] = useState('gpt-4o');
+  const [aiProvider, setAiProvider] = useState('OPENROUTER');
+  const [aiModel, setAiModel] = useState('google/gemini-2.5-flash-preview-05-20');
+  const [noteModelSearch, setNoteModelSearch] = useState('');
+  const [noteModelOpen, setNoteModelOpen] = useState(false);
 
   const { data: notes } = useQuery({
     queryKey: ['notes', teamId, activeProject?.id],
@@ -155,18 +157,66 @@ export default function NotesPage() {
             />
           </div>
           <div className="flex items-center gap-2 flex-wrap">
-            <Select value={aiProvider} onValueChange={(v) => { setAiProvider(v); setAiModel(''); }}>
-              <SelectTrigger className="w-24 h-7 text-xs border-border"><SelectValue /></SelectTrigger>
+            <Select value={aiProvider} onValueChange={(v) => { setAiProvider(v); const m = models?.data?.[v] || []; setAiModel(m[0]?.id || ''); setNoteModelSearch(''); setNoteModelOpen(false); }}>
+              <SelectTrigger className="w-28 h-7 text-xs border-border"><SelectValue /></SelectTrigger>
               <SelectContent>
                 {PROVIDERS.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}
               </SelectContent>
             </Select>
-            <Select value={aiModel} onValueChange={setAiModel}>
-              <SelectTrigger className="w-32 h-7 text-xs border-border"><SelectValue placeholder="Model" /></SelectTrigger>
-              <SelectContent>
-                {providerModels.map((m: any) => <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>)}
-              </SelectContent>
-            </Select>
+            {(() => {
+              const hasMany = providerModels.length > 10;
+              const selectedModel = providerModels.find((m: any) => m.id === aiModel);
+              if (!hasMany) {
+                return (
+                  <Select value={aiModel} onValueChange={setAiModel}>
+                    <SelectTrigger className="w-36 h-7 text-xs border-border"><SelectValue placeholder="Model" /></SelectTrigger>
+                    <SelectContent>
+                      {providerModels.map((m: any) => {
+                        const isFree = m.costPer1kInput === 0 && m.costPer1kOutput === 0;
+                        return <SelectItem key={m.id} value={m.id}>{m.name}{isFree ? ' ✦' : ''}</SelectItem>;
+                      })}
+                    </SelectContent>
+                  </Select>
+                );
+              }
+              const filtered = noteModelSearch
+                ? providerModels.filter((m: any) => m.name.toLowerCase().includes(noteModelSearch.toLowerCase()) || m.id.toLowerCase().includes(noteModelSearch.toLowerCase()))
+                : providerModels;
+              return (
+                <div className="relative">
+                  <button type="button" onClick={() => setNoteModelOpen(!noteModelOpen)}
+                    className="flex items-center w-36 h-7 px-2 text-xs border border-border rounded-md bg-background hover:bg-accent/50 transition-colors text-left">
+                    <span className="truncate flex-1 text-foreground">{selectedModel?.name || aiModel || 'Model'}</span>
+                    <ChevronDown className={cn('h-3 w-3 shrink-0 text-muted-foreground transition-transform', noteModelOpen && 'rotate-180')} />
+                  </button>
+                  {noteModelOpen && (
+                    <div className="absolute z-50 top-8 right-0 w-72 rounded-lg border border-border bg-card shadow-xl overflow-hidden">
+                      <div className="relative border-b border-border">
+                        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground" />
+                        <input placeholder="Search models..." value={noteModelSearch} onChange={(e) => setNoteModelSearch(e.target.value)}
+                          className="w-full h-7 pl-7 pr-3 text-xs bg-transparent border-0 outline-none text-foreground placeholder:text-muted-foreground" autoFocus />
+                      </div>
+                      <div className="max-h-[200px] overflow-y-auto p-1">
+                        {filtered.length === 0 ? (
+                          <div className="text-center py-3 text-xs text-muted-foreground">No models found</div>
+                        ) : filtered.slice(0, 50).map((m: any) => {
+                          const isFree = m.costPer1kInput === 0 && m.costPer1kOutput === 0;
+                          return (
+                            <button key={m.id} type="button" onClick={() => { setAiModel(m.id); setNoteModelOpen(false); setNoteModelSearch(''); }}
+                              className={cn('w-full flex items-center gap-2 px-2 py-1 text-left rounded hover:bg-accent/60 transition-colors', aiModel === m.id && 'bg-[#7b68ee]/10 text-[#7b68ee]')}>
+                              <div className="flex-1 min-w-0">
+                                <div className="text-[11px] font-medium truncate">{m.name}{isFree && <span className="ml-1 text-[9px] font-bold px-1 rounded bg-green-500/10 text-green-500">FREE</span>}</div>
+                              </div>
+                              <span className="text-[10px] text-muted-foreground shrink-0">{(m.contextWindow / 1000).toFixed(0)}K</span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
 
             <DropdownMenu>
               <DropdownMenuTrigger asChild>

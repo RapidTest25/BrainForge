@@ -7,7 +7,9 @@ import {
   Plus, ArrowLeft, Sparkles, Save, Loader2, Search, Clock,
   GitBranch, Network, Workflow, Database, Cpu, Share2, Trash2,
   PencilLine, X, GripVertical, Check, Link2, User, Key,
-  AlertTriangle, Box, Layers, ZoomIn, ZoomOut, Maximize2, Undo2, Redo2, ChevronDown
+  AlertTriangle, Box, Layers, ZoomIn, ZoomOut, Maximize2, Undo2, Redo2, ChevronDown,
+  PanelLeftOpen, PanelLeftClose, Diamond, Circle, Square, RectangleHorizontal,
+  Hexagon, Server, Globe, HardDrive, Wifi, Shield, MessageSquare, Component as ComponentIcon
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -31,6 +33,71 @@ const DIAGRAM_TYPES = [
   { value: 'SEQUENCE', label: 'Sequence', desc: 'Interaction flows', icon: Share2, color: '#ef4444' },
   { value: 'COMPONENT', label: 'Component', desc: 'Module structure', icon: GitBranch, color: '#7b68ee' },
 ];
+
+// ── Pre-built Shape Palettes per Diagram Type ──
+
+const SHAPE_PALETTES: Record<string, Array<{ label: string; description?: string; icon: any; category: string }>> = {
+  FLOWCHART: [
+    { label: 'Start', description: '', icon: Circle, category: 'Terminals' },
+    { label: 'End', description: '', icon: Circle, category: 'Terminals' },
+    { label: 'Process', description: 'A process step', icon: RectangleHorizontal, category: 'Shapes' },
+    { label: 'Decision?', description: 'A decision point', icon: Diamond, category: 'Shapes' },
+    { label: 'Input/Output', description: 'Data input or output', icon: RectangleHorizontal, category: 'Shapes' },
+    { label: 'Subprocess', description: 'A reusable subprocess', icon: Square, category: 'Shapes' },
+    { label: 'Document', description: 'A document', icon: RectangleHorizontal, category: 'Shapes' },
+    { label: 'Database', description: 'Data storage', icon: Database, category: 'Data' },
+    { label: 'Delay', description: 'Wait or delay', icon: Clock, category: 'Shapes' },
+  ],
+  ERD: [
+    { label: 'Users', description: 'id: UUID (PK)\nname: VARCHAR\nemail: VARCHAR\ncreatedAt: TIMESTAMP', icon: Database, category: 'Tables' },
+    { label: 'Posts', description: 'id: UUID (PK)\ntitle: VARCHAR\ncontent: TEXT\nauthorId: UUID (FK)\ncreatedAt: TIMESTAMP', icon: Database, category: 'Tables' },
+    { label: 'Comments', description: 'id: UUID (PK)\ncontent: TEXT\npostId: UUID (FK)\nauthorId: UUID (FK)', icon: Database, category: 'Tables' },
+    { label: 'Categories', description: 'id: UUID (PK)\nname: VARCHAR\nslug: VARCHAR', icon: Database, category: 'Tables' },
+    { label: 'Tags', description: 'id: UUID (PK)\nname: VARCHAR', icon: Database, category: 'Tables' },
+    { label: 'Sessions', description: 'id: UUID (PK)\nuserId: UUID (FK)\ntoken: VARCHAR\nexpiresAt: TIMESTAMP', icon: Database, category: 'Tables' },
+    { label: 'Enum', description: 'VALUE_1\nVALUE_2\nVALUE_3', icon: Layers, category: 'Other' },
+  ],
+  MINDMAP: [
+    { label: 'Central Topic', description: 'Main topic or theme', icon: Network, category: 'Core' },
+    { label: 'Main Branch', description: '', icon: GitBranch, category: 'Branches' },
+    { label: 'Sub Branch', description: '', icon: GitBranch, category: 'Branches' },
+    { label: 'Idea', description: '', icon: Sparkles, category: 'Nodes' },
+    { label: 'Note', description: '', icon: RectangleHorizontal, category: 'Nodes' },
+    { label: 'Question?', description: '', icon: MessageSquare, category: 'Nodes' },
+  ],
+  ARCHITECTURE: [
+    { label: 'Web App', description: 'Frontend application', icon: Globe, category: 'Frontend' },
+    { label: 'Mobile App', description: 'Mobile client', icon: Square, category: 'Frontend' },
+    { label: 'API Gateway', description: 'API entry point', icon: Shield, category: 'Backend' },
+    { label: 'Auth Service', description: 'Authentication & authorization', icon: Key, category: 'Backend' },
+    { label: 'API Server', description: 'REST/GraphQL API', icon: Server, category: 'Backend' },
+    { label: 'Worker', description: 'Background job processor', icon: Cpu, category: 'Backend' },
+    { label: 'Database', description: 'PostgreSQL / MySQL', icon: Database, category: 'Data' },
+    { label: 'Cache', description: 'Redis cache layer', icon: HardDrive, category: 'Data' },
+    { label: 'Message Queue', description: 'RabbitMQ / Kafka', icon: Wifi, category: 'Data' },
+    { label: 'Storage', description: 'S3 / Blob storage', icon: HardDrive, category: 'Data' },
+    { label: 'CDN', description: 'Content delivery network', icon: Globe, category: 'Infrastructure' },
+    { label: 'Load Balancer', description: 'Traffic distribution', icon: Share2, category: 'Infrastructure' },
+  ],
+  SEQUENCE: [
+    { label: 'User', description: 'End user actor', icon: User, category: 'Actors' },
+    { label: 'Client', description: 'Client application', icon: Globe, category: 'Actors' },
+    { label: 'Server', description: 'Backend server', icon: Server, category: 'Systems' },
+    { label: 'Database', description: 'Data store', icon: Database, category: 'Systems' },
+    { label: 'API', description: 'External API', icon: Share2, category: 'Systems' },
+    { label: 'Auth', description: 'Auth service', icon: Key, category: 'Systems' },
+  ],
+  COMPONENT: [
+    { label: 'UI Component', description: 'User interface component', icon: Square, category: 'Frontend' },
+    { label: 'Service', description: 'Business logic service', icon: Hexagon, category: 'Backend' },
+    { label: 'Controller', description: 'Request handler', icon: ComponentIcon, category: 'Backend' },
+    { label: 'Repository', description: 'Data access layer', icon: Database, category: 'Backend' },
+    { label: 'Module', description: 'Feature module', icon: Box, category: 'Core' },
+    { label: 'Interface', description: 'Contract/interface', icon: Layers, category: 'Core' },
+    { label: 'Library', description: 'Shared library', icon: RectangleHorizontal, category: 'Core' },
+    { label: 'Plugin', description: 'Extensible plugin', icon: Cpu, category: 'Extensions' },
+  ],
+};
 
 // ── Helpers ──
 
@@ -501,6 +568,7 @@ function DiagramEditor({ diagram, dtype, nodes: initNodes, edges: initEdges, onB
   const addInputRef = useRef<HTMLInputElement>(null);
   const [linkingFrom, setLinkingFrom] = useState<string | null>(null);
   const hasDraggedRef = useRef(false);
+  const [showShapePanel, setShowShapePanel] = useState(true);
 
   // ── Zoom / Pan state ──
   const [zoom, setZoom] = useState(1);
@@ -693,6 +761,34 @@ function DiagramEditor({ diagram, dtype, nodes: initNodes, edges: initEdges, onB
     pushHistory(updatedNodes, edges);
   }, [diagram.type, nodes, edges, newLabel, newDesc, pushHistory]);
 
+  const addShapeFromPalette = useCallback((shape: { label: string; description?: string }) => {
+    const id = `node-${Date.now()}`;
+    const cols = diagram.type === 'ERD' ? 3 : 4;
+    const spacingX = diagram.type === 'ERD' ? 300 : 220;
+    const spacingY = diagram.type === 'ERD' ? 280 : 150;
+    let pos: { x: number; y: number };
+
+    if (diagram.type === 'SEQUENCE') {
+      pos = { x: nodes.length * 200 + 50, y: 30 };
+    } else if (diagram.type === 'MINDMAP' && nodes.length === 0) {
+      pos = { x: 350, y: 250 };
+    } else if (nodes.length > 0) {
+      const col = nodes.length % cols;
+      const row = Math.floor(nodes.length / cols);
+      pos = { x: col * spacingX + 50, y: row * spacingY + 50 };
+    } else {
+      pos = { x: 50, y: 50 };
+    }
+
+    const newNode = { id, type: 'default', position: pos, data: { label: shape.label, description: shape.description || '' } };
+    const updatedNodes = [...nodes, newNode];
+    setNodes(updatedNodes);
+    pushHistory(updatedNodes, edges);
+    setHasChanges(true);
+    setSelectedNode(id);
+    toast.success(`Added "${shape.label}"`);
+  }, [diagram.type, nodes, edges, pushHistory]);
+
   const startEdit = useCallback((node: any) => {
     setEditingNodeId(node.id);
     setEditLabel(node.data?.label || '');
@@ -823,6 +919,18 @@ function DiagramEditor({ diagram, dtype, nodes: initNodes, edges: initEdges, onB
       {/* Toolbar */}
       <div className="flex items-center gap-2 px-2 py-2 bg-muted rounded-xl border border-border">
         <button
+          onClick={() => setShowShapePanel(!showShapePanel)}
+          className={cn(
+            'flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-lg transition-colors',
+            showShapePanel ? 'bg-[#7b68ee]/10 text-[#7b68ee] border border-[#7b68ee]/20' : 'border border-border text-muted-foreground hover:bg-card'
+          )}
+          title="Toggle shape palette"
+        >
+          {showShapePanel ? <PanelLeftClose className="h-3.5 w-3.5" /> : <PanelLeftOpen className="h-3.5 w-3.5" />}
+          Shapes
+        </button>
+        <div className="h-5 w-px bg-border mx-0.5" />
+        <button
           onClick={() => { setAddingNode(true); setLinkingFrom(null); }}
           className={`flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-lg transition-colors ${addingNode ? 'bg-[#7b68ee] text-white' : 'border border-border text-muted-foreground hover:bg-card'}`}
         >
@@ -887,10 +995,50 @@ function DiagramEditor({ diagram, dtype, nodes: initNodes, edges: initEdges, onB
         </div>
       )}
 
-      {/* Canvas */}
+      {/* Canvas with Shape Sidebar */}
+      <div className="flex gap-3">
+        {/* Shape Palette Sidebar */}
+        {showShapePanel && (
+          <div className="w-52 shrink-0 bg-card border border-border rounded-xl overflow-hidden flex flex-col" style={{ maxHeight: '65vh' }}>
+            <div className="px-3 py-2 border-b border-border bg-muted/50">
+              <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Shapes</p>
+            </div>
+            <div className="flex-1 overflow-y-auto p-2 space-y-3 scrollbar-thin">
+              {(() => {
+                const shapes = SHAPE_PALETTES[diagramType] || SHAPE_PALETTES.FLOWCHART;
+                const categories = [...new Set(shapes.map(s => s.category))];
+                return categories.map(cat => (
+                  <div key={cat}>
+                    <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider px-1 mb-1.5">{cat}</p>
+                    <div className="grid grid-cols-2 gap-1.5">
+                      {shapes.filter(s => s.category === cat).map((shape, idx) => (
+                        <button
+                          key={`${shape.label}-${idx}`}
+                          onClick={() => addShapeFromPalette(shape)}
+                          className="flex flex-col items-center gap-1 p-2 rounded-lg border border-border/50 hover:border-[#7b68ee]/40 hover:bg-[#7b68ee]/5 transition-all cursor-pointer group"
+                          title={shape.description || shape.label}
+                        >
+                          <div
+                            className="h-7 w-7 rounded-md flex items-center justify-center transition-colors"
+                            style={{ backgroundColor: `${color}08` }}
+                          >
+                            <shape.icon className="h-3.5 w-3.5 transition-colors group-hover:scale-110" style={{ color }} />
+                          </div>
+                          <span className="text-[10px] font-medium text-muted-foreground group-hover:text-foreground truncate w-full text-center leading-tight">{shape.label}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                ));
+              })()}
+            </div>
+          </div>
+        )}
+
+        {/* Canvas */}
       <div
         ref={canvasRef}
-        className={`border rounded-xl bg-card min-h-[65vh] relative overflow-hidden ${linkingFrom ? 'cursor-crosshair border-emerald-200' : 'border-border'}`}
+        className={`flex-1 border rounded-xl bg-card min-h-[65vh] relative overflow-hidden ${linkingFrom ? 'cursor-crosshair border-emerald-200' : 'border-border'}`}
         onWheel={handleWheel}
         onMouseDown={handleCanvasMouseDown}
         onClick={() => { if (!hasDraggedRef.current) { setSelectedNode(null); setEditingNodeId(null); } }}
@@ -963,6 +1111,7 @@ function DiagramEditor({ diagram, dtype, nodes: initNodes, edges: initEdges, onB
         )}
         </div>
       </div>
+      </div>{/* end flex wrapper */}
     </div>
   );
 }

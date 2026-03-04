@@ -5,9 +5,10 @@ import { useSearchParams } from 'next/navigation';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   List, LayoutGrid, Plus, Search, MoreHorizontal, Calendar as CalendarIcon,
-  Trash2, ArrowUpCircle, ArrowRightCircle, CheckCircle2, X, Loader2
+  Trash2, ArrowUpCircle, ArrowRightCircle, CheckCircle2, X, Loader2, GripVertical
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { DragDropContext, Droppable, Draggable, type DropResult } from '@hello-pangea/dnd';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -123,6 +124,36 @@ export default function TasksPage() {
     setSelectedTask(task);
   };
 
+  const handleDragEnd = (result: DropResult) => {
+    const { destination, source, draggableId } = result;
+    if (!destination) return;
+    // If dropped in the same place, do nothing
+    if (destination.droppableId === source.droppableId && destination.index === source.index) return;
+    // If moved to a different column, update the task's status
+    if (destination.droppableId !== source.droppableId) {
+      // Optimistic update
+      queryClient.setQueryData(['tasks', teamId, activeProject?.id, search], (old: any) => {
+        if (!old?.data) return old;
+        return {
+          ...old,
+          data: old.data.map((t: any) =>
+            t.id === draggableId ? { ...t, status: destination.droppableId } : t
+          ),
+        };
+      });
+      updateMutation.mutate(
+        { taskId: draggableId, data: { status: destination.droppableId } },
+        {
+          onError: () => {
+            // Revert on error
+            queryClient.invalidateQueries({ queryKey: ['tasks', teamId] });
+            toast.error('Failed to move task');
+          },
+        }
+      );
+    }
+  };
+
   return (
     <div className="space-y-4 max-w-6xl mx-auto">
       {/* Header */}
@@ -172,131 +203,161 @@ export default function TasksPage() {
 
       {/* Board View */}
       {view === 'board' && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 h-[calc(100vh-10rem)] overflow-x-auto">
-          {STATUS_COLUMNS.map(({ key, label, color, dotColor }) => (
-            <div key={key} className="flex flex-col rounded-xl bg-muted/80 border border-border">
-              <div className="flex items-center gap-2 px-3 py-2.5 border-b border-border">
-                <div className="h-2 w-2 rounded-full" style={{ backgroundColor: dotColor }} />
-                <span className="text-[13px] font-medium text-foreground/80">{label}</span>
-                <span className="text-[11px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded ml-auto">
-                  {getTasksByStatus(key).length}
-                </span>
-              </div>
-              <div className="flex-1 overflow-y-auto p-2 space-y-2">
-                {getTasksByStatus(key).map((task: any) => (
-                  <div
-                    key={task.id}
-                    onClick={(e) => handleTaskClick(task, e)}
-                    className={cn(
-                      'bg-card rounded-lg border p-3 hover:shadow-md transition-all group relative cursor-pointer',
-                      selectedTask?.id === task.id
-                        ? 'border-[#7b68ee] ring-1 ring-[#7b68ee]/20 shadow-sm'
-                        : 'border-border hover:border-border'
-                    )}
-                  >
-                    <div className="flex items-start justify-between mb-1">
-                      <p className="text-sm font-medium text-foreground flex-1 pr-2">{task.title}</p>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <button
-                            data-dropdown-trigger
-                            className="h-6 w-6 flex items-center justify-center rounded hover:bg-accent opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
-                          >
-                            <MoreHorizontal className="h-3.5 w-3.5 text-muted-foreground" />
-                          </button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" className="w-48">
-                          <DropdownMenuSub>
-                            <DropdownMenuSubTrigger className="text-[13px]">
-                              <ArrowRightCircle className="h-3.5 w-3.5 mr-2" /> Move to
-                            </DropdownMenuSubTrigger>
-                            <DropdownMenuSubContent>
-                              {STATUS_COLUMNS.filter(s => s.key !== task.status).map(s => (
-                                <DropdownMenuItem
-                                  key={s.key}
-                                  className="text-[13px]"
-                                  onClick={() => updateMutation.mutate({ taskId: task.id, data: { status: s.key } })}
-                                >
-                                  <div className="h-2 w-2 rounded-full mr-2" style={{ backgroundColor: s.dotColor }} />
-                                  {s.label}
-                                </DropdownMenuItem>
-                              ))}
-                            </DropdownMenuSubContent>
-                          </DropdownMenuSub>
-                          <DropdownMenuSub>
-                            <DropdownMenuSubTrigger className="text-[13px]">
-                              <ArrowUpCircle className="h-3.5 w-3.5 mr-2" /> Priority
-                            </DropdownMenuSubTrigger>
-                            <DropdownMenuSubContent>
-                              {PRIORITY_OPTIONS.filter(p => p.value !== task.priority).map(p => (
-                                <DropdownMenuItem
-                                  key={p.value}
-                                  className="text-[13px]"
-                                  onClick={() => updateMutation.mutate({ taskId: task.id, data: { priority: p.value } })}
-                                >
-                                  <div className="h-2 w-2 rounded-full mr-2" style={{ backgroundColor: p.color }} />
-                                  {p.label}
-                                </DropdownMenuItem>
-                              ))}
-                            </DropdownMenuSubContent>
-                          </DropdownMenuSub>
-                          {task.status !== 'DONE' && (
-                            <DropdownMenuItem
-                              className="text-[13px]"
-                              onClick={() => updateMutation.mutate({ taskId: task.id, data: { status: 'DONE' } })}
+        <DragDropContext onDragEnd={handleDragEnd}>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 h-[calc(100vh-10rem)] overflow-x-auto">
+            {STATUS_COLUMNS.map(({ key, label, color, dotColor }) => (
+              <div key={key} className="flex flex-col rounded-xl bg-muted/80 border border-border">
+                <div className="flex items-center gap-2 px-3 py-2.5 border-b border-border">
+                  <div className="h-2 w-2 rounded-full" style={{ backgroundColor: dotColor }} />
+                  <span className="text-[13px] font-medium text-foreground/80">{label}</span>
+                  <span className="text-[11px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded ml-auto">
+                    {getTasksByStatus(key).length}
+                  </span>
+                </div>
+                <Droppable droppableId={key}>
+                  {(provided, snapshot) => (
+                    <div
+                      ref={provided.innerRef}
+                      {...provided.droppableProps}
+                      className={cn(
+                        'flex-1 overflow-y-auto p-2 space-y-2 transition-colors min-h-[60px]',
+                        snapshot.isDraggingOver && 'bg-[#7b68ee]/5 ring-2 ring-inset ring-[#7b68ee]/20 rounded-b-xl'
+                      )}
+                    >
+                      {getTasksByStatus(key).map((task: any, index: number) => (
+                        <Draggable key={task.id} draggableId={task.id} index={index}>
+                          {(provided, snapshot) => (
+                            <div
+                              ref={provided.innerRef}
+                              {...provided.draggableProps}
+                              onClick={(e) => handleTaskClick(task, e)}
+                              className={cn(
+                                'bg-card rounded-lg border p-3 transition-all group relative cursor-pointer',
+                                snapshot.isDragging
+                                  ? 'shadow-xl border-[#7b68ee] ring-2 ring-[#7b68ee]/20 rotate-[2deg]'
+                                  : 'hover:shadow-md',
+                                selectedTask?.id === task.id && !snapshot.isDragging
+                                  ? 'border-[#7b68ee] ring-1 ring-[#7b68ee]/20 shadow-sm'
+                                  : !snapshot.isDragging && 'border-border hover:border-border'
+                              )}
                             >
-                              <CheckCircle2 className="h-3.5 w-3.5 mr-2 text-green-500" /> Mark Done
-                            </DropdownMenuItem>
+                              <div className="flex items-start justify-between mb-1">
+                                <div className="flex items-start gap-1.5 flex-1 min-w-0">
+                                  <div
+                                    {...provided.dragHandleProps}
+                                    className="mt-0.5 opacity-0 group-hover:opacity-100 transition-opacity cursor-grab active:cursor-grabbing shrink-0"
+                                  >
+                                    <GripVertical className="h-3.5 w-3.5 text-muted-foreground" />
+                                  </div>
+                                  <p className="text-sm font-medium text-foreground flex-1 pr-2">{task.title}</p>
+                                </div>
+                                <DropdownMenu>
+                                  <DropdownMenuTrigger asChild>
+                                    <button
+                                      data-dropdown-trigger
+                                      className="h-6 w-6 flex items-center justify-center rounded hover:bg-accent opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
+                                    >
+                                      <MoreHorizontal className="h-3.5 w-3.5 text-muted-foreground" />
+                                    </button>
+                                  </DropdownMenuTrigger>
+                                  <DropdownMenuContent align="end" className="w-48">
+                                    <DropdownMenuSub>
+                                      <DropdownMenuSubTrigger className="text-[13px]">
+                                        <ArrowRightCircle className="h-3.5 w-3.5 mr-2" /> Move to
+                                      </DropdownMenuSubTrigger>
+                                      <DropdownMenuSubContent>
+                                        {STATUS_COLUMNS.filter(s => s.key !== task.status).map(s => (
+                                          <DropdownMenuItem
+                                            key={s.key}
+                                            className="text-[13px]"
+                                            onClick={() => updateMutation.mutate({ taskId: task.id, data: { status: s.key } })}
+                                          >
+                                            <div className="h-2 w-2 rounded-full mr-2" style={{ backgroundColor: s.dotColor }} />
+                                            {s.label}
+                                          </DropdownMenuItem>
+                                        ))}
+                                      </DropdownMenuSubContent>
+                                    </DropdownMenuSub>
+                                    <DropdownMenuSub>
+                                      <DropdownMenuSubTrigger className="text-[13px]">
+                                        <ArrowUpCircle className="h-3.5 w-3.5 mr-2" /> Priority
+                                      </DropdownMenuSubTrigger>
+                                      <DropdownMenuSubContent>
+                                        {PRIORITY_OPTIONS.filter(p => p.value !== task.priority).map(p => (
+                                          <DropdownMenuItem
+                                            key={p.value}
+                                            className="text-[13px]"
+                                            onClick={() => updateMutation.mutate({ taskId: task.id, data: { priority: p.value } })}
+                                          >
+                                            <div className="h-2 w-2 rounded-full mr-2" style={{ backgroundColor: p.color }} />
+                                            {p.label}
+                                          </DropdownMenuItem>
+                                        ))}
+                                      </DropdownMenuSubContent>
+                                    </DropdownMenuSub>
+                                    {task.status !== 'DONE' && (
+                                      <DropdownMenuItem
+                                        className="text-[13px]"
+                                        onClick={() => updateMutation.mutate({ taskId: task.id, data: { status: 'DONE' } })}
+                                      >
+                                        <CheckCircle2 className="h-3.5 w-3.5 mr-2 text-green-500" /> Mark Done
+                                      </DropdownMenuItem>
+                                    )}
+                                    <DropdownMenuSeparator />
+                                    <DropdownMenuItem
+                                      className="text-[13px] text-red-500 focus:text-red-600"
+                                      onClick={() => deleteMutation.mutate(task.id)}
+                                    >
+                                      <Trash2 className="h-3.5 w-3.5 mr-2" /> Delete
+                                    </DropdownMenuItem>
+                                  </DropdownMenuContent>
+                                </DropdownMenu>
+                              </div>
+                              {task.description && (
+                                <p className="text-xs text-muted-foreground line-clamp-2 mb-2 pl-5">{task.description}</p>
+                              )}
+                              <div className="flex items-center gap-1.5 pl-5">
+                                <span
+                                  className="text-[10px] font-medium px-1.5 py-0.5 rounded"
+                                  style={{
+                                    color: getPriorityColor(task.priority),
+                                    backgroundColor: `${getPriorityColor(task.priority)}12`
+                                  }}
+                                >
+                                  {task.priority}
+                                </span>
+                                {task.dueDate && (
+                                  <span className={cn(
+                                    'text-[10px] px-1.5 py-0.5 rounded flex items-center gap-0.5',
+                                    new Date(task.dueDate) < new Date() ? 'text-red-500 bg-red-500/10' : 'text-muted-foreground bg-muted'
+                                  )}>
+                                    <CalendarIcon className="h-2.5 w-2.5" />
+                                    {new Date(task.dueDate).toLocaleDateString()}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
                           )}
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem
-                            className="text-[13px] text-red-500 focus:text-red-600"
-                            onClick={() => deleteMutation.mutate(task.id)}
-                          >
-                            <Trash2 className="h-3.5 w-3.5 mr-2" /> Delete
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </div>
-                    {task.description && (
-                      <p className="text-xs text-muted-foreground line-clamp-2 mb-2">{task.description}</p>
-                    )}
-                    <div className="flex items-center gap-1.5">
-                      <span
-                        className="text-[10px] font-medium px-1.5 py-0.5 rounded"
-                        style={{
-                          color: getPriorityColor(task.priority),
-                          backgroundColor: `${getPriorityColor(task.priority)}12`
+                        </Draggable>
+                      ))}
+                      {provided.placeholder}
+                      <button
+                        className="w-full py-1.5 text-[12px] text-muted-foreground hover:text-[#7b68ee] hover:bg-[#7b68ee]/5 rounded-lg transition-colors flex items-center justify-center gap-1"
+                        onClick={() => {
+                          setNewTask({ ...newTask, status: key });
+                          setShowCreateDialog(true);
                         }}
                       >
-                        {task.priority}
-                      </span>
-                      {task.dueDate && (
-                        <span className={cn(
-                          'text-[10px] px-1.5 py-0.5 rounded flex items-center gap-0.5',
-                          new Date(task.dueDate) < new Date() ? 'text-red-500 bg-red-500/10' : 'text-muted-foreground bg-muted'
-                        )}>
-                          <CalendarIcon className="h-2.5 w-2.5" />
-                          {new Date(task.dueDate).toLocaleDateString()}
-                        </span>
-                      )}
+                        <Plus className="h-3 w-3" />
+                        Add task
+                      </button>
                     </div>
-                  </div>
-                ))}
-                <button
-                  className="w-full py-1.5 text-[12px] text-muted-foreground hover:text-[#7b68ee] hover:bg-[#7b68ee]/5 rounded-lg transition-colors flex items-center justify-center gap-1"
-                  onClick={() => {
-                    setNewTask({ ...newTask, status: key });
-                    setShowCreateDialog(true);
-                  }}
-                >
-                  <Plus className="h-3 w-3" />
-                  Add task
-                </button>
+                  )}
+                </Droppable>
               </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        </DragDropContext>
       )}
 
       {/* List View */}

@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   Sparkles, Loader2, CheckSquare, Brain, FileText,
-  Wand2, Check, X, AlertCircle, Zap, ChevronDown, Search
+  Wand2, Check, X, AlertCircle, Zap, ChevronDown, Search, Target
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -24,6 +24,7 @@ const GENERATE_OPTIONS = [
   { key: 'tasks', label: 'Tasks', icon: CheckSquare, color: '#7b68ee', desc: 'Auto-create tasks with priorities' },
   { key: 'brainstorm', label: 'Brainstorm', icon: Brain, color: '#22c55e', desc: 'Start an AI brainstorm session' },
   { key: 'notes', label: 'Notes', icon: FileText, color: '#8b5cf6', desc: 'Generate notes & documentation' },
+  { key: 'goals', label: 'Goals', icon: Target, color: '#f59e0b', desc: 'Create SMART project goals' },
 ];
 
 const PROVIDER_INFO: Record<string, { label: string; icon: string; color: string }> = {
@@ -162,6 +163,7 @@ export function AIGenerateDialog({ open, onOpenChange }: AIGenerateDialogProps) 
       queryClient.invalidateQueries({ queryKey: ['tasks', teamId] });
       queryClient.invalidateQueries({ queryKey: ['brainstorm-sessions', teamId] });
       queryClient.invalidateQueries({ queryKey: ['notes', teamId] });
+      queryClient.invalidateQueries({ queryKey: ['goals', teamId] });
     },
     onError: (error: any) => {
       toast.error(error?.message || 'AI generation failed. Check your API key and try again.');
@@ -212,7 +214,7 @@ export function AIGenerateDialog({ open, onOpenChange }: AIGenerateDialogProps) 
               {/* What to generate */}
               <div className="space-y-2">
                 <label className="text-[13px] font-semibold text-muted-foreground">What to generate</label>
-                <div className="grid grid-cols-3 gap-2">
+                <div className="grid grid-cols-2 gap-2">
                   {GENERATE_OPTIONS.map(opt => {
                     const isSelected = selectedTypes.includes(opt.key);
                     return (
@@ -414,6 +416,7 @@ export function AIGenerateDialog({ open, onOpenChange }: AIGenerateDialogProps) 
                     {result.summary.tasks > 0 && `${result.summary.tasks} tasks`}
                     {result.summary.brainstorm > 0 && `${result.summary.tasks > 0 ? ', ' : ''}1 brainstorm session`}
                     {result.summary.notes > 0 && `${(result.summary.tasks > 0 || result.summary.brainstorm > 0) ? ', ' : ''}${result.summary.notes} notes`}
+                    {result.summary.goals > 0 && `${(result.summary.tasks > 0 || result.summary.brainstorm > 0 || result.summary.notes > 0) ? ', ' : ''}${result.summary.goals} goals`}
                     {' created'}
                   </p>
                 </div>
@@ -459,6 +462,23 @@ export function AIGenerateDialog({ open, onOpenChange }: AIGenerateDialogProps) 
                     {result.created.notes.map((n: any) => (
                       <div key={n.id} className="py-1.5 px-3 bg-purple-500/5 rounded-lg border border-purple-500/20">
                         <p className="text-sm font-medium text-foreground">{n.title}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Goals preview */}
+              {result.created.goals?.length > 0 && (
+                <div className="space-y-2">
+                  <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+                    <Target className="h-3.5 w-3.5 text-amber-500" /> Goals
+                  </h4>
+                  <div className="space-y-1 max-h-40 overflow-y-auto">
+                    {result.created.goals.map((g: any) => (
+                      <div key={g.id} className="flex items-center gap-2 py-1.5 px-3 bg-amber-500/5 rounded-lg border border-amber-500/20">
+                        <div className="h-1.5 w-1.5 rounded-full bg-amber-500" />
+                        <span className="text-sm text-foreground flex-1 truncate">{g.title}</span>
                       </div>
                     ))}
                   </div>

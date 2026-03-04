@@ -1,9 +1,15 @@
 import { z } from 'zod';
 
+// Accept both ISO datetime and plain date strings (YYYY-MM-DD)
+const flexibleDatetime = z.string().transform((val) => {
+  if (val.includes('T')) return val;
+  return `${val}T00:00:00.000Z`;
+});
+
 export const createSprintSchema = z.object({
   title: z.string().min(1).max(200),
   goal: z.string().min(1, 'Project goal is required').max(5000),
-  deadline: z.string().datetime(),
+  deadline: flexibleDatetime,
   teamSize: z.number().int().min(1).max(20),
   context: z.string().max(5000).optional(),
   model: z.string().optional(),

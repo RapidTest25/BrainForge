@@ -112,7 +112,7 @@ Output only valid JSON.`,
       const jsonMatch = result.content.match(/\{[\s\S]*\}/);
       sprintData = jsonMatch ? JSON.parse(jsonMatch[0]) : JSON.parse(result.content);
     } catch {
-      sprintData = { error: 'Failed to parse AI response', raw: result.content };
+      throw new Error('Failed to parse AI response. The model returned invalid JSON. Please try again or use a different model.');
     }
     return sprintData;
   }

@@ -22,6 +22,8 @@ const EVENT_TYPES = [
   { value: 'OTHER', label: 'Other', color: '#6b7280' },
 ];
 
+const getEventColor = (type: string) => EVENT_TYPES.find(t => t.value === type)?.color || '#3b82f6';
+
 function getDaysInMonth(year: number, month: number) {
   return new Date(year, month + 1, 0).getDate();
 }
@@ -208,11 +210,11 @@ export default function CalendarPage() {
           <DialogFooter>
             <button onClick={() => setShowCreate(false)} className="px-4 py-2 text-sm font-medium text-muted-foreground hover:text-foreground/80 rounded-lg hover:bg-accent transition-colors">Cancel</button>
             <button
-              onClick={() => createMutation.mutate(newEvent)}
+              onClick={() => createMutation.mutate({ ...newEvent, color: getEventColor(newEvent.type) })}
               disabled={!newEvent.title || !newEvent.startDate}
               className="px-5 py-2 bg-[#7b68ee] text-white text-sm font-medium rounded-lg hover:bg-[#6c5ce7] disabled:opacity-50 transition-colors"
             >
-              Create
+              {createMutation.isPending ? 'Creating...' : 'Create'}
             </button>
           </DialogFooter>
         </DialogContent>

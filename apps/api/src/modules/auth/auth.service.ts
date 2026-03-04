@@ -143,11 +143,15 @@ export class AuthService {
     });
 
     if (user) {
-      // Link Google account if not already linked
-      if (!user.googleId) {
+      // Always update Google avatar to latest, and link Google account if not already linked
+      const needsUpdate = !user.googleId || (picture && user.avatarUrl !== picture);
+      if (needsUpdate) {
         user = await prisma.user.update({
           where: { id: user.id },
-          data: { googleId, avatarUrl: user.avatarUrl || picture },
+          data: {
+            googleId: user.googleId || googleId,
+            ...(picture && { avatarUrl: picture }),
+          },
         });
       }
     } else {

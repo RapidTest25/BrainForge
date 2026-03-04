@@ -48,4 +48,54 @@ export async function projectRoutes(app: FastifyInstance) {
     await projectService.deleteProject(projectId);
     return reply.send({ success: true });
   });
+
+  // ── Project Member Routes ──
+
+  // GET /:teamId/projects/:projectId/members — list project members
+  app.get('/:teamId/projects/:projectId/members', { preHandler: [teamGuard()] }, async (request, reply) => {
+    const { projectId } = request.params as { projectId: string };
+    const members = await projectService.getProjectMembers(projectId);
+    return reply.send({ success: true, data: members });
+  });
+
+  // GET /:teamId/projects/:projectId/available-members — team members not yet in project
+  app.get('/:teamId/projects/:projectId/available-members', { preHandler: [teamGuard()] }, async (request, reply) => {
+    const { teamId, projectId } = request.params as { teamId: string; projectId: string };
+    const available = await projectService.getAvailableTeamMembers(projectId, teamId);
+    return reply.send({ success: true, data: available });
+  });
+
+  // POST /:teamId/projects/:projectId/members — add member to project
+  app.post('/:teamId/projects/:projectId/members', { preHandler: [teamGuard('ADMIN')] }, async (request, reply) => {
+    const { projectId } = request.params as { projectId: string };
+    const { userId, role } = request.body as { userId: string; role?: 'OWNER' | 'ADMIN' | 'MEMBER' };
+    if (!userId) {
+      return reply.status(400).send({ success: false, error: { message: 'userId is required' } });
+    }
+    try {
+      const member = await projectService.addProjectMember(projectId, userId, role || 'MEMBER');
+      return reply.send({ success: true, data: member });
+    } catch (err: any) {
+      return reply.status(400).send({ success: false, error: { message: err.message } });
+    }
+  });
+
+  // PATCH /:teamId/projects/:projectId/members/:userId — update member role
+  app.patch('/:teamId/projects/:projectId/members/:userId', { preHandler: [teamGuard('ADMIN')] }, async (request, reply) => {
+    const { projectId, userId } = request.params as { projectId: string; userId: string };
+    const { role } = request.body as { role: 'OWNER' | 'ADMIN' | 'MEMBER' };
+    const member = await projectService.updateProjectMemberRole(projectId, userId, role);
+    return reply.send({ success: true, data: member });
+  });
+
+  // DELETE /:teamId/projects/:projectId/members/:userId — remove member from project
+  app.delete('/:teamId/projects/:projectId/members/:userId', { preHandler: [teamGuard('ADMIN')] }, async (request, reply) => {
+    const { projectId, userId } = request.params as { projectId: string; userId: string };
+    try {
+      await projectService.removeProjectMember(projectId, userId);
+      return reply.send({ success: true });
+    } catch (err: any) {
+      return reply.status(400).send({ success: false, error: { message: err.message } });
+    }
+  });
 }

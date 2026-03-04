@@ -21,18 +21,20 @@ import { ProviderLogo } from '@/components/icons/ai-provider-logos';
 // ═══════════════════════════════════════════
 const PROVIDERS = [
   {
-    value: 'OPENAI', label: 'OpenAI', color: '#10a37f', bg: '#10a37f15',
-    icon: '🟢', desc: 'GPT-4.1, O3, O4 Mini — industry leader',
-    website: 'https://platform.openai.com/api-keys',
-    keyPrefix: 'sk-',
-    features: ['Function calling', 'Vision', 'Reasoning'],
+    value: 'OPENROUTER', label: 'OpenRouter', color: '#6366f1', bg: '#6366f115',
+    icon: '🟣', desc: '10 free models + GPT, Claude, Gemini — one key for all',
+    website: 'https://openrouter.ai/settings/keys',
+    keyPrefix: 'sk-or-',
+    features: ['10 free models', 'One API key', '100+ models', 'GPT & Claude & Gemini'],
+    recommended: true,
   },
   {
-    value: 'CLAUDE', label: 'Anthropic', color: '#d4a574', bg: '#d4a57415',
-    icon: '🟠', desc: 'Claude Opus 4 & Sonnet 4 — highest quality',
-    website: 'https://console.anthropic.com/settings/keys',
-    keyPrefix: 'sk-ant-',
-    features: ['200K context', 'Best for writing', 'Coding'],
+    value: 'COPILOT', label: 'GitHub Copilot', color: '#6e40c9', bg: '#6e40c915',
+    icon: '⚫', desc: 'GPT-5, Claude Opus 4.6, Gemini 3.1, Grok — free with GitHub',
+    website: 'https://github.com/settings/tokens?type=beta',
+    keyPrefix: 'github_pat_',
+    features: ['25+ free models', 'GPT, Claude, Gemini, Grok', 'GitHub integration'],
+    recommended: true,
   },
   {
     value: 'GEMINI', label: 'Google Gemini', color: '#4285f4', bg: '#4285f415',
@@ -49,18 +51,18 @@ const PROVIDERS = [
     features: ['Fastest inference', 'Free tier', 'Open models'],
   },
   {
-    value: 'OPENROUTER', label: 'OpenRouter', color: '#6366f1', bg: '#6366f115',
-    icon: '🟣', desc: 'All models in one API — GPT, Claude, Gemini, Llama, DeepSeek, Qwen',
-    website: 'https://openrouter.ai/settings/keys',
-    keyPrefix: 'sk-or-',
-    features: ['100+ models', 'Pay-per-use', 'Model routing'],
+    value: 'OPENAI', label: 'OpenAI', color: '#10a37f', bg: '#10a37f15',
+    icon: '🟢', desc: 'GPT-4.1, O3, O4 Mini — industry leader',
+    website: 'https://platform.openai.com/api-keys',
+    keyPrefix: 'sk-',
+    features: ['Function calling', 'Vision', 'Reasoning'],
   },
   {
-    value: 'COPILOT', label: 'GitHub Copilot', color: '#6e40c9', bg: '#6e40c915',
-    icon: '⚫', desc: 'GPT-5, Claude Opus 4.6, Gemini 3.1, Grok — free with GitHub',
-    website: 'https://github.com/settings/tokens?type=beta',
-    keyPrefix: 'github_pat_',
-    features: ['25+ free models', 'GPT, Claude, Gemini, Grok', 'GitHub integration'],
+    value: 'CLAUDE', label: 'Anthropic', color: '#d4a574', bg: '#d4a57415',
+    icon: '🟠', desc: 'Claude Opus 4 & Sonnet 4 — highest quality',
+    website: 'https://console.anthropic.com/settings/keys',
+    keyPrefix: 'sk-ant-',
+    features: ['200K context', 'Best for writing', 'Coding'],
   },
 ];
 
@@ -275,6 +277,11 @@ export default function AIKeysPage() {
                     <div>
                       <div className="flex items-center gap-1.5">
                         <h3 className="font-semibold text-sm text-[#1a1a2e]">{provider.label}</h3>
+                        {(provider as any).recommended && !isConnected && (
+                          <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-[#7b68ee]/10 text-[#7b68ee] border border-[#7b68ee]/20">
+                            <Sparkles className="h-2.5 w-2.5" /> RECOMMENDED
+                          </span>
+                        )}
                         {isConnected && (
                           <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-green-50 text-green-600 border border-green-100">
                             <CheckCircle2 className="h-2.5 w-2.5" /> CONNECTED

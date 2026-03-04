@@ -122,6 +122,18 @@ export async function buildApp() {
     return reply.send({ success: true, data: models });
   });
 
+  // OpenRouter full model catalog (public, cached 10min)
+  app.get('/api/ai/openrouter/models', async (request, reply) => {
+    try {
+      const { OpenRouterProvider } = await import('./ai/providers/openrouter.js');
+      const provider = new OpenRouterProvider();
+      const models = await provider.fetchAllModels();
+      return reply.send({ success: true, data: models });
+    } catch {
+      return reply.status(500).send({ success: false, error: 'Failed to fetch models' });
+    }
+  });
+
   // Public app version info (no auth needed)
   app.get('/api/app/version', async (_request, reply) => {
     try {

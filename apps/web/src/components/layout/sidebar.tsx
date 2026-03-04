@@ -14,7 +14,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useTeamStore } from '@/stores/team-store';
 import { useAuthStore } from '@/stores/auth-store';
 import { useProjectStore, Project } from '@/stores/project-store';
-import { ProjectIcon } from '@/app/(app)/projects/page';
+import { ProjectIcon } from '@/components/shared/project-icon';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { useState, useEffect, useRef, useCallback } from 'react';

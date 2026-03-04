@@ -45,7 +45,7 @@ BrainForge is a **free, open-source, all-in-one project management platform** th
 |--------|-------------|
 | **📋 Tasks** | Kanban board & list view with drag-and-drop, priorities (Urgent/High/Medium/Low), statuses (Backlog/Todo/In Progress/Review/Done), assignments, labels, dependencies, comments, activity log, and time tracking |
 | **💬 AI Brainstorm** | Interactive AI chat with 4 modes: Brainstorm, Debate, Analysis, and Freeform. Multi-provider support. Conversation history and file attachments |
-| **🔀 Diagrams** | Visual diagram editor supporting 6 types: Flowcharts, ERDs, Mind Maps, Architecture Diagrams, Sequence Diagrams, and Component Diagrams. AI-powered generation from natural language prompts |
+| **🔀 Diagrams** | Visual diagram editor supporting 6 types: Flowcharts, ERDs, Mind Maps, Architecture Diagrams, Sequence Diagrams, and Component Diagrams. AI-powered generation from natural language prompts. Zoom/pan canvas, undo/redo history, and keyboard shortcuts |
 | **⚡ Sprints** | Sprint planning with AI-generated tasks, milestones, team allocation, and deadline management |
 | **📅 Calendar** | Unified calendar showing tasks, custom events, and sprint milestones in one view |
 | **📝 Notes** | Rich text editor with AI-powered summarization, expansion, and full version history |
@@ -58,11 +58,11 @@ BrainForge is a **free, open-source, all-in-one project management platform** th
 | Feature | Description |
 |---------|-------------|
 | **🔐 Authentication** | Email/password + Google OAuth. JWT access + refresh tokens with automatic rotation |
-| **👥 Teams** | Create teams, invite members via email or shareable link. Role-based access (Owner/Admin/Member) |
+| **👥 Teams** | Create teams, invite members via email or shareable link. Role-based access (Owner/Admin/Member). Per-project team members — each project gets its own independent team |
 | **📁 Projects** | Organize work into projects within teams. Custom colors and icons |
 | **🔔 Notifications** | Real-time in-app notification system |
 | **🌓 Dark Mode** | Full dark/light theme support |
-| **🔑 BYOK AI** | Supports OpenAI (GPT-4, GPT-3.5), Google Gemini, Anthropic Claude, Groq, DeepSeek, Mistral |
+| **🔑 BYOK AI** | Supports OpenRouter (10 free models included), OpenAI, Google Gemini, Anthropic Claude, Groq, GitHub Copilot. One OpenRouter key gives access to 100+ models |
 | **⚙️ Admin Panel** | System settings, version management, user administration |
 | **📤 File Uploads** | Attach files to brainstorm messages and other entities |
 
@@ -86,7 +86,7 @@ BrainForge is a **free, open-source, all-in-one project management platform** th
 | **Real-time** | Socket.IO | 4 |
 | **Auth** | JWT (jose) + bcryptjs | — |
 | **Validation** | Zod (shared schemas) | 3 |
-| **AI SDKs** | openai, @google/generative-ai, @anthropic-ai/sdk, groq-sdk | Latest |
+| **AI SDKs** | openai, @google/generative-ai, @anthropic-ai/sdk, groq-sdk, OpenRouter API | Latest |
 | **Monorepo** | Turborepo + pnpm workspaces | — |
 | **Language** | TypeScript (end-to-end) | 5.4 |
 
@@ -147,7 +147,7 @@ BrainForge/
 │       │   ├── utils/              # Shared utilities
 │       │   └── app.ts             # Entry point, route registrations
 │       ├── prisma/
-│       │   └── schema.prisma      # Database schema (28 models, 11 enums)
+│       │   └── schema.prisma      # Database schema (29 models, 11 enums)
 │       ├── .env.example           # Environment template
 │       └── package.json
 │
@@ -367,7 +367,7 @@ All API routes are prefixed with `/api`. Protected routes require a `Bearer` tok
 | **Discussions** | `/api/teams/:teamId/discussions` | CRUD + replies |
 | **AI Chat** | `/api/teams/:teamId/ai-chats` | CRUD + messages |
 | **Notifications** | `/api/teams/:teamId/notifications` | List + mark read |
-| **Projects** | `/api/teams/:teamId/projects` | CRUD |
+| **Projects** | `/api/teams/:teamId/projects` | CRUD + per-project member management |
 | **AI Keys** | `/api/ai/keys` | CRUD user API keys |
 
 ### Public Endpoints
@@ -388,18 +388,19 @@ BrainForge does **not** require server-side AI keys. Each user configures their 
 
 | Provider | Models | Get API Key |
 |----------|--------|-------------|
-| **OpenAI** | GPT-4o, GPT-4, GPT-3.5 Turbo | [platform.openai.com](https://platform.openai.com/api-keys) |
-| **Google Gemini** | Gemini Pro, Gemini Flash | [aistudio.google.com](https://aistudio.google.com/app/apikey) |
-| **Anthropic** | Claude 3.5 Sonnet, Claude 3 Haiku | [console.anthropic.com](https://console.anthropic.com/) |
-| **Groq** | Llama 3, Mixtral | [console.groq.com](https://console.groq.com/) |
-| **DeepSeek** | DeepSeek Chat, DeepSeek Coder | [platform.deepseek.com](https://platform.deepseek.com/) |
-| **Mistral** | Mistral Large, Mistral Small | [console.mistral.ai](https://console.mistral.ai/) |
+| **OpenRouter** ⭐ | 10 free models + GPT-4, Claude, Gemini, 100+ models — one key for all | [openrouter.ai](https://openrouter.ai/keys) |
+| **GitHub Copilot** ⭐ | GPT-4o, Claude Sonnet — free with GitHub account | [github.com/settings/copilot](https://github.com/settings/copilot) |
+| **OpenAI** | GPT-4o, GPT-4.1, GPT-3.5 Turbo | [platform.openai.com](https://platform.openai.com/api-keys) |
+| **Google Gemini** | Gemini 2.5 Pro, Gemini 2.5 Flash | [aistudio.google.com](https://aistudio.google.com/app/apikey) |
+| **Anthropic** | Claude Opus 4, Claude Sonnet 4 | [console.anthropic.com](https://console.anthropic.com/) |
+| **Groq** | Llama 4, Mixtral | [console.groq.com](https://console.groq.com/) |
 
 ### How it works
 
 1. User adds their API key in Settings
 2. Keys are **encrypted** before storing in the database
 3. When an AI feature is used, the key is decrypted server-side and used for that single request
+6. **OpenRouter users** get 10 free AI models (Gemini Flash, Llama 4, DeepSeek V3/R1, Qwen3, and more) at no cost
 4. Keys are **never** logged, cached, or shared between users
 5. User can delete/rotate keys at any time
 
@@ -407,7 +408,7 @@ BrainForge does **not** require server-side AI keys. Each user configures their 
 
 ## 🗄️ Database Schema
 
-The database has **28 models** and **11 enums**. Key models:
+The database has **29 models** and **11 enums**. Key models:
 
 | Model | Description |
 |-------|-------------|
@@ -415,6 +416,7 @@ The database has **28 models** and **11 enums**. Key models:
 | `Team` | Organizational units owned by users |
 | `TeamMember` | User ↔ Team with roles (Owner/Admin/Member) |
 | `Project` | Workspace projects within teams |
+| `ProjectMember` | User ↔ Project with roles (Owner/Admin/Member) |
 | `Task` | Tasks with status, priority, ordering, time tracking |
 | `BrainstormSession` | AI brainstorm sessions with mode + messages |
 | `Diagram` | Diagrams stored as JSON nodes + edges |

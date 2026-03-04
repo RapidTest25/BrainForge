@@ -1,13 +1,13 @@
 'use client';
 
-import { useState, useCallback, useEffect, useRef } from 'react';
+import { useState, useCallback, useEffect, useRef, useMemo, memo } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   Plus, ArrowLeft, Sparkles, Save, Loader2, Search, Clock,
   GitBranch, Network, Workflow, Database, Cpu, Share2, Trash2,
   PencilLine, X, GripVertical, Check, Link2, User, Key,
-  AlertTriangle, Box, Layers
+  AlertTriangle, Box, Layers, ZoomIn, ZoomOut, Maximize2, Undo2, Redo2
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -108,9 +108,9 @@ function DeleteConfirmDialog({ open, onClose, onConfirm, title, isPending }: {
   );
 }
 
-// ── Type-Specific Node Renderers ──
+// ── Type-Specific Node Renderers (memoized) ──
 
-function FlowchartNode({ node, color, isSelected, isEditing, editLabel, editDesc, onEditLabelChange, onEditDescChange, onSaveEdit, onCancelEdit, onStartEdit, onDelete, isLinkSource, linkingFrom }: any) {
+const FlowchartNode = memo(function FlowchartNode({ node, color, isSelected, isEditing, editLabel, editDesc, onEditLabelChange, onEditDescChange, onSaveEdit, onCancelEdit, onStartEdit, onDelete, isLinkSource, linkingFrom }: any) {
   const label = node.data?.label || node.id;
   const description = node.data?.description || '';
   const isDecision = /\?$|decision|condition|if\b|check/i.test(label);
@@ -148,9 +148,9 @@ function FlowchartNode({ node, color, isSelected, isEditing, editLabel, editDesc
       <NodeActions show={isSelected && !linkingFrom} onEdit={onStartEdit} onDelete={onDelete} />
     </div>
   );
-}
+});
 
-function ERDNode({ node, color, isSelected, isEditing, editLabel, editDesc, onEditLabelChange, onEditDescChange, onSaveEdit, onCancelEdit, onStartEdit, onDelete, isLinkSource, linkingFrom }: any) {
+const ERDNode = memo(function ERDNode({ node, color, isSelected, isEditing, editLabel, editDesc, onEditLabelChange, onEditDescChange, onSaveEdit, onCancelEdit, onStartEdit, onDelete, isLinkSource, linkingFrom }: any) {
   const label = node.data?.label || node.id;
   const description = node.data?.description || '';
   const columns = parseERDColumns(description);
@@ -196,9 +196,9 @@ function ERDNode({ node, color, isSelected, isEditing, editLabel, editDesc, onEd
       <NodeActions show={isSelected && !linkingFrom} onEdit={onStartEdit} onDelete={onDelete} />
     </div>
   );
-}
+});
 
-function MindMapNode({ node, color, isSelected, isEditing, editLabel, editDesc, onEditLabelChange, onEditDescChange, onSaveEdit, onCancelEdit, onStartEdit, onDelete, isLinkSource, linkingFrom, level }: any) {
+const MindMapNode = memo(function MindMapNode({ node, color, isSelected, isEditing, editLabel, editDesc, onEditLabelChange, onEditDescChange, onSaveEdit, onCancelEdit, onStartEdit, onDelete, isLinkSource, linkingFrom, level }: any) {
   const label = node.data?.label || node.id;
   const isCenter = level === 0;
   const branchColors = ['#22c55e', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'];
@@ -230,9 +230,9 @@ function MindMapNode({ node, color, isSelected, isEditing, editLabel, editDesc, 
       <NodeActions show={isSelected && !linkingFrom} onEdit={onStartEdit} onDelete={onDelete} />
     </div>
   );
-}
+});
 
-function ArchitectureNode({ node, color, isSelected, isEditing, editLabel, editDesc, onEditLabelChange, onEditDescChange, onSaveEdit, onCancelEdit, onStartEdit, onDelete, isLinkSource, linkingFrom }: any) {
+const ArchitectureNode = memo(function ArchitectureNode({ node, color, isSelected, isEditing, editLabel, editDesc, onEditLabelChange, onEditDescChange, onSaveEdit, onCancelEdit, onStartEdit, onDelete, isLinkSource, linkingFrom }: any) {
   const label = node.data?.label || node.id;
   const description = node.data?.description || '';
   const isLayer = /layer|tier|zone|group|boundary/i.test(label);
@@ -261,9 +261,9 @@ function ArchitectureNode({ node, color, isSelected, isEditing, editLabel, editD
       <NodeActions show={isSelected && !linkingFrom} onEdit={onStartEdit} onDelete={onDelete} />
     </div>
   );
-}
+});
 
-function SequenceNode({ node, color, isSelected, isEditing, editLabel, editDesc, onEditLabelChange, onEditDescChange, onSaveEdit, onCancelEdit, onStartEdit, onDelete, isLinkSource, linkingFrom }: any) {
+const SequenceNode = memo(function SequenceNode({ node, color, isSelected, isEditing, editLabel, editDesc, onEditLabelChange, onEditDescChange, onSaveEdit, onCancelEdit, onStartEdit, onDelete, isLinkSource, linkingFrom }: any) {
   const label = node.data?.label || node.id;
 
   if (isEditing) return <InlineEditForm editLabel={editLabel} editDesc={editDesc} onEditLabelChange={onEditLabelChange} onEditDescChange={onEditDescChange} onSave={onSaveEdit} onCancel={onCancelEdit} />;
@@ -289,9 +289,9 @@ function SequenceNode({ node, color, isSelected, isEditing, editLabel, editDesc,
       <NodeActions show={isSelected && !linkingFrom} onEdit={onStartEdit} onDelete={onDelete} top={-8} />
     </div>
   );
-}
+});
 
-function ComponentNode({ node, color, isSelected, isEditing, editLabel, editDesc, onEditLabelChange, onEditDescChange, onSaveEdit, onCancelEdit, onStartEdit, onDelete, isLinkSource, linkingFrom }: any) {
+const ComponentNode = memo(function ComponentNode({ node, color, isSelected, isEditing, editLabel, editDesc, onEditLabelChange, onEditDescChange, onSaveEdit, onCancelEdit, onStartEdit, onDelete, isLinkSource, linkingFrom }: any) {
   const label = node.data?.label || node.id;
   const description = node.data?.description || '';
 
@@ -332,7 +332,7 @@ function ComponentNode({ node, color, isSelected, isEditing, editLabel, editDesc
       <NodeActions show={isSelected && !linkingFrom} onEdit={onStartEdit} onDelete={onDelete} />
     </div>
   );
-}
+});
 
 // ── Shared Sub-Components ──
 
@@ -489,8 +489,6 @@ function DiagramEditor({ diagram, dtype, nodes: initNodes, edges: initEdges, onB
   const [nodes, setNodes] = useState<any[]>(initNodes);
   const [edges, setEdges] = useState<any[]>(initEdges);
   const [selectedNode, setSelectedNode] = useState<string | null>(null);
-  const [draggingNode, setDraggingNode] = useState<string | null>(null);
-  const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const [hasChanges, setHasChanges] = useState(false);
   const canvasRef = useRef<HTMLDivElement>(null);
   const [editingNodeId, setEditingNodeId] = useState<string | null>(null);
@@ -503,39 +501,170 @@ function DiagramEditor({ diagram, dtype, nodes: initNodes, edges: initEdges, onB
   const [linkingFrom, setLinkingFrom] = useState<string | null>(null);
   const hasDraggedRef = useRef(false);
 
-  useEffect(() => { setNodes(initNodes); setEdges(initEdges); setHasChanges(false); }, [initNodes, initEdges]);
+  // ── Zoom / Pan state ──
+  const [zoom, setZoom] = useState(1);
+  const [pan, setPan] = useState({ x: 0, y: 0 });
+  const isPanningRef = useRef(false);
+  const panStartRef = useRef({ x: 0, y: 0, panX: 0, panY: 0 });
+
+  // ── Drag performance: use ref instead of state ──
+  const draggingRef = useRef<{ nodeId: string; offsetX: number; offsetY: number } | null>(null);
+  const rafRef = useRef<number | null>(null);
+  const nodeRefsMap = useRef<Map<string, HTMLDivElement>>(new Map());
+
+  // ── Undo / Redo ──
+  const historyRef = useRef<Array<{ nodes: any[]; edges: any[] }>>([{ nodes: initNodes, edges: initEdges }]);
+  const historyIdxRef = useRef(0);
+
+  const pushHistory = useCallback((newNodes: any[], newEdges: any[]) => {
+    const idx = historyIdxRef.current;
+    historyRef.current = historyRef.current.slice(0, idx + 1);
+    historyRef.current.push({ nodes: structuredClone(newNodes), edges: structuredClone(newEdges) });
+    historyIdxRef.current = historyRef.current.length - 1;
+  }, []);
+
+  const undo = useCallback(() => {
+    if (historyIdxRef.current <= 0) return;
+    historyIdxRef.current--;
+    const snap = historyRef.current[historyIdxRef.current];
+    setNodes(structuredClone(snap.nodes));
+    setEdges(structuredClone(snap.edges));
+    setHasChanges(true);
+  }, []);
+
+  const redo = useCallback(() => {
+    if (historyIdxRef.current >= historyRef.current.length - 1) return;
+    historyIdxRef.current++;
+    const snap = historyRef.current[historyIdxRef.current];
+    setNodes(structuredClone(snap.nodes));
+    setEdges(structuredClone(snap.edges));
+    setHasChanges(true);
+  }, []);
+
+  useEffect(() => { setNodes(initNodes); setEdges(initEdges); setHasChanges(false); historyRef.current = [{ nodes: initNodes, edges: initEdges }]; historyIdxRef.current = 0; }, [initNodes, initEdges]);
   useEffect(() => { if (addingNode && addInputRef.current) addInputRef.current.focus(); }, [addingNode]);
 
-  const handleMouseDown = (e: React.MouseEvent, nodeId: string) => {
+  // ── Keyboard shortcuts ──
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (editingNodeId || addingNode) return; // don't intercept when editing
+      if (e.key === 'Delete' || e.key === 'Backspace') {
+        if (selectedNode) { e.preventDefault(); deleteNode(selectedNode); }
+      }
+      if (e.key === 'Escape') { setSelectedNode(null); setLinkingFrom(null); setEditingNodeId(null); }
+      if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) { e.preventDefault(); undo(); }
+      if ((e.ctrlKey || e.metaKey) && (e.key === 'y' || (e.key === 'z' && e.shiftKey))) { e.preventDefault(); redo(); }
+      if (e.key === '+' || e.key === '=') { setZoom(z => Math.min(2, z + 0.1)); }
+      if (e.key === '-') { setZoom(z => Math.max(0.3, z - 0.1)); }
+      if (e.key === '0') { setZoom(1); setPan({ x: 0, y: 0 }); }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [selectedNode, editingNodeId, addingNode, undo, redo]);
+
+  // ── High-performance drag handling via refs + rAF ──
+  const handleMouseDown = useCallback((e: React.MouseEvent, nodeId: string) => {
     e.stopPropagation();
     if (linkingFrom) return;
     const node = nodes.find(n => n.id === nodeId);
     if (!node) return;
-    setDraggingNode(nodeId);
-    setSelectedNode(nodeId);
     const rect = canvasRef.current?.getBoundingClientRect();
-    setDragOffset({ x: e.clientX - (node.position?.x || 0) - (rect?.left || 0), y: e.clientY - (node.position?.y || 0) - (rect?.top || 0) });
-  };
+    if (!rect) return;
+    draggingRef.current = {
+      nodeId,
+      offsetX: e.clientX / zoom - (node.position?.x || 0) - rect.left / zoom + pan.x,
+      offsetY: e.clientY / zoom - (node.position?.y || 0) - rect.top / zoom + pan.y,
+    };
+    setSelectedNode(nodeId);
+    hasDraggedRef.current = false;
+  }, [linkingFrom, nodes, zoom, pan]);
 
-  const handleMouseMove = (e: React.MouseEvent) => {
-    if (!draggingNode || !canvasRef.current) return;
-    hasDraggedRef.current = true;
-    const rect = canvasRef.current.getBoundingClientRect();
-    const x = Math.max(0, e.clientX - rect.left - dragOffset.x);
-    const y = Math.max(0, e.clientY - rect.top - dragOffset.y);
-    setNodes(prev => prev.map(n => n.id === draggingNode ? { ...n, position: { x, y } } : n));
-    setHasChanges(true);
-  };
+  useEffect(() => {
+    const handleGlobalMouseMove = (e: MouseEvent) => {
+      // Handle panning
+      if (isPanningRef.current) {
+        const dx = e.clientX - panStartRef.current.x;
+        const dy = e.clientY - panStartRef.current.y;
+        setPan({ x: panStartRef.current.panX - dx / zoom, y: panStartRef.current.panY - dy / zoom });
+        return;
+      }
 
-  const handleMouseUp = () => {
-    if (draggingNode) {
-      // Set a small timeout to prevent the click event from firing right after drag
-      setTimeout(() => { hasDraggedRef.current = false; }, 50);
+      const drag = draggingRef.current;
+      if (!drag || !canvasRef.current) return;
+      hasDraggedRef.current = true;
+
+      const rect = canvasRef.current.getBoundingClientRect();
+      const x = Math.max(0, e.clientX / zoom - rect.left / zoom + pan.x - drag.offsetX);
+      const y = Math.max(0, e.clientY / zoom - rect.top / zoom + pan.y - drag.offsetY);
+
+      // Direct DOM manipulation for smooth visual — no React re-render during drag
+      if (rafRef.current) cancelAnimationFrame(rafRef.current);
+      rafRef.current = requestAnimationFrame(() => {
+        const el = nodeRefsMap.current.get(drag.nodeId);
+        if (el) {
+          el.style.left = `${x}px`;
+          el.style.top = `${y}px`;
+        }
+        // Store the position for commit on mouseUp
+        (drag as any)._lastX = x;
+        (drag as any)._lastY = y;
+      });
+    };
+
+    const handleGlobalMouseUp = () => {
+      isPanningRef.current = false;
+      const drag = draggingRef.current;
+      if (drag) {
+        const lastX = (drag as any)._lastX;
+        const lastY = (drag as any)._lastY;
+        if (lastX !== undefined && lastY !== undefined) {
+          // Commit final position to React state — single re-render
+          setNodes(prev => {
+            const updated = prev.map(n => n.id === drag.nodeId ? { ...n, position: { x: lastX, y: lastY } } : n);
+            pushHistory(updated, edges);
+            return updated;
+          });
+          setHasChanges(true);
+        }
+        draggingRef.current = null;
+        setTimeout(() => { hasDraggedRef.current = false; }, 50);
+      }
+    };
+
+    window.addEventListener('mousemove', handleGlobalMouseMove);
+    window.addEventListener('mouseup', handleGlobalMouseUp);
+    return () => {
+      window.removeEventListener('mousemove', handleGlobalMouseMove);
+      window.removeEventListener('mouseup', handleGlobalMouseUp);
+      if (rafRef.current) cancelAnimationFrame(rafRef.current);
+    };
+  }, [zoom, pan, edges, pushHistory]);
+
+  // ── Zoom with mouse wheel ──
+  const handleWheel = useCallback((e: React.WheelEvent) => {
+    if (e.ctrlKey || e.metaKey) {
+      e.preventDefault();
+      const delta = e.deltaY > 0 ? -0.08 : 0.08;
+      setZoom(z => Math.min(2, Math.max(0.3, z + delta)));
+    } else {
+      // Pan with scroll
+      setPan(p => ({ x: p.x + e.deltaX * 0.5, y: p.y + e.deltaY * 0.5 }));
     }
-    setDraggingNode(null);
-  };
+  }, []);
 
-  const addNode = () => {
+  // ── Middle-click / right-click pan ──
+  const handleCanvasMouseDown = useCallback((e: React.MouseEvent) => {
+    // Middle button or space+left click for panning
+    if (e.button === 1) {
+      e.preventDefault();
+      isPanningRef.current = true;
+      panStartRef.current = { x: e.clientX, y: e.clientY, panX: pan.x, panY: pan.y };
+    }
+  }, [pan]);
+
+  useEffect(() => { if (addingNode && addInputRef.current) addInputRef.current.focus(); }, [addingNode]);
+
+  const addNode = useCallback(() => {
     if (!newLabel.trim()) return;
     const id = `node-${Date.now()}`;
     const maxX = Math.max(0, ...nodes.map(n => (n.position?.x || 0)));
@@ -558,29 +687,39 @@ function DiagramEditor({ diagram, dtype, nodes: initNodes, edges: initEdges, onB
 
     setNodes(prev => [...prev, { id, type: 'default', position: pos, data: { label: newLabel, description: newDesc } }]);
     setNewLabel(''); setNewDesc(''); setAddingNode(false); setHasChanges(true);
-  };
+    // Push to undo history
+    const updatedNodes = [...nodes, { id, type: 'default', position: pos, data: { label: newLabel, description: newDesc } }];
+    pushHistory(updatedNodes, edges);
+  }, [diagram.type, nodes, edges, newLabel, newDesc, pushHistory]);
 
-  const startEdit = (node: any) => {
+  const startEdit = useCallback((node: any) => {
     setEditingNodeId(node.id);
     setEditLabel(node.data?.label || '');
     setEditDesc(node.data?.description || '');
     setSelectedNode(node.id);
-  };
+  }, []);
 
-  const saveEdit = () => {
+  const saveEdit = useCallback(() => {
     if (!editingNodeId) return;
-    setNodes(prev => prev.map(n => n.id === editingNodeId ? { ...n, data: { ...n.data, label: editLabel, description: editDesc } } : n));
+    setNodes(prev => {
+      const updated = prev.map(n => n.id === editingNodeId ? { ...n, data: { ...n.data, label: editLabel, description: editDesc } } : n);
+      pushHistory(updated, edges);
+      return updated;
+    });
     setEditingNodeId(null); setHasChanges(true);
-  };
-  const cancelEdit = () => setEditingNodeId(null);
+  }, [editingNodeId, editLabel, editDesc, edges, pushHistory]);
 
-  const handleNodeClick = (e: React.MouseEvent, nodeId: string) => {
+  const cancelEdit = useCallback(() => setEditingNodeId(null), []);
+
+  const handleNodeClick = useCallback((e: React.MouseEvent, nodeId: string) => {
     e.stopPropagation();
     if (linkingFrom && linkingFrom !== '__waiting__') {
       if (linkingFrom !== nodeId) {
         const exists = edges.some(ed => ed.source === linkingFrom && ed.target === nodeId);
         if (!exists) {
-          setEdges(prev => [...prev, { id: `e-${linkingFrom}-${nodeId}`, source: linkingFrom, target: nodeId, label: '' }]);
+          const newEdges = [...edges, { id: `e-${linkingFrom}-${nodeId}`, source: linkingFrom, target: nodeId, label: '' }];
+          setEdges(newEdges);
+          pushHistory(nodes, newEdges);
           setHasChanges(true);
           toast.success('Edge connected! Click on edge label to rename.');
         }
@@ -591,18 +730,29 @@ function DiagramEditor({ diagram, dtype, nodes: initNodes, edges: initEdges, onB
     } else {
       setSelectedNode(nodeId);
     }
-  };
+  }, [linkingFrom, edges, nodes, pushHistory]);
 
-  const deleteNode = (nodeId: string) => {
-    setNodes(prev => prev.filter(n => n.id !== nodeId));
-    setEdges(prev => prev.filter(e => e.source !== nodeId && e.target !== nodeId));
+  const deleteNode = useCallback((nodeId: string) => {
+    setNodes(prev => {
+      const updated = prev.filter(n => n.id !== nodeId);
+      setEdges(prevEdges => {
+        const updatedEdges = prevEdges.filter(e => e.source !== nodeId && e.target !== nodeId);
+        pushHistory(updated, updatedEdges);
+        return updatedEdges;
+      });
+      return updated;
+    });
     setSelectedNode(null); setEditingNodeId(null); setHasChanges(true);
-  };
+  }, [pushHistory]);
 
-  const deleteEdge = (edgeId: string) => {
-    setEdges(prev => prev.filter(e => e.id !== edgeId));
+  const deleteEdge = useCallback((edgeId: string) => {
+    setEdges(prev => {
+      const updated = prev.filter(e => e.id !== edgeId);
+      pushHistory(nodes, updated);
+      return updated;
+    });
     setHasChanges(true);
-  };
+  }, [nodes, pushHistory]);
 
   const color = dtype?.color || '#7b68ee';
   const diagramType = diagram.type || 'FLOWCHART';
@@ -613,7 +763,7 @@ function DiagramEditor({ diagram, dtype, nodes: initNodes, edges: initEdges, onB
     diagramType === 'COMPONENT' ? 'Component' :
     diagramType === 'ARCHITECTURE' ? 'Service' : 'Node';
 
-  const renderNode = (node: any) => {
+  const renderNode = useCallback((node: any) => {
     const isEditing = editingNodeId === node.id;
     const isLinkSource = linkingFrom === node.id;
     const isSelected = selectedNode === node.id;
@@ -634,7 +784,7 @@ function DiagramEditor({ diagram, dtype, nodes: initNodes, edges: initEdges, onB
       case 'COMPONENT': return <ComponentNode {...commonProps} />;
       default: return <FlowchartNode {...commonProps} />;
     }
-  };
+  }, [editingNodeId, linkingFrom, selectedNode, color, editLabel, editDesc, saveEdit, cancelEdit, startEdit, deleteNode, diagramType, edges, nodes]);
 
   return (
     <div className="max-w-6xl mx-auto space-y-3">
@@ -684,8 +834,28 @@ function DiagramEditor({ diagram, dtype, nodes: initNodes, edges: initEdges, onB
           <Link2 className="h-3.5 w-3.5" /> {linkingFrom ? 'Click source...' : 'Connect'}
         </button>
         <div className="h-5 w-px bg-border mx-1" />
+        {/* Undo/Redo */}
+        <button onClick={undo} disabled={historyIdxRef.current <= 0} className="p-1.5 rounded-lg text-muted-foreground hover:bg-card disabled:opacity-30 transition-colors" title="Undo (Ctrl+Z)">
+          <Undo2 className="h-3.5 w-3.5" />
+        </button>
+        <button onClick={redo} disabled={historyIdxRef.current >= historyRef.current.length - 1} className="p-1.5 rounded-lg text-muted-foreground hover:bg-card disabled:opacity-30 transition-colors" title="Redo (Ctrl+Y)">
+          <Redo2 className="h-3.5 w-3.5" />
+        </button>
+        <div className="h-5 w-px bg-border mx-1" />
+        {/* Zoom controls */}
+        <button onClick={() => setZoom(z => Math.max(0.3, z - 0.15))} className="p-1.5 rounded-lg text-muted-foreground hover:bg-card transition-colors" title="Zoom Out (-)">
+          <ZoomOut className="h-3.5 w-3.5" />
+        </button>
+        <span className="text-xs text-muted-foreground font-mono min-w-10 text-center">{Math.round(zoom * 100)}%</span>
+        <button onClick={() => setZoom(z => Math.min(2, z + 0.15))} className="p-1.5 rounded-lg text-muted-foreground hover:bg-card transition-colors" title="Zoom In (+)">
+          <ZoomIn className="h-3.5 w-3.5" />
+        </button>
+        <button onClick={() => { setZoom(1); setPan({ x: 0, y: 0 }); }} className="p-1.5 rounded-lg text-muted-foreground hover:bg-card transition-colors" title="Reset View (0)">
+          <Maximize2 className="h-3.5 w-3.5" />
+        </button>
+        <div className="flex-1" />
         {linkingFrom && <span className="text-xs text-emerald-600 bg-emerald-50 dark:bg-emerald-500/10 px-2.5 py-1 rounded-lg animate-pulse">Click source node, then target node</span>}
-        {!linkingFrom && <span className="text-xs text-muted-foreground">Click to select · Double-click to edit</span>}
+        {!linkingFrom && <span className="text-xs text-muted-foreground">Click to select · Double-click to edit · Scroll to pan · Ctrl+Scroll to zoom</span>}
       </div>
 
       {/* Add Node Bar */}
@@ -719,17 +889,26 @@ function DiagramEditor({ diagram, dtype, nodes: initNodes, edges: initEdges, onB
       {/* Canvas */}
       <div
         ref={canvasRef}
-        className={`border rounded-xl bg-card min-h-[65vh] p-6 relative overflow-auto ${linkingFrom ? 'cursor-crosshair border-emerald-200' : 'border-border'}`}
-        onMouseMove={handleMouseMove}
-        onMouseUp={handleMouseUp}
-        onMouseLeave={handleMouseUp}
+        className={`border rounded-xl bg-card min-h-[65vh] relative overflow-hidden ${linkingFrom ? 'cursor-crosshair border-emerald-200' : 'border-border'}`}
+        onWheel={handleWheel}
+        onMouseDown={handleCanvasMouseDown}
         onClick={() => { if (!hasDraggedRef.current) { setSelectedNode(null); setEditingNodeId(null); } }}
+        style={{ cursor: isPanningRef.current ? 'grabbing' : undefined }}
       >
+        <div
+          className="absolute inset-0 origin-top-left"
+          style={{
+            transform: `scale(${zoom}) translate(${-pan.x}px, ${-pan.y}px)`,
+            willChange: 'transform',
+          }}
+        >
         <div className="absolute inset-0 opacity-30" style={{
           backgroundImage: diagramType === 'MINDMAP'
             ? 'radial-gradient(circle, var(--color-border) 0.5px, transparent 0.5px)'
             : 'radial-gradient(circle, var(--color-border) 1px, transparent 1px)',
           backgroundSize: diagramType === 'MINDMAP' ? '32px 32px' : '24px 24px',
+          width: '200%',
+          height: '200%',
         }} />
         {nodes.length === 0 && !addingNode ? (
           <div className="relative flex items-center justify-center h-full min-h-[55vh]">
@@ -745,7 +924,7 @@ function DiagramEditor({ diagram, dtype, nodes: initNodes, edges: initEdges, onB
             </div>
           </div>
         ) : (
-          <div className="relative" style={{ minHeight: '500px' }}>
+          <div className="relative" style={{ minHeight: '500px', padding: '24px' }}>
             <svg className="absolute inset-0 w-full h-full" style={{ minHeight: '500px', zIndex: 1 }}>
               {edges.map((edge: any, edgeIdx: number) => {
                 const source = nodes.find((n: any) => n.id === edge.source);
@@ -764,12 +943,13 @@ function DiagramEditor({ diagram, dtype, nodes: initNodes, edges: initEdges, onB
             {nodes.map((node: any) => (
               <div
                 key={node.id}
+                ref={(el) => { if (el) nodeRefsMap.current.set(node.id, el); else nodeRefsMap.current.delete(node.id); }}
                 className="absolute group select-none"
                 style={{
                   left: node.position?.x || 0,
                   top: node.position?.y || 0,
-                  zIndex: draggingNode === node.id ? 100 : editingNodeId === node.id ? 50 : 10,
-                  cursor: linkingFrom ? 'pointer' : draggingNode === node.id ? 'grabbing' : 'grab',
+                  zIndex: draggingRef.current?.nodeId === node.id ? 100 : editingNodeId === node.id ? 50 : 10,
+                  cursor: linkingFrom ? 'pointer' : draggingRef.current?.nodeId === node.id ? 'grabbing' : 'grab',
                 }}
                 onMouseDown={(e) => handleMouseDown(e, node.id)}
                 onClick={(e) => handleNodeClick(e, node.id)}
@@ -780,6 +960,7 @@ function DiagramEditor({ diagram, dtype, nodes: initNodes, edges: initEdges, onB
             ))}
           </div>
         )}
+        </div>
       </div>
     </div>
   );
@@ -802,7 +983,7 @@ export default function DiagramsPage() {
     if (searchParams.get('new') === 'true') setShowCreate(true);
   }, [searchParams]);
   const [newDiagram, setNewDiagram] = useState({ title: '', type: 'FLOWCHART', description: '' });
-  const [aiForm, setAiForm] = useState({ title: '', type: 'FLOWCHART', description: '', provider: 'GEMINI', model: 'gemini-2.5-flash' });
+  const [aiForm, setAiForm] = useState({ title: '', type: 'FLOWCHART', description: '', provider: 'OPENROUTER', model: 'google/gemini-2.5-flash-preview-05-20' });
   const [search, setSearch] = useState('');
 
   const { data: diagrams } = useQuery({
@@ -1078,7 +1259,10 @@ export default function DiagramsPage() {
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1.5">
                 <label className="text-[13px] font-medium text-muted-foreground">Provider</label>
-                <Select value={aiForm.provider} onValueChange={(v) => setAiForm({ ...aiForm, provider: v })}>
+                <Select value={aiForm.provider} onValueChange={(v) => {
+                  const models = modelsData?.data?.[v] || [];
+                  setAiForm({ ...aiForm, provider: v, model: models[0]?.id || '' });
+                }}>
                   <SelectTrigger className="border-border"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     {Object.keys(modelsData?.data || {}).map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}
@@ -1090,9 +1274,14 @@ export default function DiagramsPage() {
                 <Select value={aiForm.model} onValueChange={(v) => setAiForm({ ...aiForm, model: v })}>
                   <SelectTrigger className="border-border"><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    {(modelsData?.data?.[aiForm.provider] || []).map((m: any) => (
-                      <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>
-                    ))}
+                    {(modelsData?.data?.[aiForm.provider] || []).map((m: any) => {
+                      const isFree = m.costPer1kInput === 0 && m.costPer1kOutput === 0;
+                      return (
+                        <SelectItem key={m.id} value={m.id}>
+                          {m.name}{isFree ? ' ✦ Free' : ''}
+                        </SelectItem>
+                      );
+                    })}
                   </SelectContent>
                 </Select>
               </div>

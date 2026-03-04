@@ -9,6 +9,7 @@ import {
   Rocket, Package, PaintBucket, Lightbulb, Zap, Flame, Star,
   BarChart3, Wrench, Crosshair, Smartphone, Globe,
   FlaskConical, FileText, Gamepad2, Building2,
+  Users, UserPlus, Crown, Shield, X,
   type LucideIcon
 } from 'lucide-react';
 import { useTeamStore } from '@/stores/team-store';
@@ -19,6 +20,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
+import { toast } from 'sonner';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -54,10 +56,7 @@ export const PROJECT_ICON_MAP: Record<string, LucideIcon> = {
 
 const PROJECT_ICONS = Object.keys(PROJECT_ICON_MAP);
 
-function ProjectIcon({ icon, className, style }: { icon: string; className?: string; style?: React.CSSProperties }) {
-  const Icon = PROJECT_ICON_MAP[icon] || FolderKanban;
-  return <Icon className={className} style={style} />;
-}
+import { ProjectIcon } from '@/components/shared/project-icon';
 
 export default function ProjectsPage() {
   const { activeTeam } = useTeamStore();
@@ -70,6 +69,7 @@ export default function ProjectsPage() {
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+  const [memberMgmt, setMemberMgmt] = useState<Project | null>(null);
 
   // Form state
   const [name, setName] = useState('');
@@ -265,6 +265,7 @@ export default function ProjectsPage() {
                 onSelect={() => handleSelect(project)}
                 onEdit={() => openEdit(project)}
                 onDelete={() => setDeleteConfirm(project.id)}
+                onManageMembers={() => setMemberMgmt(project)}
               />
             ))}
           </div>
@@ -278,6 +279,7 @@ export default function ProjectsPage() {
                 onSelect={() => handleSelect(project)}
                 onEdit={() => openEdit(project)}
                 onDelete={() => setDeleteConfirm(project.id)}
+                onManageMembers={() => setMemberMgmt(project)}
               />
             ))}
           </div>
@@ -341,13 +343,23 @@ export default function ProjectsPage() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Project Team Management */}
+      {memberMgmt && teamId && (
+        <ProjectMemberDialog
+          project={memberMgmt}
+          teamId={teamId}
+          open={!!memberMgmt}
+          onClose={() => setMemberMgmt(null)}
+        />
+      )}
     </div>
   );
 }
 
 // ── Project Card (Grid View) ──
 function ProjectCard({
-  project, isActive, onSelect, onEdit, onDelete
+  project, isActive, onSelect, onEdit, onDelete, onManageMembers
 
 }: {
   project: Project;
@@ -355,8 +367,10 @@ function ProjectCard({
   onSelect: () => void;
   onEdit: () => void;
   onDelete: () => void;
+  onManageMembers: () => void;
 }) {
   const counts = project._count || { tasks: 0, brainstormSessions: 0, diagrams: 0, goals: 0 };
+  const members = (project as any).members || [];
 
   return (
     <div
@@ -388,6 +402,9 @@ function ProjectCard({
             <DropdownMenuItem onClick={onEdit}>
               <Pencil className="h-4 w-4 mr-2" /> Edit
             </DropdownMenuItem>
+            <DropdownMenuItem onClick={onManageMembers}>
+              <Users className="h-4 w-4 mr-2" /> Team
+            </DropdownMenuItem>
             <DropdownMenuItem onClick={onDelete} className="text-red-600">
               <Trash2 className="h-4 w-4 mr-2" /> Delete
             </DropdownMenuItem>
@@ -398,9 +415,33 @@ function ProjectCard({
       {/* Name + Description */}
       <h3 className="font-semibold text-foreground mb-1 truncate">{project.name}</h3>
       {project.description && (
-        <p className="text-sm text-muted-foreground line-clamp-2 mb-4">{project.description}</p>
+        <p className="text-sm text-muted-foreground line-clamp-2 mb-3">{project.description}</p>
       )}
-      {!project.description && <div className="mb-4" />}
+      {!project.description && <div className="mb-3" />}
+
+      {/* Member avatars */}
+      {members.length > 0 && (
+        <div className="flex items-center gap-1 mb-3">
+          <div className="flex -space-x-1.5">
+            {members.slice(0, 4).map((m: any) => (
+              <div key={m.user.id} className="h-6 w-6 rounded-full border-2 border-card bg-muted flex items-center justify-center overflow-hidden" title={m.user.name}>
+                {m.user.avatarUrl ? (
+                  <img src={m.user.avatarUrl} alt="" className="h-full w-full object-cover" />
+                ) : (
+                  <span className="text-[9px] font-bold text-muted-foreground">{m.user.name?.charAt(0)?.toUpperCase()}</span>
+                )}
+              </div>
+            ))}
+          </div>
+          {members.length > 4 && <span className="text-[10px] text-muted-foreground ml-1">+{members.length - 4}</span>}
+          <button
+            onClick={(e) => { e.stopPropagation(); onManageMembers(); }}
+            className="h-6 w-6 rounded-full border-2 border-dashed border-muted-foreground/30 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:border-[#7b68ee] hover:text-[#7b68ee]"
+          >
+            <UserPlus className="h-3 w-3 text-muted-foreground" />
+          </button>
+        </div>
+      )}
 
       {/* Stats */}
       <div className="flex items-center gap-4 text-xs text-muted-foreground">
@@ -429,13 +470,14 @@ function ProjectCard({
 
 // ── Project Row (List View) ──
 function ProjectRow({
-  project, isActive, onSelect, onEdit, onDelete
+  project, isActive, onSelect, onEdit, onDelete, onManageMembers
 }: {
   project: Project;
   isActive: boolean;
   onSelect: () => void;
   onEdit: () => void;
   onDelete: () => void;
+  onManageMembers: () => void;
 }) {
   const counts = project._count || { tasks: 0, brainstormSessions: 0, diagrams: 0, goals: 0 };
 
@@ -478,8 +520,9 @@ function ProjectRow({
         <DropdownMenuContent align="end" onClick={e => e.stopPropagation()}>
           <DropdownMenuItem onClick={onEdit}>
             <Pencil className="h-4 w-4 mr-2" /> Edit
-          </DropdownMenuItem>
-          <DropdownMenuItem onClick={onDelete} className="text-red-600">
+          </DropdownMenuItem>            <DropdownMenuItem onClick={onManageMembers}>
+              <Users className="h-4 w-4 mr-2" /> Team
+            </DropdownMenuItem>          <DropdownMenuItem onClick={onDelete} className="text-red-600">
             <Trash2 className="h-4 w-4 mr-2" /> Delete
           </DropdownMenuItem>
         </DropdownMenuContent>
@@ -596,5 +639,183 @@ function ProjectForm({
         {loading ? 'Saving...' : submitLabel}
       </Button>
     </div>
+  );
+}
+
+// ── Project Member Management Dialog ──
+function ProjectMemberDialog({ project, teamId, open, onClose }: {
+  project: Project; teamId: string; open: boolean; onClose: () => void;
+}) {
+  const queryClient = useQueryClient();
+
+  const { data: membersRes, isLoading: loadingMembers } = useQuery({
+    queryKey: ['project-members', project.id],
+    queryFn: () => api.get<{ data: any[] }>(`/teams/${teamId}/projects/${project.id}/members`),
+    enabled: open,
+  });
+
+  const { data: availableRes } = useQuery({
+    queryKey: ['project-available-members', project.id],
+    queryFn: () => api.get<{ data: any[] }>(`/teams/${teamId}/projects/${project.id}/available-members`),
+    enabled: open,
+  });
+
+  const members = membersRes?.data || [];
+  const available = availableRes?.data || [];
+
+  const addMemberMutation = useMutation({
+    mutationFn: (userId: string) => api.post(`/teams/${teamId}/projects/${project.id}/members`, { userId }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['project-members', project.id] });
+      queryClient.invalidateQueries({ queryKey: ['project-available-members', project.id] });
+      queryClient.invalidateQueries({ queryKey: ['projects', teamId] });
+      toast.success('Member added');
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
+
+  const updateRoleMutation = useMutation({
+    mutationFn: ({ userId, role }: { userId: string; role: string }) =>
+      api.patch(`/teams/${teamId}/projects/${project.id}/members/${userId}`, { role }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['project-members', project.id] });
+      toast.success('Role updated');
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
+
+  const removeMemberMutation = useMutation({
+    mutationFn: (userId: string) => api.delete(`/teams/${teamId}/projects/${project.id}/members/${userId}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['project-members', project.id] });
+      queryClient.invalidateQueries({ queryKey: ['project-available-members', project.id] });
+      queryClient.invalidateQueries({ queryKey: ['projects', teamId] });
+      toast.success('Member removed');
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
+
+  const roleIcon = (role: string) => {
+    if (role === 'OWNER') return <Crown className="h-3 w-3 text-amber-500" />;
+    if (role === 'ADMIN') return <Shield className="h-3 w-3 text-blue-500" />;
+    return null;
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={(v) => { if (!v) onClose(); }}>
+      <DialogContent className="max-w-lg">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <div className="h-8 w-8 rounded-lg flex items-center justify-center" style={{ backgroundColor: `${project.color}18` }}>
+              <ProjectIcon icon={project.icon} className="h-4 w-4" style={{ color: project.color }} />
+            </div>
+            <div>
+              <span>{project.name} — Team</span>
+              <p className="text-xs text-muted-foreground font-normal">Manage who has access to this project</p>
+            </div>
+          </DialogTitle>
+        </DialogHeader>
+
+        <div className="space-y-4 max-h-[60vh] overflow-y-auto">
+          {/* Current Members */}
+          <div>
+            <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
+              Members ({members.length})
+            </h3>
+            {loadingMembers ? (
+              <div className="space-y-2">
+                {[1, 2].map(i => <div key={i} className="h-12 rounded-lg bg-muted animate-pulse" />)}
+              </div>
+            ) : members.length === 0 ? (
+              <p className="text-sm text-muted-foreground py-3 text-center">No members yet</p>
+            ) : (
+              <div className="space-y-1">
+                {members.map((m: any) => (
+                  <div key={m.user.id} className="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-muted/50 group">
+                    <div className="h-8 w-8 rounded-full bg-muted flex items-center justify-center overflow-hidden shrink-0">
+                      {m.user.avatarUrl ? (
+                        <img src={m.user.avatarUrl} alt="" className="h-full w-full object-cover" />
+                      ) : (
+                        <span className="text-xs font-bold text-muted-foreground">{m.user.name?.charAt(0)?.toUpperCase()}</span>
+                      )}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-sm font-medium text-foreground truncate">{m.user.name}</span>
+                        {roleIcon(m.role)}
+                      </div>
+                      <span className="text-[11px] text-muted-foreground">{m.user.email}</span>
+                    </div>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <button className="text-[10px] font-medium px-2 py-1 rounded-md bg-muted text-muted-foreground hover:bg-accent transition-colors">
+                          {m.role}
+                        </button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        {['OWNER', 'ADMIN', 'MEMBER'].map(role => (
+                          <DropdownMenuItem
+                            key={role}
+                            onClick={() => updateRoleMutation.mutate({ userId: m.user.id, role })}
+                            className={m.role === role ? 'bg-accent' : ''}
+                          >
+                            {role === 'OWNER' && <Crown className="h-3.5 w-3.5 mr-2 text-amber-500" />}
+                            {role === 'ADMIN' && <Shield className="h-3.5 w-3.5 mr-2 text-blue-500" />}
+                            {role === 'MEMBER' && <Users className="h-3.5 w-3.5 mr-2 text-muted-foreground" />}
+                            {role}
+                          </DropdownMenuItem>
+                        ))}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                    <button
+                      onClick={() => removeMemberMutation.mutate(m.user.id)}
+                      className="p-1 rounded-md text-muted-foreground/40 hover:text-red-500 hover:bg-red-500/10 opacity-0 group-hover:opacity-100 transition-all"
+                      title="Remove member"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Available Team Members to Add */}
+          {available.length > 0 && (
+            <div>
+              <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
+                Add from Team ({available.length})
+              </h3>
+              <div className="space-y-1">
+                {available.map((m: any) => (
+                  <div key={m.user.id} className="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-muted/50">
+                    <div className="h-8 w-8 rounded-full bg-muted flex items-center justify-center overflow-hidden shrink-0">
+                      {m.user.avatarUrl ? (
+                        <img src={m.user.avatarUrl} alt="" className="h-full w-full object-cover" />
+                      ) : (
+                        <span className="text-xs font-bold text-muted-foreground">{m.user.name?.charAt(0)?.toUpperCase()}</span>
+                      )}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <span className="text-sm font-medium text-foreground truncate block">{m.user.name}</span>
+                      <span className="text-[11px] text-muted-foreground">{m.user.email}</span>
+                    </div>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => addMemberMutation.mutate(m.user.id)}
+                      disabled={addMemberMutation.isPending}
+                      className="h-7 text-xs gap-1"
+                    >
+                      <UserPlus className="h-3 w-3" /> Add
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }

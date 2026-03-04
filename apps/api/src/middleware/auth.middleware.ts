@@ -40,13 +40,20 @@ export async function authGuard(request: FastifyRequest, reply: FastifyReply) {
 
     const user = await prisma.user.findUnique({
       where: { id: payload.userId },
-      select: { id: true, email: true, name: true },
+      select: { id: true, email: true, name: true, isBanned: true },
     });
 
     if (!user) {
       return reply.status(401).send({
         success: false,
         error: { code: 'UNAUTHORIZED', message: 'User not found' },
+      });
+    }
+
+    if (user.isBanned) {
+      return reply.status(403).send({
+        success: false,
+        error: { code: 'ACCOUNT_BANNED', message: 'Your account has been suspended. Contact admin for assistance.' },
       });
     }
 

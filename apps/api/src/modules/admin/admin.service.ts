@@ -94,6 +94,9 @@ class AdminService {
           avatarUrl: true,
           googleId: true,
           isAdmin: true,
+          isBanned: true,
+          banReason: true,
+          bannedAt: true,
           createdAt: true,
           updatedAt: true,
           _count: {
@@ -135,6 +138,9 @@ class AdminService {
         avatarUrl: true,
         googleId: true,
         isAdmin: true,
+        isBanned: true,
+        banReason: true,
+        bannedAt: true,
         createdAt: true,
         updatedAt: true,
         teamMemberships: {
@@ -186,6 +192,43 @@ class AdminService {
     await prisma.user.delete({ where: { id: userId } });
 
     return { deleted: true };
+  }
+
+  async banUser(userId: string, adminUserId: string, isBanned: boolean, reason?: string) {
+    if (userId === adminUserId) {
+      throw new AppError(400, 'CANNOT_BAN_SELF', 'You cannot ban your own account');
+    }
+
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    if (!user) throw new NotFoundError('User not found');
+    if (user.isAdmin && isBanned) {
+      throw new AppError(400, 'CANNOT_BAN_ADMIN', 'Cannot ban an admin user. Remove admin role first.');
+    }
+
+    const updated = await prisma.user.update({
+      where: { id: userId },
+      data: {
+        isBanned,
+        banReason: isBanned ? (reason || null) : null,
+        bannedAt: isBanned ? new Date() : null,
+      },
+      select: { id: true, email: true, name: true, isBanned: true, banReason: true, bannedAt: true },
+    });
+
+    return updated;
+  }
+
+  async resetUserPassword(userId: string) {
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    if (!user) throw new NotFoundError('User not found');
+
+    // Clear password — user must use Google login or "forgot password" flow
+    await prisma.user.update({
+      where: { id: userId },
+      data: { passwordHash: null },
+    });
+
+    return { reset: true, userId };
   }
 
   async listTeams(page = 1, limit = 20, search?: string) {

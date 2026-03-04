@@ -96,15 +96,18 @@ enum EventType {
 // ==========================================
 
 model User {
-  id           String   @id @default(cuid())
-  email        String   @unique
+  id           String    @id @default(cuid())
+  email        String    @unique
   passwordHash String?
-  googleId     String?  @unique
+  googleId     String?   @unique
   name         String
   avatarUrl    String?
-  isAdmin      Boolean  @default(false)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  isAdmin      Boolean   @default(false)
+  isBanned     Boolean   @default(false)
+  banReason    String?
+  bannedAt     DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
 
   ownedTeams         Team[]
   teamMemberships    TeamMember[]

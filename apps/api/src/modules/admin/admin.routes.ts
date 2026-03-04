@@ -54,6 +54,21 @@ export async function adminRoutes(app: FastifyInstance) {
     return reply.send({ success: true, data: result });
   });
 
+  // Ban/unban user
+  app.patch('/users/:userId/ban', async (request, reply) => {
+    const { userId } = request.params as { userId: string };
+    const { isBanned, reason } = request.body as { isBanned: boolean; reason?: string };
+    const result = await adminService.banUser(userId, request.user.id, isBanned, reason);
+    return reply.send({ success: true, data: result });
+  });
+
+  // Reset user password
+  app.post('/users/:userId/reset-password', async (request, reply) => {
+    const { userId } = request.params as { userId: string };
+    const result = await adminService.resetUserPassword(userId);
+    return reply.send({ success: true, data: result });
+  });
+
   // List teams
   app.get('/teams', async (request, reply) => {
     const query = request.query as { page?: string; limit?: string; search?: string };

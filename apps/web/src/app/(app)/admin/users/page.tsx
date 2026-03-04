@@ -5,7 +5,7 @@ import {
   Users, Search, ChevronLeft, ChevronRight, Trash2,
   ShieldCheck, ShieldOff, Loader2, UserPlus, Mail, Chrome,
   X, Building2, CheckSquare, MessageSquare, Key, FileText,
-  FolderKanban, Calendar, Eye,
+  FolderKanban, Calendar, Eye, Ban, KeyRound, RotateCcw,
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -22,6 +22,9 @@ interface AdminUser {
   avatarUrl: string | null;
   googleId: string | null;
   isAdmin: boolean;
+  isBanned: boolean;
+  banReason: string | null;
+  bannedAt: string | null;
   createdAt: string;
   stats: {
     teamMemberships: number;
@@ -38,6 +41,9 @@ interface UserDetail {
   avatarUrl: string | null;
   googleId: string | null;
   isAdmin: boolean;
+  isBanned: boolean;
+  banReason: string | null;
+  bannedAt: string | null;
   createdAt: string;
   updatedAt: string;
   teamMemberships: { role: string; joinedAt: string; team: { id: string; name: string } }[];
@@ -63,6 +69,9 @@ export default function AdminUsersPage() {
   const [detailLoading, setDetailLoading] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState<{ id: string; name: string } | null>(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
+  const [banConfirm, setBanConfirm] = useState<{ id: string; name: string; isBanned: boolean } | null>(null);
+  const [banReason, setBanReason] = useState('');
+  const [banLoading, setBanLoading] = useState(false);
 
   useEffect(() => {
     fetchUsers();
@@ -128,6 +137,39 @@ export default function AdminUsersPage() {
       setDeleteLoading(false);
     }
   }
+
+  async function handleBanUser() {
+    if (!banConfirm) return;
+    setBanLoading(true);
+    try {
+      await api.patch(`/admin/users/${banConfirm.id}/ban`, {
+        isBanned: !banConfirm.isBanned,
+        reason: banReason || undefined,
+      });
+      toast.success(banConfirm.isBanned ? 'User unbanned' : 'User banned');
+      setBanConfirm(null);
+      setBanReason('');
+      fetchUsers();
+      if (selectedUser?.id === banConfirm.id) {
+        setSelectedUser(prev => prev ? { ...prev, isBanned: !banConfirm.isBanned, banReason: banReason || null, bannedAt: new Date().toISOString() } : null);
+      }
+    } catch (err: any) {
+      toast.error(err?.error?.message || 'Failed to update ban status');
+    } finally {
+      setBanLoading(false);
+    }
+  }
+
+  async function handleResetPassword(userId: string, name: string) {
+    if (!confirm(`Reset password for ${name}? Their password will be cleared and they'll need to use Google or forgot-password to sign in.`)) return;
+    setActionLoading(userId);
+    try {
+      await api.post(`/admin/users/${userId}/reset-password`);
+      toast.success('Password has been reset');
+    } catch (err: any) {
+      toast.error(err?.error?.message || 'Failed to reset password');
+    } finally {
+      setActionLoading(null);
     }
   }
 
@@ -185,6 +227,7 @@ export default function AdminUsersPage() {
                     <th className="text-left text-xs text-muted-foreground font-medium px-4 py-3 hidden lg:table-cell">Teams</th>
                     <th className="text-left text-xs text-muted-foreground font-medium px-4 py-3 hidden lg:table-cell">Tasks</th>
                     <th className="text-left text-xs text-muted-foreground font-medium px-4 py-3">Role</th>
+                    <th className="text-left text-xs text-muted-foreground font-medium px-4 py-3 hidden md:table-cell">Status</th>
                     <th className="text-left text-xs text-muted-foreground font-medium px-4 py-3 hidden md:table-cell">Joined</th>
                     <th className="text-right text-xs text-muted-foreground font-medium px-4 py-3">Actions</th>
                   </tr>
@@ -237,6 +280,16 @@ export default function AdminUsersPage() {
                           {u.isAdmin ? 'Admin' : 'User'}
                         </span>
                       </td>
+                      <td className="px-4 py-3 hidden md:table-cell">
+                        <span className={cn(
+                          'text-xs px-2 py-0.5 rounded-full font-medium',
+                          u.isBanned
+                            ? 'bg-red-50 dark:bg-red-500/10 text-red-600 dark:text-red-400'
+                            : 'bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
+                        )}>
+                          {u.isBanned ? 'Banned' : 'Active'}
+                        </span>
+                      </td>
                       <td className="px-4 py-3 text-xs text-muted-foreground whitespace-nowrap hidden md:table-cell">
                         {new Date(u.createdAt).toLocaleDateString()}
                       </td>
@@ -261,6 +314,27 @@ export default function AdminUsersPage() {
                             title={u.isAdmin ? 'Revoke admin' : 'Grant admin'}
                           >
                             {u.isAdmin ? <ShieldOff className="h-4 w-4" /> : <ShieldCheck className="h-4 w-4" />}
+                          </button>
+                          <button
+                            onClick={() => setBanConfirm({ id: u.id, name: u.name, isBanned: u.isBanned })}
+                            disabled={actionLoading === u.id || u.id === user?.id}
+                            className={cn(
+                              'p-1.5 rounded-lg transition-colors disabled:opacity-30',
+                              u.isBanned
+                                ? 'hover:bg-emerald-50 dark:hover:bg-emerald-500/10 text-muted-foreground hover:text-emerald-600'
+                                : 'hover:bg-orange-50 dark:hover:bg-orange-500/10 text-muted-foreground hover:text-orange-600'
+                            )}
+                            title={u.isBanned ? 'Unban user' : 'Ban user'}
+                          >
+                            {u.isBanned ? <RotateCcw className="h-4 w-4" /> : <Ban className="h-4 w-4" />}
+                          </button>
+                          <button
+                            onClick={() => handleResetPassword(u.id, u.name)}
+                            disabled={actionLoading === u.id || u.id === user?.id}
+                            className="p-1.5 rounded-lg hover:bg-purple-50 dark:hover:bg-purple-500/10 text-muted-foreground hover:text-purple-500 transition-colors disabled:opacity-30"
+                            title="Reset password"
+                          >
+                            <KeyRound className="h-4 w-4" />
                           </button>
                           <button
                             onClick={() => handleDeleteUser(u.id, u.name)}
@@ -327,7 +401,7 @@ export default function AdminUsersPage() {
                       <div className="min-w-0">
                         <p className="text-sm font-semibold text-foreground truncate">{selectedUser.name}</p>
                         <p className="text-xs text-muted-foreground truncate">{selectedUser.email}</p>
-                        <div className="flex items-center gap-1.5 mt-1">
+                        <div className="flex items-center gap-1.5 mt-1 flex-wrap">
                           <span className={cn(
                             'text-[10px] px-1.5 py-0.5 rounded-full font-medium',
                             selectedUser.isAdmin
@@ -344,10 +418,35 @@ export default function AdminUsersPage() {
                           )}>
                             {selectedUser.googleId ? 'Google' : 'Email'}
                           </span>
+                          {selectedUser.isBanned && (
+                            <span className="text-[10px] px-1.5 py-0.5 rounded-full font-medium bg-red-50 dark:bg-red-500/10 text-red-600 dark:text-red-400">
+                              Banned
+                            </span>
+                          )}
                         </div>
                       </div>
                     </div>
                   </div>
+
+                  {/* Ban Info */}
+                  {selectedUser.isBanned && (
+                    <div className="p-5 border-b border-border">
+                      <div className="bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/20 rounded-lg p-3">
+                        <div className="flex items-center gap-2 mb-1">
+                          <Ban className="h-3.5 w-3.5 text-red-500" />
+                          <span className="text-xs font-semibold text-red-600 dark:text-red-400">Account Banned</span>
+                        </div>
+                        {selectedUser.banReason && (
+                          <p className="text-xs text-red-600/80 dark:text-red-400/80 mt-1">Reason: {selectedUser.banReason}</p>
+                        )}
+                        {selectedUser.bannedAt && (
+                          <p className="text-[10px] text-red-500/60 dark:text-red-400/60 mt-1">
+                            Since {new Date(selectedUser.bannedAt).toLocaleDateString()}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  )}
 
                   {/* Stats */}
                   <div className="p-5 border-b border-border">
@@ -411,26 +510,55 @@ export default function AdminUsersPage() {
                   </div>
 
                   {/* Actions */}
-                  <div className="p-5 border-t border-border flex gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="flex-1 gap-1.5 text-xs"
-                      onClick={() => handleToggleAdmin(selectedUser.id, !selectedUser.isAdmin)}
-                      disabled={actionLoading === selectedUser.id || selectedUser.id === user?.id}
-                    >
-                      {selectedUser.isAdmin ? <ShieldOff className="h-3.5 w-3.5" /> : <ShieldCheck className="h-3.5 w-3.5" />}
-                      {selectedUser.isAdmin ? 'Revoke Admin' : 'Grant Admin'}
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="gap-1.5 text-xs text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-500/10"
-                      onClick={() => handleDeleteUser(selectedUser.id, selectedUser.name)}
-                      disabled={actionLoading === selectedUser.id || selectedUser.id === user?.id}
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </Button>
+                  <div className="p-5 border-t border-border space-y-2">
+                    <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="flex-1 gap-1.5 text-xs"
+                        onClick={() => handleToggleAdmin(selectedUser.id, !selectedUser.isAdmin)}
+                        disabled={actionLoading === selectedUser.id || selectedUser.id === user?.id}
+                      >
+                        {selectedUser.isAdmin ? <ShieldOff className="h-3.5 w-3.5" /> : <ShieldCheck className="h-3.5 w-3.5" />}
+                        {selectedUser.isAdmin ? 'Revoke Admin' : 'Grant Admin'}
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className={cn(
+                          'flex-1 gap-1.5 text-xs',
+                          selectedUser.isBanned
+                            ? 'text-emerald-500 hover:text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-500/10'
+                            : 'text-orange-500 hover:text-orange-600 hover:bg-orange-50 dark:hover:bg-orange-500/10'
+                        )}
+                        onClick={() => setBanConfirm({ id: selectedUser.id, name: selectedUser.name, isBanned: selectedUser.isBanned })}
+                        disabled={actionLoading === selectedUser.id || selectedUser.id === user?.id}
+                      >
+                        {selectedUser.isBanned ? <RotateCcw className="h-3.5 w-3.5" /> : <Ban className="h-3.5 w-3.5" />}
+                        {selectedUser.isBanned ? 'Unban' : 'Ban User'}
+                      </Button>
+                    </div>
+                    <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="flex-1 gap-1.5 text-xs text-purple-500 hover:text-purple-600 hover:bg-purple-50 dark:hover:bg-purple-500/10"
+                        onClick={() => handleResetPassword(selectedUser.id, selectedUser.name)}
+                        disabled={actionLoading === selectedUser.id || selectedUser.id === user?.id}
+                      >
+                        <KeyRound className="h-3.5 w-3.5" />
+                        Reset Password
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="gap-1.5 text-xs text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-500/10"
+                        onClick={() => handleDeleteUser(selectedUser.id, selectedUser.name)}
+                        disabled={actionLoading === selectedUser.id || selectedUser.id === user?.id}
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
                   </div>
                 </>
               )}
@@ -447,6 +575,59 @@ export default function AdminUsersPage() {
         itemLabel={deleteConfirm?.name || ''}
         isPending={deleteLoading}
       />
+
+      {/* Ban/Unban Dialog */}
+      {banConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div className="absolute inset-0 bg-black/50" onClick={() => { setBanConfirm(null); setBanReason(''); }} />
+          <div className="relative bg-card border border-border rounded-xl p-6 w-full max-w-md mx-4 shadow-xl">
+            <h3 className="text-lg font-semibold text-foreground mb-2">
+              {banConfirm.isBanned ? 'Unban User' : 'Ban User'}
+            </h3>
+            <p className="text-sm text-muted-foreground mb-4">
+              {banConfirm.isBanned
+                ? `Are you sure you want to unban "${banConfirm.name}"? They will be able to access the platform again.`
+                : `Are you sure you want to ban "${banConfirm.name}"? They will be unable to access the platform.`}
+            </p>
+            {!banConfirm.isBanned && (
+              <div className="mb-4">
+                <label className="text-xs font-medium text-muted-foreground mb-1.5 block">
+                  Reason (optional)
+                </label>
+                <textarea
+                  value={banReason}
+                  onChange={e => setBanReason(e.target.value)}
+                  placeholder="Enter reason for banning..."
+                  className="w-full px-3 py-2 text-sm rounded-lg border border-border bg-muted/30 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-red-500/30 resize-none"
+                  rows={3}
+                />
+              </div>
+            )}
+            <div className="flex justify-end gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => { setBanConfirm(null); setBanReason(''); }}
+              >
+                Cancel
+              </Button>
+              <Button
+                size="sm"
+                className={cn(
+                  banConfirm.isBanned
+                    ? 'bg-emerald-600 hover:bg-emerald-700 text-white'
+                    : 'bg-red-600 hover:bg-red-700 text-white'
+                )}
+                onClick={handleBanUser}
+                disabled={banLoading}
+              >
+                {banLoading && <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" />}
+                {banConfirm.isBanned ? 'Unban' : 'Ban User'}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

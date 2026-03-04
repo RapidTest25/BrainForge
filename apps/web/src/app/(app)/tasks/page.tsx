@@ -29,6 +29,7 @@ import { useTeamStore } from '@/stores/team-store';
 import { useProjectStore } from '@/stores/project-store';
 import { api } from '@/lib/api';
 import { cn } from '@/lib/utils';
+import { DeleteConfirmDialog } from '@/components/shared/delete-confirm-dialog';
 
 const STATUS_COLUMNS = [
   { key: 'TODO', label: 'To Do', color: '#9ca3af', dotColor: '#9ca3af' },
@@ -54,6 +55,7 @@ export default function TasksPage() {
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [selectedTask, setSelectedTask] = useState<any>(null);
   const [newTask, setNewTask] = useState({ title: '', description: '', priority: 'MEDIUM', status: 'TODO' });
+  const [deleteConfirm, setDeleteConfirm] = useState<{ id: string; title: string } | null>(null);
   const searchParams = useSearchParams();
 
   useEffect(() => {
@@ -309,7 +311,7 @@ export default function TasksPage() {
                                     <DropdownMenuSeparator />
                                     <DropdownMenuItem
                                       className="text-[13px] text-red-500 focus:text-red-600"
-                                      onClick={() => deleteMutation.mutate(task.id)}
+                                      onClick={() => setDeleteConfirm({ id: task.id, title: task.title })}
                                     >
                                       <Trash2 className="h-3.5 w-3.5 mr-2" /> Delete
                                     </DropdownMenuItem>
@@ -457,7 +459,7 @@ export default function TasksPage() {
                         <DropdownMenuSeparator />
                         <DropdownMenuItem
                           className="text-[13px] text-red-500 focus:text-red-600"
-                          onClick={() => deleteMutation.mutate(task.id)}
+                          onClick={() => setDeleteConfirm({ id: task.id, title: task.title })}
                         >
                           <Trash2 className="h-3.5 w-3.5 mr-2" /> Delete
                         </DropdownMenuItem>
@@ -593,6 +595,20 @@ export default function TasksPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <DeleteConfirmDialog
+        open={!!deleteConfirm}
+        onClose={() => setDeleteConfirm(null)}
+        onConfirm={() => {
+          if (deleteConfirm) {
+            deleteMutation.mutate(deleteConfirm.id);
+            setDeleteConfirm(null);
+          }
+        }}
+        title="Delete Task"
+        itemLabel={deleteConfirm?.title || ''}
+        isPending={deleteMutation.isPending}
+      />
     </div>
   );
 }

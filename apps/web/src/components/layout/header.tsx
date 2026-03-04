@@ -26,7 +26,7 @@ const PAGE_TITLES: Record<string, string> = {
   '/sprints': 'Sprints',
   '/notes': 'Notes',
   '/settings': 'Profile & Settings',
-  '/settings/ai-keys': 'AI Keys',
+  '/settings/ai-keys': 'BYOK',
   '/settings/team': 'Team',
   '/notifications': 'Notifications',
   '/goals': 'Goals',
@@ -41,7 +41,7 @@ const SEARCH_PAGES = [
   { label: 'Sprints', href: '/sprints', icon: '⚡' },
   { label: 'Calendar', href: '/calendar', icon: '📅' },
   { label: 'Settings', href: '/settings', icon: '⚙' },
-  { label: 'AI Keys', href: '/settings/ai-keys', icon: '🔑' },
+  { label: 'BYOK', href: '/settings/ai-keys', icon: '🔑' },
   { label: 'Team', href: '/settings/team', icon: '👥' },
   { label: 'Goals', href: '/goals', icon: '🎯' },
   { label: 'Notifications', href: '/notifications', icon: '🔔' },
@@ -291,7 +291,7 @@ export function Header({ onMobileMenuToggle }: HeaderProps) {
             </DropdownMenuItem>
             <DropdownMenuItem onClick={() => router.push('/settings/ai-keys')} className="text-[13px] gap-2">
               <Key className="h-3.5 w-3.5" />
-              AI Keys
+              BYOK
             </DropdownMenuItem>
             <DropdownMenuItem
               onClick={(e) => { e.preventDefault(); setTheme(theme === 'dark' ? 'light' : 'dark'); }}

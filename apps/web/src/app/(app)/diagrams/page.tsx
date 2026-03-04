@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useEffect, useRef } from 'react';
+import { useState, useCallback, useEffect, useRef, useMemo } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
@@ -21,6 +21,7 @@ import { useProjectStore } from '@/stores/project-store';
 import { api } from '@/lib/api';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
+import { useTheme } from 'next-themes';
 
 const DIAGRAM_TYPES = [
   { value: 'FLOWCHART', label: 'Flowchart', desc: 'Process flows & decisions', icon: Workflow, color: '#f59e0b' },
@@ -123,24 +124,26 @@ function DrawIOEditor({ diagram, onBack, onDelete, onSave }: {
 }) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const [ready, setReady] = useState(false);
+  const { theme } = useTheme();
   const onSaveRef = useRef(onSave);
   const onBackRef = useRef(onBack);
   onSaveRef.current = onSave;
   onBackRef.current = onBack;
 
-  // Build draw.io embed URL
-  const drawioUrl = useRef(
-    (() => {
-      const params = new URLSearchParams({
-        embed: '1',
-        proto: 'json',
-        spin: '1',
-        libraries: '1',
-        configure: '1',
-      });
-      return `https://embed.diagrams.net/?${params.toString()}`;
-    })()
-  );
+  // Build draw.io embed URL with dark mode support
+  const isDarkMode = theme === 'dark';
+  const drawioUrl = useMemo(() => {
+    const params = new URLSearchParams({
+      embed: '1',
+      proto: 'json',
+      spin: '1',
+      libraries: '1',
+      configure: '1',
+      ui: isDarkMode ? 'dark' : 'kennedy',
+      dark: isDarkMode ? '1' : '0',
+    });
+    return `https://embed.diagrams.net/?${params.toString()}`;
+  }, [isDarkMode]);
 
   // Get initial XML from saved diagram data
   const getInitialXml = useCallback(() => {
@@ -245,7 +248,7 @@ function DrawIOEditor({ diagram, onBack, onDelete, onSave }: {
         )}
         <iframe
           ref={iframeRef}
-          src={drawioUrl.current}
+          src={drawioUrl}
           className="w-full h-full border-0"
           allow="clipboard-read; clipboard-write"
         />

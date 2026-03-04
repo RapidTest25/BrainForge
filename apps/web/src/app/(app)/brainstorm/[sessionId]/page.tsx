@@ -25,6 +25,7 @@ import { api } from '@/lib/api';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { useBrainstormSocket } from '@/hooks/use-brainstorm-socket';
+import { DeleteConfirmDialog } from '@/components/shared/delete-confirm-dialog';
 
 // ===== CONSTANTS =====
 const MODES = [
@@ -218,6 +219,7 @@ export default function BrainstormSessionPage() {
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
   const flowCanvasRef = useRef<HTMLDivElement>(null);
   const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [msgDeleteConfirm, setMsgDeleteConfirm] = useState<{ id: string } | null>(null);
   const canvasLoadedRef = useRef(false);
 
   // Socket for realtime
@@ -899,7 +901,7 @@ export default function BrainstormSessionPage() {
                           </button>
                           <button
                             onClick={() => {
-                              if (confirm('Delete this message?')) deleteMutation.mutate(msg.id);
+                              setMsgDeleteConfirm({ id: msg.id });
                             }}
                             className="h-6 w-6 flex items-center justify-center rounded-md hover:bg-red-500/10 text-muted-foreground hover:text-red-500 transition-colors"
                             title="Delete"
@@ -1275,6 +1277,14 @@ export default function BrainstormSessionPage() {
           </Dialog>
         </div>
       )}
+
+      <DeleteConfirmDialog
+        open={!!msgDeleteConfirm}
+        onClose={() => setMsgDeleteConfirm(null)}
+        onConfirm={() => { if (msgDeleteConfirm) { deleteMutation.mutate(msgDeleteConfirm.id); setMsgDeleteConfirm(null); } }}
+        title="Delete Message"
+        description="Are you sure you want to delete this message? This action cannot be undone."
+      />
     </div>
   );
 }

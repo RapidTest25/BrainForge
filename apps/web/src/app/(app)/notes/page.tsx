@@ -22,6 +22,7 @@ import { useProjectStore } from '@/stores/project-store';
 import { api } from '@/lib/api';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
+import { DeleteConfirmDialog } from '@/components/shared/delete-confirm-dialog';
 
 const AI_ACTIONS = [
   { value: 'summarize', label: 'Summarize', icon: AlignLeft },
@@ -42,6 +43,7 @@ export default function NotesPage() {
   const [selectedNote, setSelectedNote] = useState<any>(null);
   const [showCreate, setShowCreate] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
+  const [deleteConfirm, setDeleteConfirm] = useState<{ id: string; title: string } | null>(null);
   const searchParams = useSearchParams();
 
   useEffect(() => {
@@ -247,7 +249,7 @@ export default function NotesPage() {
             </button>
 
             <button
-              onClick={() => { if (confirm('Delete this note?')) deleteMutation.mutate(selectedNote.id); }}
+              onClick={() => setDeleteConfirm({ id: selectedNote.id, title: selectedNote.title || 'This note' })}
               className="px-2.5 py-1 text-xs text-red-500 hover:bg-red-500/10 rounded-lg transition-colors"
             >
               Delete
@@ -380,6 +382,15 @@ export default function NotesPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <DeleteConfirmDialog
+        open={!!deleteConfirm}
+        onClose={() => setDeleteConfirm(null)}
+        onConfirm={() => { if (deleteConfirm) { deleteMutation.mutate(deleteConfirm.id); setDeleteConfirm(null); } }}
+        title="Delete Note"
+        itemLabel={deleteConfirm?.title || ''}
+        isPending={deleteMutation.isPending}
+      />
     </div>
   );
 }

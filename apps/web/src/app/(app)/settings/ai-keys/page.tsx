@@ -15,6 +15,7 @@ import { toast } from 'sonner';
 import { api } from '@/lib/api';
 import { cn } from '@/lib/utils';
 import { ProviderLogo } from '@/components/icons/ai-provider-logos';
+import { DeleteConfirmDialog } from '@/components/shared/delete-confirm-dialog';
 
 // ═══════════════════════════════════════════
 //  Provider configuration
@@ -76,6 +77,7 @@ export default function AIKeysPage() {
   const [checkingKeys, setCheckingKeys] = useState<Set<string>>(new Set());
   const [keyStatuses, setKeyStatuses] = useState<Record<string, { valid: boolean; balance?: any; checkedAt: Date }>>({});
   const [modelSearch, setModelSearch] = useState('');
+  const [deleteConfirm, setDeleteConfirm] = useState<{ id: string; label: string } | null>(null);
 
   const { data: keys, isLoading: loadingKeys } = useQuery({
     queryKey: ['ai-keys'],
@@ -200,9 +202,9 @@ export default function AIKeysPage() {
             <div className="h-8 w-8 rounded-xl bg-gradient-to-br from-[#7b68ee]/20 to-[#6c5ce7]/10 flex items-center justify-center">
               <Sparkles className="h-4 w-4 text-[#7b68ee]" />
             </div>
-            AI Integration
+            BYOK
           </h1>
-          <p className="text-sm text-gray-400 mt-0.5">Connect your AI providers, manage API keys, and browse available models.</p>
+          <p className="text-sm text-gray-400 mt-0.5">Bring Your Own Key — connect AI providers, manage API keys, and browse available models.</p>
         </div>
         <div className="flex items-center gap-2">
           <button
@@ -342,7 +344,7 @@ export default function AIKeysPage() {
                         {isChecking ? 'Checking...' : 'Verify Key'}
                       </button>
                       <button
-                        onClick={() => { if (confirm(`Remove ${provider.label} key?`)) deleteMutation.mutate(keyData.id); }}
+                        onClick={() => setDeleteConfirm({ id: keyData.id, label: provider.label })}
                         className="flex items-center justify-center gap-1 px-3 py-1.5 text-[11px] font-medium text-red-500 bg-red-50 border border-red-100 rounded-lg hover:bg-red-100 transition-colors"
                       >
                         <Trash2 className="h-3 w-3" />
@@ -672,6 +674,15 @@ export default function AIKeysPage() {
           </div>
         </DialogContent>
       </Dialog>
+
+      <DeleteConfirmDialog
+        open={!!deleteConfirm}
+        onClose={() => setDeleteConfirm(null)}
+        onConfirm={() => { if (deleteConfirm) { deleteMutation.mutate(deleteConfirm.id); setDeleteConfirm(null); } }}
+        title="Remove API Key"
+        itemLabel={deleteConfirm ? `${deleteConfirm.label} key` : ''}
+        isPending={deleteMutation.isPending}
+      />
     </div>
   );
 }

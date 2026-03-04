@@ -17,10 +17,11 @@ export const createDiagramSchema = z.object({
 export const updateDiagramSchema = z.object({
   title: z.string().min(1).max(200).optional(),
   description: z.string().max(5000).optional(),
-  data: z.object({
-    nodes: z.array(z.any()),
-    edges: z.array(z.any()),
-  }).optional(),
+  data: z.union([
+    z.object({ nodes: z.array(z.any()), edges: z.array(z.any()) }),
+    z.object({ xml: z.string() }),
+    z.record(z.any()),
+  ]).optional(),
   thumbnail: z.string().optional(),
 });
 

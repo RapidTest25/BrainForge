@@ -13,6 +13,7 @@ import { cn } from '@/lib/utils';
 import { api } from '@/lib/api';
 import { useAuthStore } from '@/stores/auth-store';
 import { toast } from 'sonner';
+import { DeleteConfirmDialog } from '@/components/shared/delete-confirm-dialog';
 
 interface AdminUser {
   id: string;
@@ -60,6 +61,8 @@ export default function AdminUsersPage() {
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [selectedUser, setSelectedUser] = useState<UserDetail | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
+  const [deleteConfirm, setDeleteConfirm] = useState<{ id: string; name: string } | null>(null);
+  const [deleteLoading, setDeleteLoading] = useState(false);
 
   useEffect(() => {
     fetchUsers();
@@ -107,17 +110,24 @@ export default function AdminUsersPage() {
   }
 
   async function handleDeleteUser(userId: string, name: string) {
-    if (!confirm(`Are you sure you want to delete "${name}"? This action cannot be undone.`)) return;
-    setActionLoading(userId);
+    setDeleteConfirm({ id: userId, name });
+  }
+
+  async function confirmDeleteUser() {
+    if (!deleteConfirm) return;
+    setDeleteLoading(true);
     try {
-      await api.delete(`/admin/users/${userId}`);
+      await api.delete(`/admin/users/${deleteConfirm.id}`);
       toast.success('User deleted');
       setSelectedUser(null);
+      setDeleteConfirm(null);
       fetchUsers();
     } catch (err: any) {
       toast.error(err?.error?.message || 'Failed to delete user');
     } finally {
-      setActionLoading(null);
+      setDeleteLoading(false);
+    }
+  }
     }
   }
 
@@ -428,6 +438,15 @@ export default function AdminUsersPage() {
           </div>
         )}
       </div>
+
+      <DeleteConfirmDialog
+        open={!!deleteConfirm}
+        onClose={() => setDeleteConfirm(null)}
+        onConfirm={confirmDeleteUser}
+        title="Delete User"
+        itemLabel={deleteConfirm?.name || ''}
+        isPending={deleteLoading}
+      />
     </div>
   );
 }

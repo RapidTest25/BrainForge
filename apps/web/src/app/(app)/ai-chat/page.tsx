@@ -14,6 +14,7 @@ import { useTeamStore } from '@/stores/team-store';
 import { api } from '@/lib/api';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
+import { DeleteConfirmDialog } from '@/components/shared/delete-confirm-dialog';
 
 const PROVIDER_INFO: Record<string, { label: string; icon: string; color: string }> = {
   OPENAI: { label: 'OpenAI', icon: '🟢', color: '#10a37f' },
@@ -77,6 +78,7 @@ export default function AiChatPage() {
   const [editingTitle, setEditingTitle] = useState<string | null>(null);
   const [titleDraft, setTitleDraft] = useState('');
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [deleteConfirm, setDeleteConfirm] = useState<{ id: string; title: string } | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -254,6 +256,7 @@ export default function AiChatPage() {
   };
 
   return (
+    <>
     <div className="flex h-[calc(100vh-5.5rem)] md:h-[calc(100vh-6.5rem)]">
       {/* ── Sidebar: Chat History ── */}
       <div className={cn(
@@ -339,7 +342,7 @@ export default function AiChatPage() {
                           <Edit2 className="h-3 w-3" />
                         </button>
                         <button
-                          onClick={(e) => { e.stopPropagation(); if (confirm('Delete this chat?')) deleteMutation.mutate(chat.id); }}
+                          onClick={(e) => { e.stopPropagation(); setDeleteConfirm({ id: chat.id, title: chat.title || 'This chat' }); }}
                           className="h-6 w-6 rounded-md flex items-center justify-center hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors"
                         >
                           <Trash2 className="h-3 w-3" />
@@ -666,5 +669,15 @@ export default function AiChatPage() {
             </div>
       </div>
     </div>
+
+    <DeleteConfirmDialog
+      open={!!deleteConfirm}
+      onClose={() => setDeleteConfirm(null)}
+      onConfirm={() => { if (deleteConfirm) { deleteMutation.mutate(deleteConfirm.id); setDeleteConfirm(null); } }}
+      title="Delete Chat"
+      itemLabel={deleteConfirm?.title || ''}
+      isPending={deleteMutation.isPending}
+    />
+  </>
   );
 }

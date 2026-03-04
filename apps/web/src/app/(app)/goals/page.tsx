@@ -19,6 +19,7 @@ import { useTeamStore } from '@/stores/team-store';
 import { useProjectStore } from '@/stores/project-store';
 import { api } from '@/lib/api';
 import { cn } from '@/lib/utils';
+import { DeleteConfirmDialog } from '@/components/shared/delete-confirm-dialog';
 
 type Goal = {
   id: string;
@@ -45,6 +46,7 @@ export default function GoalsPage() {
   const [showAIGenerate, setShowAIGenerate] = useState(false);
   const [newGoal, setNewGoal] = useState({ title: '', description: '', dueDate: '' });
   const [selectedGoal, setSelectedGoal] = useState<Goal | null>(null);
+  const [deleteConfirm, setDeleteConfirm] = useState<{ id: string; title: string } | null>(null);
   const [aiForm, setAiForm] = useState({ prompt: '', provider: 'OPENROUTER', model: 'google/gemini-2.5-flash-preview-05-20' });
   const [goalModelSearch, setGoalModelSearch] = useState('');
   const [goalModelOpen, setGoalModelOpen] = useState(false);
@@ -224,7 +226,7 @@ export default function GoalsPage() {
                     className="text-muted-foreground/60 hover:text-red-500 transition-colors ml-1"
                     onClick={(e) => {
                       e.stopPropagation();
-                      if (confirm('Delete this goal?')) deleteMutation.mutate(goal.id);
+                      setDeleteConfirm({ id: goal.id, title: goal.title });
                     }}
                   >
                     <Trash2 className="h-3.5 w-3.5" />
@@ -413,6 +415,15 @@ export default function GoalsPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <DeleteConfirmDialog
+        open={!!deleteConfirm}
+        onClose={() => setDeleteConfirm(null)}
+        onConfirm={() => { if (deleteConfirm) { deleteMutation.mutate(deleteConfirm.id); setDeleteConfirm(null); } }}
+        title="Delete Goal"
+        itemLabel={deleteConfirm?.title || ''}
+        isPending={deleteMutation.isPending}
+      />
     </div>
   );
 }

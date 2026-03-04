@@ -20,6 +20,7 @@ import { useProjectStore } from '@/stores/project-store';
 import { api } from '@/lib/api';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
+import { DeleteConfirmDialog } from '@/components/shared/delete-confirm-dialog';
 
 const PROVIDERS = ['OPENROUTER', 'OPENAI', 'CLAUDE', 'GEMINI', 'GROQ', 'COPILOT'];
 
@@ -34,6 +35,7 @@ export default function SprintsPage() {
   const [showGenerate, setShowGenerate] = useState(false);
   const [selectedSprint, setSelectedSprint] = useState<any>(null);
   const [activeTab, setActiveTab] = useState('tasks');
+  const [deleteConfirm, setDeleteConfirm] = useState<{ id: string; title: string } | null>(null);
 
   const [createForm, setCreateForm] = useState({
     title: '', goal: '', deadline: '', teamSize: 3,
@@ -181,7 +183,7 @@ export default function SprintsPage() {
             )}
             {selectedSprint.id && (
               <button
-                onClick={() => { if (confirm('Delete this sprint?')) deleteMutation.mutate(selectedSprint.id); }}
+                onClick={() => { setDeleteConfirm({ id: selectedSprint.id, title: selectedSprint.title || 'This sprint' }); }}
                 className="flex items-center gap-1 px-2.5 py-1.5 text-red-500 text-sm rounded-lg hover:bg-red-500/10 transition-colors"
               >
                 <Trash2 className="h-3.5 w-3.5" />
@@ -632,6 +634,15 @@ export default function SprintsPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <DeleteConfirmDialog
+        open={!!deleteConfirm}
+        onClose={() => setDeleteConfirm(null)}
+        onConfirm={() => { if (deleteConfirm) { deleteMutation.mutate(deleteConfirm.id); setDeleteConfirm(null); } }}
+        title="Delete Sprint"
+        itemLabel={deleteConfirm?.title || ''}
+        isPending={deleteMutation.isPending}
+      />
     </div>
   );
 }

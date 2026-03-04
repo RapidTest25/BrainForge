@@ -394,17 +394,15 @@ export default function DiagramsPage() {
         <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search diagrams..." className="pl-9 border-border focus:border-[#7b68ee]" />
       </div>
 
-      {/* Type cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5">
-        {DIAGRAM_TYPES.map(({ value, label, desc, icon: Icon, color }) => (
-          <div key={value} className="bg-card border border-border rounded-xl p-3.5 cursor-pointer hover:shadow-sm hover:border-border transition-all group"
+      {/* Quick type shortcuts */}
+      <div className="flex flex-wrap gap-2">
+        {DIAGRAM_TYPES.map(({ value, label, icon: Icon, color }) => (
+          <button key={value} className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium border border-border rounded-lg hover:shadow-sm hover:border-[color] transition-all bg-card"
+            style={{ '--hover-border': color } as any}
             onClick={() => { setNewDiagram({ ...newDiagram, type: value }); setShowCreate(true); }}>
-            <div className="h-9 w-9 rounded-xl mb-2.5 flex items-center justify-center transition-colors" style={{ backgroundColor: `${color}10` }}>
-              <Icon className="h-4.5 w-4.5" style={{ color }} />
-            </div>
-            <p className="text-[13px] font-medium text-foreground mb-0.5">{label}</p>
-            <p className="text-[10px] text-muted-foreground leading-relaxed">{desc}</p>
-          </div>
+            <Icon className="h-3.5 w-3.5" style={{ color }} />
+            <span className="text-foreground">{label}</span>
+          </button>
         ))}
       </div>
 

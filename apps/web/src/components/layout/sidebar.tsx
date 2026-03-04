@@ -43,7 +43,7 @@ const ALL_NAV_ITEMS: Array<{ label: string; href: string; icon: any; color?: str
   { label: 'Sprints', href: '/sprints', icon: Zap, color: '#ef4444' },
   { label: 'Notes', href: '/notes', icon: FileText, color: '#8b5cf6' },
   { label: 'Docs', href: '/docs', icon: BookOpen },
-  { label: 'AI Keys', href: '/settings/ai-keys', icon: Key },
+  { label: 'BYOK', href: '/settings/ai-keys', icon: Key },
   { label: 'Team', href: '/settings/team', icon: Users },
   { label: 'Settings', href: '/settings', icon: Settings },
 ];
@@ -71,7 +71,7 @@ const SPACE_NAV = [
 
 const BOTTOM_NAV = [
   { label: 'Docs', href: '/docs', icon: BookOpen },
-  { label: 'AI Keys', href: '/settings/ai-keys', icon: Key },
+  { label: 'BYOK', href: '/settings/ai-keys', icon: Key },
   { label: 'Team', href: '/settings/team', icon: Users },
   { label: 'Settings', href: '/settings', icon: Settings },
 ];
@@ -370,7 +370,7 @@ export function Sidebar({ collapsed, onToggle, mobile, onMobileClose }: SidebarP
 
       {/* ── Main nav ── */}
       <div className={cn('pt-3 pb-1 shrink-0', isExpanded ? 'px-2 space-y-0.5' : 'px-1.5 space-y-1')}>
-        {MAIN_NAV.map(({ label, href, icon: Icon }) => (
+        {MAIN_NAV.filter(({ href }) => !isExpanded || !favoriteHrefs.includes(href)).map(({ label, href, icon: Icon }) => (
           <NavTooltip key={href} label={label} show={!isExpanded}>
             <Link
               href={href}
@@ -448,7 +448,7 @@ export function Sidebar({ collapsed, onToggle, mobile, onMobileClose }: SidebarP
                 sections.spaces ? 'max-h-96 opacity-100 mt-1' : 'max-h-0 opacity-0'
               )}>
                 <div className="space-y-0.5">
-                  {SPACE_NAV.map(({ label, href, icon: Icon, color }) => (
+                  {SPACE_NAV.filter(({ href }) => !favoriteHrefs.includes(href)).map(({ label, href, icon: Icon, color }) => (
                     <Link
                       key={`space-${label}`}
                       href={href}
@@ -483,7 +483,7 @@ export function Sidebar({ collapsed, onToggle, mobile, onMobileClose }: SidebarP
         'border-t border-border shrink-0',
         isExpanded ? 'px-2 py-2 space-y-0.5' : 'py-2 px-1.5 space-y-1'
       )}>
-        {BOTTOM_NAV.map(({ label, href, icon: Icon }) => (
+        {BOTTOM_NAV.filter(({ href }) => !isExpanded || !favoriteHrefs.includes(href)).map(({ label, href, icon: Icon }) => (
           <NavTooltip key={href} label={label} show={!isExpanded}>
             <Link
               href={href}

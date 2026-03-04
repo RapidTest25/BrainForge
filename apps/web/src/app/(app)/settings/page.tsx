@@ -139,7 +139,7 @@ export default function SettingsPage() {
     const file = e.target.files?.[0];
     if (!file) return;
     if (file.size > 2 * 1024 * 1024) {
-      alert('Image must be less than 2MB');
+      toast.error('Image must be less than 2MB');
       return;
     }
 

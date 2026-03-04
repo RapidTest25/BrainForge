@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Plus, ChevronLeft, ChevronRight, Calendar as CalendarIcon, X, Clock, Trash2, Edit3, ChevronRight as ChevronRightIcon } from 'lucide-react';
+import { Plus, ChevronLeft, ChevronRight, Calendar as CalendarIcon, X, Clock, Trash2, Edit3, ChevronRight as ChevronRightIcon, Loader2 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import {
@@ -45,6 +45,8 @@ export default function CalendarPage() {
   const [selectedDayEvents, setSelectedDayEvents] = useState<any[]>([]);
   const [showDayPanel, setShowDayPanel] = useState(false);
   const [editingEvent, setEditingEvent] = useState<any>(null);
+  const [expandedEvent, setExpandedEvent] = useState<string | null>(null);
+  const [deleteConfirm, setDeleteConfirm] = useState<{ id: string; title: string } | null>(null);
   const [newEvent, setNewEvent] = useState({
     title: '', type: 'MEETING', startDate: '', endDate: '', description: '', allDay: true,
   });
@@ -298,10 +300,12 @@ export default function CalendarPage() {
               {selectedDayEvents.map((event: any) => {
                 const typeInfo = EVENT_TYPES.find(t => t.value === event.type) || EVENT_TYPES[4];
                 const eventColor = event.color || typeInfo.color;
+                const isExpanded = expandedEvent === event.id;
                 return (
                   <div
                     key={event.id}
-                    className="rounded-xl border border-border bg-card hover:shadow-md transition-all group"
+                    className="rounded-xl border border-border bg-card hover:shadow-md transition-all group cursor-pointer"
+                    onClick={() => setExpandedEvent(isExpanded ? null : event.id)}
                   >
                     {/* Color bar */}
                     <div className="h-1.5 rounded-t-xl" style={{ backgroundColor: eventColor }} />
@@ -323,24 +327,21 @@ export default function CalendarPage() {
                             )}
                           </div>
                         </div>
-                        <button
-                          onClick={() => {
-                            if (confirm('Delete this event?')) {
-                              deleteMutation.mutate(event.id);
-                            }
-                          }}
-                          className="h-7 w-7 flex items-center justify-center rounded-md hover:bg-red-500/10 opacity-0 group-hover:opacity-100 transition-all shrink-0"
-                        >
-                          <Trash2 className="h-3.5 w-3.5 text-red-500" />
-                        </button>
+                        <div className="flex items-center gap-1">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setDeleteConfirm({ id: event.id, title: event.title });
+                            }}
+                            className="h-7 w-7 flex items-center justify-center rounded-md hover:bg-red-500/10 opacity-0 group-hover:opacity-100 transition-all shrink-0"
+                          >
+                            <Trash2 className="h-3.5 w-3.5 text-red-500" />
+                          </button>
+                          <ChevronRightIcon className={cn('h-4 w-4 text-muted-foreground transition-transform', isExpanded && 'rotate-90')} />
+                        </div>
                       </div>
 
-                      {/* Description */}
-                      {event.description && (
-                        <p className="text-xs text-muted-foreground leading-relaxed">{event.description}</p>
-                      )}
-
-                      {/* Time info */}
+                      {/* Time info (always visible) */}
                       <div className="flex items-center gap-3 text-[11px] text-muted-foreground">
                         <div className="flex items-center gap-1">
                           <Clock className="h-3 w-3" />
@@ -353,6 +354,37 @@ export default function CalendarPage() {
                           </>
                         )}
                       </div>
+
+                      {/* Expanded detail */}
+                      {isExpanded && (
+                        <div className="pt-2 border-t border-border space-y-3 animate-in slide-in-from-top-1 fade-in duration-200">
+                          {event.description ? (
+                            <div>
+                              <p className="text-[11px] font-medium text-muted-foreground mb-1">Description</p>
+                              <p className="text-xs text-foreground leading-relaxed">{event.description}</p>
+                            </div>
+                          ) : (
+                            <p className="text-xs text-muted-foreground italic">No description</p>
+                          )}
+                          <div className="flex items-center gap-4 text-[11px] text-muted-foreground">
+                            <span>Start: {new Date(event.startDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
+                            {event.endDate && (
+                              <span>End: {new Date(event.endDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
+                            )}
+                          </div>
+                          <div className="flex gap-2">
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setDeleteConfirm({ id: event.id, title: event.title });
+                              }}
+                              className="flex items-center gap-1 px-2.5 py-1 text-[11px] text-red-500 hover:bg-red-500/10 rounded-lg transition-colors"
+                            >
+                              <Trash2 className="h-3 w-3" /> Delete
+                            </button>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </div>
                 );
@@ -377,6 +409,38 @@ export default function CalendarPage() {
           </div>
         </SheetContent>
       </Sheet>
+
+      {/* Delete Confirm Dialog */}
+      <Dialog open={!!deleteConfirm} onOpenChange={(v) => { if (!v) setDeleteConfirm(null); }}>
+        <DialogContent className="bg-card max-w-sm">
+          <div className="flex flex-col items-center text-center py-2">
+            <div className="h-12 w-12 rounded-2xl bg-red-50 dark:bg-red-500/10 flex items-center justify-center mb-4">
+              <Trash2 className="h-6 w-6 text-red-500" />
+            </div>
+            <h3 className="text-lg font-semibold text-foreground mb-1">Delete Event</h3>
+            <p className="text-sm text-muted-foreground mb-1">
+              Are you sure you want to delete <span className="font-medium text-foreground">&ldquo;{deleteConfirm?.title}&rdquo;</span>?
+            </p>
+            <p className="text-xs text-muted-foreground/70">This action cannot be undone.</p>
+          </div>
+          <DialogFooter className="flex gap-2 sm:gap-2">
+            <button
+              onClick={() => setDeleteConfirm(null)}
+              className="flex-1 px-4 py-2.5 text-sm font-medium text-foreground bg-muted hover:bg-accent rounded-xl transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={() => { if (deleteConfirm) { deleteMutation.mutate(deleteConfirm.id); setDeleteConfirm(null); } }}
+              disabled={deleteMutation.isPending}
+              className="flex-1 px-4 py-2.5 text-sm font-medium text-white bg-red-500 hover:bg-red-600 rounded-xl transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+            >
+              {deleteMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
+              Delete
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

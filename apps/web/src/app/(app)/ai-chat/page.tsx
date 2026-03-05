@@ -104,9 +104,9 @@ export default function AiChatPage() {
   const [localModelStatus, setLocalModelStatus] = useState<LoadingStatus>({ stage: 'idle', progress: 0, text: '' });
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const webgpuSupported = typeof window !== 'undefined' ? isWebGPUSupported() : falsee<Set<string>>(new Set());
-  const messagesEndRef = useRef<HTMLDivElement>(null);
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const webgpuSupported = typeof window !== 'undefined' ? isWebGPUSupported() : false;
+  const [appliedMessages, setAppliedMessages] = useState<Set<string>>(new Set());
+  const [applyingUpdates, setApplyingUpdates] = useState<string | null>(null);
 
   // Fetch chat list
   const { data: chatsRes } = useQuery({
@@ -573,11 +573,12 @@ export default function AiChatPage() {
                           </div>
                           <div className="space-y-2">
                             {parsed!.suggestions!.map((s: any, i: number) => {
-                              const typeConfig = {
+                              const typeMap: Record<string, { icon: any; color: string; bg: string; label: string }> = {
                                 task: { icon: CheckSquare, color: 'text-blue-500', bg: 'bg-blue-500/10', label: 'Task' },
                                 goal: { icon: Target, color: 'text-emerald-500', bg: 'bg-emerald-500/10', label: 'Goal' },
                                 note: { icon: FileText, color: 'text-amber-500', bg: 'bg-amber-500/10', label: 'Note' },
-                              }[s.type] || { icon: CheckSquare, color: 'text-gray-500', bg: 'bg-gray-500/10', label: s.type };
+                              };
+                              const typeConfig = typeMap[s.type] || { icon: CheckSquare, color: 'text-gray-500', bg: 'bg-gray-500/10', label: s.type };
                               const TypeIcon = typeConfig.icon;
                               return (
                                 <div key={i} className="flex items-start gap-2.5 p-2.5 rounded-xl bg-muted/50 border border-border/50">

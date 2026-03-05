@@ -474,7 +474,7 @@ export default function ProjectDetailPage() {
                     key={c}
                     onClick={() => setEditForm({ ...editForm, color: c })}
                     className={cn('h-8 w-8 rounded-lg transition-all', editForm.color === c ? 'ring-2 ring-offset-2 ring-offset-card' : 'hover:scale-110')}
-                    style={{ backgroundColor: c, ringColor: c }}
+                    style={{ backgroundColor: c, ['--tw-ring-color' as any]: c }}
                   />
                 ))}
               </div>

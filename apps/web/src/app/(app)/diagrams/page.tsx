@@ -323,7 +323,7 @@ export default function DiagramsPage() {
   });
 
   const aiGenerateMutation = useMutation({
-    mutationFn: (data: any) => api.post(`/teams/${teamId}/diagrams/ai-generate`, { ...data, prompt: data.description }),
+    mutationFn: (data: any) => api.post(`/teams/${teamId}/diagrams/ai-generate`, { ...data, prompt: data.description, projectId: activeProject?.id }),
     onSuccess: (res: any) => {
       queryClient.invalidateQueries({ queryKey: ['diagrams', teamId] });
       setActiveDiagram(res.data.id);

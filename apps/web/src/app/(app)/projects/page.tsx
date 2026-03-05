@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   Plus, FolderKanban, MoreHorizontal, Pencil, Trash2,
@@ -45,6 +46,7 @@ export default function ProjectsPage() {
   const { activeTeam } = useTeamStore();
   const { setActiveProject, activeProject } = useProjectStore();
   const queryClient = useQueryClient();
+  const router = useRouter();
   const teamId = activeTeam?.id;
 
   const [showCreate, setShowCreate] = useState(false);
@@ -127,11 +129,7 @@ export default function ProjectsPage() {
   }
 
   function handleSelect(project: Project) {
-    if (activeProject?.id === project.id) {
-      setActiveProject(null);
-    } else {
-      setActiveProject(project);
-    }
+    router.push(`/projects/${project.id}`);
   }
 
   return (

@@ -9,6 +9,7 @@ import { Header } from '@/components/layout/header';
 import { Sheet, SheetContent } from '@/components/ui/sheet';
 import { api } from '@/lib/api';
 import { useQuery } from '@tanstack/react-query';
+import { RealtimeProvider } from '@/components/providers/realtime-provider';
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
@@ -87,7 +88,9 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       <div className="flex-1 flex flex-col overflow-hidden">
         <Header onMobileMenuToggle={() => setMobileOpen(true)} />
         <main className="flex-1 overflow-y-auto p-4 md:p-6 bg-background">
-          {children}
+          <RealtimeProvider>
+            {children}
+          </RealtimeProvider>
         </main>
       </div>
     </div>

@@ -48,7 +48,9 @@ export async function aiChatRoutes(app: FastifyInstance) {
   // POST /:teamId/ai-chat/:chatId/messages — send message & get AI response
   app.post('/:teamId/ai-chat/:chatId/messages', { preHandler: [teamGuard()] }, async (request, reply) => {
     const { chatId } = request.params as { chatId: string };
-    const { content, provider, model } = request.body as { content: string; provider: string; model: string };
+    const { content, provider, model, localReply } = request.body as {
+      content: string; provider: string; model: string; localReply?: string;
+    };
 
     if (!content?.trim()) {
       return reply.status(400).send({ success: false, error: { message: 'Message content is required' } });
@@ -58,12 +60,40 @@ export async function aiChatRoutes(app: FastifyInstance) {
     }
 
     try {
+      // If localReply is provided (browser-side inference), just save both messages
+      if (provider === 'BROWSER' && localReply) {
+        const result = await aiChatService.saveLocalMessages(chatId, request.user.id, content, localReply, model);
+        return reply.send({ success: true, data: result });
+      }
       const aiMessage = await aiChatService.sendMessage(chatId, request.user.id, content, provider, model);
       return reply.send({ success: true, data: aiMessage });
     } catch (error: any) {
       return reply.status(500).send({
         success: false,
         error: { message: error.message || 'AI request failed' },
+      });
+    }
+  });
+
+  // POST /:teamId/ai-chat/apply-updates — apply AI-suggested project updates
+  app.post('/:teamId/ai-chat/apply-updates', { preHandler: [teamGuard()] }, async (request, reply) => {
+    const { teamId } = request.params as { teamId: string };
+    const { suggestions, projectId } = request.body as {
+      suggestions: Array<{ type: string; title: string; description?: string; content?: string; priority?: string; status?: string }>;
+      projectId?: string;
+    };
+
+    if (!suggestions?.length) {
+      return reply.status(400).send({ success: false, error: { message: 'No suggestions provided' } });
+    }
+
+    try {
+      const results = await aiChatService.applyUpdates(teamId, request.user.id, projectId, suggestions as any);
+      return reply.send({ success: true, data: results });
+    } catch (error: any) {
+      return reply.status(500).send({
+        success: false,
+        error: { message: error.message || 'Failed to apply updates' },
       });
     }
   });

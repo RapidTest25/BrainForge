@@ -5,6 +5,7 @@ import { useSearchParams } from 'next/navigation';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   Plus, FileText, Search, Clock, History, Wand2, Type, Maximize2, CheckCheck, Languages, AlignLeft, Sparkles, ArrowLeft, ChevronDown,
+  Eye, PenLine,
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -19,6 +20,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { useTeamStore } from '@/stores/team-store';
 import { useProjectStore } from '@/stores/project-store';
+import { useProjectSocket } from '@/hooks/use-project-socket';
 import { api } from '@/lib/api';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
@@ -35,9 +37,79 @@ const AI_ACTIONS = [
 
 const PROVIDERS = ['OPENROUTER', 'OPENAI', 'CLAUDE', 'GEMINI', 'GROQ', 'COPILOT'];
 
+// ===== MARKDOWN RENDERER =====
+function renderMarkdown(text: string): string {
+  if (!text) return '';
+  let html = text
+    // Escape HTML
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    // Code blocks (fenced)
+    .replace(/```(\w*)\n([\s\S]*?)```/g, (_m, lang, code) =>
+      `<pre class="bg-muted/60 border border-border rounded-lg p-4 my-3 overflow-x-auto"><code class="text-sm font-mono text-foreground">${code.trim()}</code></pre>`)
+    // Inline code
+    .replace(/`([^`]+)`/g, '<code class="bg-muted/60 text-[#7b68ee] px-1.5 py-0.5 rounded text-sm font-mono">$1</code>')
+    // Headers
+    .replace(/^#### (.+)$/gm, '<h4 class="text-base font-semibold text-foreground mt-4 mb-2">$1</h4>')
+    .replace(/^### (.+)$/gm, '<h3 class="text-lg font-semibold text-foreground mt-5 mb-2">$1</h3>')
+    .replace(/^## (.+)$/gm, '<h2 class="text-xl font-bold text-foreground mt-6 mb-3 pb-1 border-b border-border">$1</h2>')
+    .replace(/^# (.+)$/gm, '<h1 class="text-2xl font-bold text-foreground mt-6 mb-3 pb-2 border-b border-border">$1</h1>')
+    // Horizontal rule
+    .replace(/^---$/gm, '<hr class="border-border my-6" />')
+    // Blockquote
+    .replace(/^> (.+)$/gm, '<blockquote class="border-l-4 border-[#7b68ee] pl-4 py-1 my-2 text-muted-foreground italic">$1</blockquote>')
+    // Bold + Italic
+    .replace(/\*\*\*(.+?)\*\*\*/g, '<strong class="font-bold"><em>$1</em></strong>')
+    // Bold
+    .replace(/\*\*(.+?)\*\*/g, '<strong class="font-semibold text-foreground">$1</strong>')
+    // Italic
+    .replace(/\*(.+?)\*/g, '<em class="italic">$1</em>')
+    // Strikethrough
+    .replace(/~~(.+?)~~/g, '<del class="line-through text-muted-foreground">$1</del>')
+    // Images
+    .replace(/!\[([^\]]*)\]\(([^)]+)\)/g, '<img src="$2" alt="$1" class="max-w-full rounded-lg my-3 border border-border" />')
+    // Links
+    .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer" class="text-[#7b68ee] hover:underline">$1</a>')
+    // Checkbox
+    .replace(/^- \[x\] (.+)$/gm, '<div class="flex items-center gap-2 my-1"><input type="checkbox" checked disabled class="rounded" /><span class="line-through text-muted-foreground">$1</span></div>')
+    .replace(/^- \[ \] (.+)$/gm, '<div class="flex items-center gap-2 my-1"><input type="checkbox" disabled class="rounded" /><span>$1</span></div>')
+    // Unordered list
+    .replace(/^[-*] (.+)$/gm, '<li class="ml-4 list-disc my-0.5">$1</li>')
+    // Ordered list
+    .replace(/^\d+\. (.+)$/gm, '<li class="ml-4 list-decimal my-0.5">$1</li>')
+    // Wrap consecutive li items
+    .replace(/((?:<li class="ml-4 list-disc[^>]*>.*<\/li>\n?)+)/g, '<ul class="my-2">$1</ul>')
+    .replace(/((?:<li class="ml-4 list-decimal[^>]*>.*<\/li>\n?)+)/g, '<ol class="my-2">$1</ol>')
+    // Tables
+    .replace(/^\|(.+)\|$/gm, (match) => {
+      const cells = match.split('|').filter(c => c.trim());
+      if (cells.every(c => /^[\s-:]+$/.test(c))) return '<!-- table-sep -->';
+      const cellHtml = cells.map(c => `<td class="border border-border px-3 py-1.5 text-sm">${c.trim()}</td>`).join('');
+      return `<tr>${cellHtml}</tr>`;
+    })
+    // Paragraphs (lines not already tagged)
+    .replace(/^(?!<[a-z/!]|<!-- )(.+)$/gm, '<p class="my-1.5 leading-relaxed">$1</p>')
+    // Wrap table rows
+    .replace(/((?:<tr>.*<\/tr>\n?)+)/g, '<table class="w-full border-collapse border border-border rounded-lg my-3">$1</table>')
+    // Clean table separators
+    .replace(/<!-- table-sep -->\n?/g, '');
+
+  return html;
+}
+
+// ===== MARKDOWN PREVIEW COMPONENT =====
+function MarkdownPreview({ content }: { content: string }) {
+  return (
+    <div
+      className="prose prose-sm dark:prose-invert max-w-none min-h-full text-foreground leading-relaxed"
+      dangerouslySetInnerHTML={{ __html: renderMarkdown(content) }}
+    />
+  );
+}
+
 export default function NotesPage() {
   const { activeTeam } = useTeamStore();
   const activeProject = useProjectStore((s) => s.activeProject);
+  const { emitEntityChange } = useProjectSocket(activeProject?.id);
   const teamId = activeTeam?.id;
   const queryClient = useQueryClient();
   const [selectedNote, setSelectedNote] = useState<any>(null);
@@ -57,6 +129,7 @@ export default function NotesPage() {
   const [aiModel, setAiModel] = useState('google/gemini-2.5-flash-preview-05-20');
   const [noteModelSearch, setNoteModelSearch] = useState('');
   const [noteModelOpen, setNoteModelOpen] = useState(false);
+  const [viewMode, setViewMode] = useState<'edit' | 'preview' | 'split'>('edit');
 
   const { data: notes } = useQuery({
     queryKey: ['notes', teamId, activeProject?.id],
@@ -84,6 +157,7 @@ export default function NotesPage() {
       setSelectedNote(data.data);
       setEditTitle(data.data?.title || '');
       setEditContent(data.data?.content || '');
+      emitEntityChange('note', 'create');
     },
   });
 
@@ -91,6 +165,7 @@ export default function NotesPage() {
     mutationFn: (data: any) => api.patch(`/teams/${teamId}/notes/${selectedNote.id}`, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['notes', teamId] });
+      emitEntityChange('note', 'update');
     },
   });
 
@@ -123,6 +198,7 @@ export default function NotesPage() {
       queryClient.invalidateQueries({ queryKey: ['notes', teamId] });
       setSelectedNote(null);
       toast.success('Note deleted');
+      emitEntityChange('note', 'delete');
     },
     onError: (error: Error) => {
       toast.error(error.message || 'Failed to delete note');
@@ -159,6 +235,37 @@ export default function NotesPage() {
             />
           </div>
           <div className="flex items-center gap-2 flex-wrap">
+            {/* View Mode Toggle */}
+            <div className="flex items-center bg-muted/80 rounded-lg p-0.5">
+              <button
+                onClick={() => setViewMode('edit')}
+                className={cn(
+                  'flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-medium transition-all',
+                  viewMode === 'edit' ? 'bg-card text-[#7b68ee] shadow-sm' : 'text-muted-foreground hover:text-foreground/80'
+                )}
+              >
+                <PenLine className="h-3 w-3" /> Edit
+              </button>
+              <button
+                onClick={() => setViewMode('split')}
+                className={cn(
+                  'flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-medium transition-all',
+                  viewMode === 'split' ? 'bg-card text-[#7b68ee] shadow-sm' : 'text-muted-foreground hover:text-foreground/80'
+                )}
+              >
+                Split
+              </button>
+              <button
+                onClick={() => setViewMode('preview')}
+                className={cn(
+                  'flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-medium transition-all',
+                  viewMode === 'preview' ? 'bg-card text-[#7b68ee] shadow-sm' : 'text-muted-foreground hover:text-foreground/80'
+                )}
+              >
+                <Eye className="h-3 w-3" /> Preview
+              </button>
+            </div>
+
             <Select value={aiProvider} onValueChange={(v) => { setAiProvider(v); const m = models?.data?.[v] || []; setAiModel(m[0]?.id || ''); setNoteModelSearch(''); setNoteModelOpen(false); }}>
               <SelectTrigger className="w-28 h-7 text-xs border-border"><SelectValue /></SelectTrigger>
               <SelectContent>
@@ -257,14 +364,40 @@ export default function NotesPage() {
           </div>
         </div>
 
-        {/* Editor */}
-        <div className="flex-1 overflow-auto">
-          <textarea
-            value={editContent}
-            onChange={(e) => setEditContent(e.target.value)}
-            className="min-h-full w-full border-none bg-transparent focus:outline-none resize-none font-mono text-sm leading-relaxed text-foreground placeholder:text-muted-foreground/60"
-            placeholder="Start writing your note..."
-          />
+        {/* Editor / Preview */}
+        <div className="flex-1 overflow-hidden flex">
+          {/* Editor pane */}
+          {(viewMode === 'edit' || viewMode === 'split') && (
+            <div className={cn('overflow-auto', viewMode === 'split' ? 'w-1/2 border-r border-border pr-3' : 'w-full')}>
+              <div className="relative min-h-full">
+                {viewMode === 'edit' && (
+                  <div className="absolute top-2 right-2 px-2 py-0.5 rounded bg-muted text-[10px] text-muted-foreground font-mono pointer-events-none">
+                    Markdown
+                  </div>
+                )}
+                <textarea
+                  value={editContent}
+                  onChange={(e) => setEditContent(e.target.value)}
+                  className="min-h-full w-full border-none bg-transparent focus:outline-none resize-none font-mono text-sm leading-relaxed text-foreground placeholder:text-muted-foreground/60"
+                  placeholder="# Start writing in Markdown...&#10;&#10;Use **bold**, *italic*, `code`, and more..."
+                />
+              </div>
+            </div>
+          )}
+          {/* Preview pane */}
+          {(viewMode === 'preview' || viewMode === 'split') && (
+            <div className={cn('overflow-auto', viewMode === 'split' ? 'w-1/2 pl-3' : 'w-full')}>
+              {editContent ? (
+                <MarkdownPreview content={editContent} />
+              ) : (
+                <div className="flex flex-col items-center justify-center h-full text-center py-16">
+                  <Eye className="h-10 w-10 text-muted-foreground/40 mb-3" />
+                  <p className="text-sm text-muted-foreground">Nothing to preview yet</p>
+                  <p className="text-xs text-muted-foreground/60 mt-1">Switch to Edit mode and start writing</p>
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         {/* History Dialog */}

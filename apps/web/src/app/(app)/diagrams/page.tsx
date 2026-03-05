@@ -18,6 +18,7 @@ import {
 } from '@/components/ui/select';
 import { useTeamStore } from '@/stores/team-store';
 import { useProjectStore } from '@/stores/project-store';
+import { useProjectSocket } from '@/hooks/use-project-socket';
 import { api } from '@/lib/api';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
@@ -262,6 +263,7 @@ function DrawIOEditor({ diagram, onBack, onDelete, onSave }: {
 export default function DiagramsPage() {
   const { activeTeam } = useTeamStore();
   const activeProject = useProjectStore((s) => s.activeProject);
+  const { emitEntityChange } = useProjectSocket(activeProject?.id);
   const teamId = activeTeam?.id;
   const queryClient = useQueryClient();
   const [activeDiagram, setActiveDiagram] = useState<string | null>(null);
@@ -303,6 +305,7 @@ export default function DiagramsPage() {
       setActiveDiagram(res.data.id);
       setShowCreate(false);
       toast.success('Diagram created');
+      emitEntityChange('diagram', 'create');
     },
     onError: (error: Error) => {
       toast.error(error.message || 'Failed to create diagram');
@@ -316,6 +319,7 @@ export default function DiagramsPage() {
       setActiveDiagram(null);
       setDeleteConfirm(null);
       toast.success('Diagram deleted');
+      emitEntityChange('diagram', 'delete');
     },
     onError: (error: Error) => {
       toast.error(error.message || 'Failed to delete diagram');
@@ -341,6 +345,7 @@ export default function DiagramsPage() {
       queryClient.invalidateQueries({ queryKey: ['diagram', activeDiagram] });
       queryClient.invalidateQueries({ queryKey: ['diagrams', teamId] });
       toast.success('Diagram saved');
+      emitEntityChange('diagram', 'update');
     },
     onError: () => { toast.error('Failed to save diagram'); },
   });

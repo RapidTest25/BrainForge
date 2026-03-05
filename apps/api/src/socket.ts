@@ -68,31 +68,6 @@ export function setupSocket(httpServer: HttpServer) {
       socket.to(data.sessionId).emit('whiteboard:clear');
     });
 
-    // Flow: node added
-    socket.on('flow:node-add', (data: { sessionId: string; node: any }) => {
-      socket.to(data.sessionId).emit('flow:node-add', data.node);
-    });
-
-    // Flow: node moved/updated
-    socket.on('flow:node-update', (data: { sessionId: string; node: any }) => {
-      socket.to(data.sessionId).emit('flow:node-update', data.node);
-    });
-
-    // Flow: node deleted
-    socket.on('flow:node-delete', (data: { sessionId: string; nodeId: string }) => {
-      socket.to(data.sessionId).emit('flow:node-delete', data.nodeId);
-    });
-
-    // Flow: edge added
-    socket.on('flow:edge-add', (data: { sessionId: string; edge: any }) => {
-      socket.to(data.sessionId).emit('flow:edge-add', data.edge);
-    });
-
-    // Flow: edge deleted
-    socket.on('flow:edge-delete', (data: { sessionId: string; edgeId: string }) => {
-      socket.to(data.sessionId).emit('flow:edge-delete', data.edgeId);
-    });
-
     socket.on('disconnect', () => {
       // Clean up presence from all rooms
       for (const sessionId of socketRooms) {
@@ -102,6 +77,52 @@ export function setupSocket(httpServer: HttpServer) {
           brainstormNs.to(sessionId).emit('presence:members', Array.from(members.values()));
           if (members.size === 0) roomMembers.delete(sessionId);
         }
+      }
+    });
+  });
+
+  // ── Project namespace for realtime collaboration ──
+  const projectNs = io.of('/project');
+
+  projectNs.on('connection', (socket) => {
+    let currentProjectId: string | null = null;
+
+    socket.on('join-project', (data: { projectId: string; user?: { id: string; name: string } }) => {
+      if (currentProjectId) {
+        socket.leave(currentProjectId);
+      }
+      currentProjectId = data.projectId;
+      socket.join(data.projectId);
+    });
+
+    socket.on('leave-project', (projectId: string) => {
+      socket.leave(projectId);
+      if (currentProjectId === projectId) currentProjectId = null;
+    });
+
+    // Generic entity change broadcast
+    socket.on('entity:changed', (data: { projectId: string; type: string; action: string; entityId?: string }) => {
+      socket.to(data.projectId).emit('entity:changed', data);
+    });
+
+    // Diagram realtime collaboration
+    socket.on('diagram:update', (data: { projectId: string; diagramId: string; content: any }) => {
+      socket.to(data.projectId).emit('diagram:update', data);
+    });
+
+    // Note realtime editing
+    socket.on('note:update', (data: { projectId: string; noteId: string; content: string; title?: string }) => {
+      socket.to(data.projectId).emit('note:update', data);
+    });
+
+    // Task move / status change (for board views)
+    socket.on('task:move', (data: { projectId: string; taskId: string; status: string; order?: number }) => {
+      socket.to(data.projectId).emit('task:move', data);
+    });
+
+    socket.on('disconnect', () => {
+      if (currentProjectId) {
+        socket.leave(currentProjectId);
       }
     });
   });

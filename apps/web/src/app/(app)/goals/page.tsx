@@ -17,6 +17,7 @@ import {
 import { toast } from 'sonner';
 import { useTeamStore } from '@/stores/team-store';
 import { useProjectStore } from '@/stores/project-store';
+import { useProjectSocket } from '@/hooks/use-project-socket';
 import { api } from '@/lib/api';
 import { cn } from '@/lib/utils';
 import { DeleteConfirmDialog } from '@/components/shared/delete-confirm-dialog';
@@ -40,6 +41,7 @@ const STATUS_STYLES: Record<string, { label: string; color: string; bg: string }
 export default function GoalsPage() {
   const { activeTeam } = useTeamStore();
   const activeProject = useProjectStore((s) => s.activeProject);
+  const { emitEntityChange } = useProjectSocket(activeProject?.id);
   const teamId = activeTeam?.id;
   const queryClient = useQueryClient();
   const [showCreate, setShowCreate] = useState(false);
@@ -63,12 +65,16 @@ export default function GoalsPage() {
       queryClient.invalidateQueries({ queryKey: ['goals', teamId] });
       setShowCreate(false);
       setNewGoal({ title: '', description: '', dueDate: '' });
+      emitEntityChange('goal', 'create');
     },
   });
 
   const updateMutation = useMutation({
     mutationFn: ({ id, ...data }: any) => api.patch(`/teams/${teamId}/goals/${id}`, data),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['goals', teamId] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['goals', teamId] });
+      emitEntityChange('goal', 'update');
+    },
   });
 
   const deleteMutation = useMutation({
@@ -77,6 +83,7 @@ export default function GoalsPage() {
       queryClient.invalidateQueries({ queryKey: ['goals', teamId] });
       setSelectedGoal(null);
       toast.success('Goal deleted');
+      emitEntityChange('goal', 'delete');
     },
     onError: (error: Error) => {
       toast.error(error.message || 'Failed to delete goal');

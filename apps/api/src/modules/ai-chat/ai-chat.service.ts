@@ -44,6 +44,69 @@ class AiChatService {
     });
   }
 
+  async applyUpdates(
+    teamId: string,
+    userId: string,
+    projectId: string | undefined,
+    suggestions: Array<{
+      type: 'task' | 'goal' | 'note';
+      title: string;
+      description?: string;
+      content?: string;
+      priority?: string;
+      status?: string;
+    }>,
+  ) {
+    const results: Array<{ type: string; title: string; success: boolean; id?: string }> = [];
+
+    for (const item of suggestions) {
+      try {
+        if (item.type === 'task') {
+          const task = await prisma.task.create({
+            data: {
+              teamId,
+              title: item.title,
+              description: item.description || '',
+              priority: (item.priority as any) || 'MEDIUM',
+              status: (item.status as any) || 'TODO',
+              createdBy: userId,
+              ...(projectId && { projectId }),
+            },
+          });
+          results.push({ type: 'task', title: item.title, success: true, id: task.id });
+        } else if (item.type === 'goal') {
+          const goal = await prisma.goal.create({
+            data: {
+              teamId,
+              title: item.title,
+              description: item.description || '',
+              status: 'NOT_STARTED',
+              progress: 0,
+              createdBy: userId,
+              ...(projectId && { projectId }),
+            },
+          });
+          results.push({ type: 'goal', title: item.title, success: true, id: goal.id });
+        } else if (item.type === 'note') {
+          const note = await prisma.note.create({
+            data: {
+              teamId,
+              title: item.title,
+              content: item.content || item.description || '',
+              createdBy: userId,
+              ...(projectId && { projectId }),
+            },
+          });
+          results.push({ type: 'note', title: item.title, success: true, id: note.id });
+        }
+      } catch (err: any) {
+        results.push({ type: item.type, title: item.title, success: false });
+      }
+    }
+
+    return results;
+  }
+
   async sendMessage(
     chatId: string,
     userId: string,
@@ -78,7 +141,25 @@ Guidelines:
 - When summarizing, highlight key progress, blockers, and upcoming work
 - When suggesting goals, base them on current task statuses and team activity
 - Format responses with markdown for readability
-- If asked to determine next steps, analyze incomplete tasks, goals, and recent brainstorm sessions`;
+- If asked to determine next steps, analyze incomplete tasks, goals, and recent brainstorm sessions
+
+PROJECT UPDATE SUGGESTIONS:
+When the user asks you to analyze, brainstorm, plan, or improve the project — AND the conversation leads to actionable changes (new tasks, new goals, or notes) — you SHOULD offer to update the project.
+
+To suggest project updates, include a JSON block at the END of your response using this exact format:
+
+\`\`\`brainforge-updates
+{
+  "suggestions": [
+    { "type": "task", "title": "Task title", "description": "Description", "priority": "HIGH|MEDIUM|LOW", "status": "TODO" },
+    { "type": "goal", "title": "Goal title", "description": "Description" },
+    { "type": "note", "title": "Note title", "content": "Note content in markdown" }
+  ],
+  "summary": "Brief explanation of what these updates will do"
+}
+\`\`\`
+
+Only include this block when the conversation naturally produces actionable items. Do NOT include it for simple Q&A or informational responses. The user will be able to review and apply these suggestions.`;
 
     const messages: ChatMsg[] = [
       { role: 'system', content: systemPrompt },
@@ -98,6 +179,38 @@ Guidelines:
         role: 'ASSISTANT',
         content: result.content,
         provider,
+        model,
+      },
+    });
+
+    // Update chat timestamp
+    await prisma.aiChat.update({
+      where: { id: chatId },
+      data: { updatedAt: new Date() },
+    });
+
+    return aiMessage;
+  }
+
+  async saveLocalMessages(
+    chatId: string,
+    userId: string,
+    userContent: string,
+    aiContent: string,
+    model: string,
+  ) {
+    // Save user message
+    await prisma.aiChatMessage.create({
+      data: { chatId, role: 'USER', content: userContent },
+    });
+
+    // Save AI response (generated client-side)
+    const aiMessage = await prisma.aiChatMessage.create({
+      data: {
+        chatId,
+        role: 'ASSISTANT',
+        content: aiContent,
+        provider: 'BROWSER',
         model,
       },
     });

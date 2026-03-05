@@ -5,7 +5,7 @@ import { usePathname } from 'next/navigation';
 import {
   Brain, LayoutDashboard, CheckSquare, MessageSquare,
   GitBranch, Calendar, Zap, FileText, Key, Settings,
-  ChevronDown, Users, Home, Bell, Target, Star,
+  ChevronDown, Users, Home, Target, Star,
   PanelLeftClose, PanelLeftOpen, BookOpen, X, Bot,
   FolderKanban, Circle, ChevronsLeft, ChevronsRight, Shield
 } from 'lucide-react';
@@ -21,7 +21,6 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 
 const MAIN_NAV = [
   { label: 'Home', href: '/dashboard', icon: Home },
-  { label: 'Notifications', href: '/notifications', icon: Bell },
   { label: 'Projects', href: '/projects', icon: FolderKanban },
   { label: 'Goals', href: '/goals', icon: Target },
   { label: 'AI Chat', href: '/ai-chat', icon: Bot },
@@ -32,7 +31,6 @@ const DEFAULT_FAVORITES = ['/tasks', '/sprints'];
 // All favoritable items (MAIN_NAV + SPACE_NAV + BOTTOM_NAV)
 const ALL_NAV_ITEMS: Array<{ label: string; href: string; icon: any; color?: string }> = [
   { label: 'Home', href: '/dashboard', icon: Home },
-  { label: 'Notifications', href: '/notifications', icon: Bell },
   { label: 'Projects', href: '/projects', icon: FolderKanban },
   { label: 'Goals', href: '/goals', icon: Target },
   { label: 'AI Chat', href: '/ai-chat', icon: Bot },
@@ -237,14 +235,7 @@ export function Sidebar({ collapsed, onToggle, mobile, onMobileClose }: SidebarP
     if (mobile && onMobileClose) onMobileClose();
   };
 
-  // Notification unread count
-  const { data: notificationsRes } = useQuery({
-    queryKey: ['notifications', activeTeam?.id],
-    queryFn: () => api.get<{ data: any[] }>(`/teams/${activeTeam?.id}/notifications`),
-    enabled: !!activeTeam?.id,
-    refetchInterval: 30000,
-  });
-  const unreadCount = (notificationsRes?.data || []).filter((n: any) => !n.read).length;
+
 
   const isExpanded = !collapsed || mobile;
 
@@ -384,17 +375,6 @@ export function Sidebar({ collapsed, onToggle, mobile, onMobileClose }: SidebarP
             >
               <Icon className="h-4 w-4 shrink-0" />
               {isExpanded && <span className="flex-1 truncate">{label}</span>}
-              {label === 'Notifications' && unreadCount > 0 && (
-                isExpanded ? (
-                  <span className="h-4.5 min-w-5 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center px-1.5">
-                    {unreadCount > 99 ? '99+' : unreadCount}
-                  </span>
-                ) : (
-                  <span className="absolute -top-0.5 -right-0.5 h-4 min-w-4 rounded-full bg-red-500 text-white text-[9px] font-bold flex items-center justify-center px-1">
-                    {unreadCount > 99 ? '99+' : unreadCount}
-                  </span>
-                )
-              )}
             </Link>
           </NavTooltip>
         ))}

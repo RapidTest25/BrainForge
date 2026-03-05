@@ -7,7 +7,7 @@ import {
   ArrowLeft, CheckSquare, MessageSquare, GitBranch, Target,
   FileText, Zap, Users, UserPlus, Crown, Shield, User,
   Pencil, Trash2, MoreHorizontal, Loader2, X, ExternalLink,
-  ChevronRight,
+  ChevronRight, Mail, Copy, CheckCircle2, Link as LinkIcon,
 } from 'lucide-react';
 import { useTeamStore } from '@/stores/team-store';
 import { useProjectStore, type Project } from '@/stores/project-store';
@@ -60,6 +60,12 @@ export default function ProjectDetailPage() {
   const [showEdit, setShowEdit] = useState(false);
   const [showDelete, setShowDelete] = useState(false);
   const [showAddMember, setShowAddMember] = useState(false);
+  const [showInvite, setShowInvite] = useState(false);
+  const [inviteEmail, setInviteEmail] = useState('');
+  const [inviteRole, setInviteRole] = useState('MEMBER');
+  const [inviteLink, setInviteLink] = useState('');
+  const [inviteMode, setInviteMode] = useState<'email' | 'link'>('email');
+  const [removingMember, setRemovingMember] = useState<any>(null);
   const [editForm, setEditForm] = useState({ name: '', description: '', color: '', icon: '' });
 
   // Fetch project detail
@@ -128,6 +134,24 @@ export default function ProjectDetailPage() {
       toast.success('Member removed');
     },
     onError: (e: any) => toast.error(e.message || 'Failed to remove member'),
+  });
+
+  // Team invite mutations (reuses team invite endpoints)
+  const inviteMutation = useMutation({
+    mutationFn: (data: any) => api.post(`/teams/${teamId}/invitations`, data),
+    onSuccess: (data: any) => {
+      setInviteLink(data?.data?.token || '');
+      toast.success('Invitation sent');
+    },
+    onError: (e: any) => toast.error(e.message || 'Failed to send invitation'),
+  });
+
+  const generateLinkMutation = useMutation({
+    mutationFn: (data: any) => api.post<{ data: { token: string } }>(`/teams/${teamId}/invite-link`, data),
+    onSuccess: (data: any) => {
+      setInviteLink(data?.data?.token || '');
+    },
+    onError: (e: any) => toast.error(e.message || 'Failed to generate link'),
   });
 
   function openEdit() {
@@ -283,15 +307,26 @@ export default function ProjectDetailPage() {
           <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
             Team Members ({members.length})
           </h2>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setShowAddMember(true)}
-            className="h-8 gap-1.5 text-xs"
-          >
-            <UserPlus className="h-3.5 w-3.5" />
-            Add Member
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowInvite(true)}
+              className="h-8 gap-1.5 text-xs"
+            >
+              <Mail className="h-3.5 w-3.5" />
+              Invite
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowAddMember(true)}
+              className="h-8 gap-1.5 text-xs"
+            >
+              <UserPlus className="h-3.5 w-3.5" />
+              Add Member
+            </Button>
+          </div>
         </div>
 
         <div className="bg-card border border-border rounded-xl divide-y divide-border">
@@ -355,7 +390,7 @@ export default function ProjectDetailPage() {
                     </Select>
 
                     <button
-                      onClick={() => removeMemberMutation.mutate(m.user.id)}
+                      onClick={() => setRemovingMember(m)}
                       className="h-7 w-7 flex items-center justify-center rounded-md hover:bg-red-500/10 opacity-0 group-hover:opacity-100 transition-all"
                       title="Remove member"
                     >
@@ -514,6 +549,12 @@ export default function ProjectDetailPage() {
             <div className="text-center py-8">
               <Users className="h-8 w-8 mx-auto text-muted-foreground/30 mb-2" />
               <p className="text-sm text-muted-foreground">All team members are already in this project</p>
+              <button
+                onClick={() => { setShowAddMember(false); setShowInvite(true); }}
+                className="text-xs text-[#7b68ee] hover:text-[#6c5ce7] font-medium mt-2"
+              >
+                Invite someone new to the team
+              </button>
             </div>
           ) : (
             <div className="space-y-1 max-h-72 overflow-y-auto">
@@ -556,6 +597,139 @@ export default function ProjectDetailPage() {
               ))}
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Invite Dialog (Email + Link) */}
+      <Dialog open={showInvite} onOpenChange={(o) => { setShowInvite(o); if (!o) { setInviteLink(''); setInviteMode('email'); setInviteEmail(''); } }}>
+        <DialogContent className="bg-card">
+          <DialogHeader>
+            <DialogTitle className="text-foreground">Invite to Team</DialogTitle>
+          </DialogHeader>
+          {inviteLink ? (
+            <div className="space-y-4">
+              <div className="flex items-center gap-2 text-green-500">
+                <CheckCircle2 className="h-5 w-5" />
+                <span className="font-medium text-sm">Invitation Created!</span>
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-[13px] font-medium text-muted-foreground">Invite Link</label>
+                <div className="flex gap-2">
+                  <Input value={`${typeof window !== 'undefined' ? window.location.origin : ''}/join/${inviteLink}`} readOnly className="border-border text-sm" />
+                  <button
+                    className="px-3 py-1.5 border border-border rounded-lg text-muted-foreground hover:text-foreground/80 hover:border-border transition-colors"
+                    onClick={() => {
+                      navigator.clipboard.writeText(`${window.location.origin}/join/${inviteLink}`);
+                      toast.success('Link copied to clipboard');
+                    }}
+                  >
+                    <Copy className="h-4 w-4" />
+                  </button>
+                </div>
+                <p className="text-[11px] text-muted-foreground">This link expires in 7 days. Anyone with this link can join the team.</p>
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {/* Mode toggle */}
+              <div className="flex bg-muted rounded-lg p-0.5">
+                <button
+                  onClick={() => setInviteMode('email')}
+                  className={`flex-1 py-1.5 text-[13px] font-medium rounded-md transition-colors ${inviteMode === 'email' ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground'}`}
+                >
+                  <Mail className="h-3.5 w-3.5 inline mr-1" /> Email
+                </button>
+                <button
+                  onClick={() => setInviteMode('link')}
+                  className={`flex-1 py-1.5 text-[13px] font-medium rounded-md transition-colors ${inviteMode === 'link' ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground'}`}
+                >
+                  <LinkIcon className="h-3.5 w-3.5 inline mr-1" /> Invite Link
+                </button>
+              </div>
+
+              {inviteMode === 'email' && (
+                <div className="space-y-1.5">
+                  <label className="text-[13px] font-medium text-muted-foreground">Email</label>
+                  <Input
+                    type="email"
+                    value={inviteEmail}
+                    onChange={(e) => setInviteEmail(e.target.value)}
+                    placeholder="colleague@example.com"
+                    className="border-border focus:border-[#7b68ee]"
+                  />
+                </div>
+              )}
+
+              {inviteMode === 'link' && (
+                <p className="text-sm text-muted-foreground">Generate a link that anyone can use to join this team. The link expires in 7 days.</p>
+              )}
+
+              <div className="space-y-1.5">
+                <label className="text-[13px] font-medium text-muted-foreground">Role</label>
+                <Select value={inviteRole} onValueChange={setInviteRole}>
+                  <SelectTrigger className="border-border"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="ADMIN">Admin</SelectItem>
+                    <SelectItem value="MEMBER">Member</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <button onClick={() => { setShowInvite(false); setInviteLink(''); setInviteMode('email'); setInviteEmail(''); }} className="px-4 py-2 text-sm font-medium text-muted-foreground hover:text-foreground/80 rounded-lg hover:bg-accent transition-colors">
+              {inviteLink ? 'Done' : 'Cancel'}
+            </button>
+            {!inviteLink && inviteMode === 'email' && (
+              <button
+                onClick={() => inviteMutation.mutate({ email: inviteEmail, role: inviteRole })}
+                disabled={!inviteEmail || inviteMutation.isPending}
+                className="flex items-center gap-1.5 px-5 py-2 bg-[#7b68ee] text-white text-sm font-medium rounded-lg hover:bg-[#6c5ce7] disabled:opacity-50 transition-colors"
+              >
+                <Mail className="h-3.5 w-3.5" />
+                {inviteMutation.isPending ? 'Sending...' : 'Send Invite'}
+              </button>
+            )}
+            {!inviteLink && inviteMode === 'link' && (
+              <button
+                onClick={() => generateLinkMutation.mutate({ role: inviteRole })}
+                disabled={generateLinkMutation.isPending}
+                className="flex items-center gap-1.5 px-5 py-2 bg-[#7b68ee] text-white text-sm font-medium rounded-lg hover:bg-[#6c5ce7] disabled:opacity-50 transition-colors"
+              >
+                <Copy className="h-3.5 w-3.5" />
+                {generateLinkMutation.isPending ? 'Generating...' : 'Generate Link'}
+              </button>
+            )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Remove Member Confirmation */}
+      <Dialog open={!!removingMember} onOpenChange={(o) => { if (!o) setRemovingMember(null); }}>
+        <DialogContent className="bg-card max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="text-foreground">Remove Member</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <p className="text-sm text-muted-foreground">
+              Are you sure you want to remove <span className="font-medium text-foreground">{removingMember?.user?.name || removingMember?.user?.email}</span> from this project?
+            </p>
+            <p className="text-xs text-muted-foreground">They will lose access to project-specific resources but remain in the team.</p>
+          </div>
+          <DialogFooter>
+            <button
+              onClick={() => setRemovingMember(null)}
+              className="px-4 py-2 text-sm font-medium text-muted-foreground hover:text-foreground/80 rounded-lg hover:bg-accent transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={() => { removeMemberMutation.mutate(removingMember.user.id); setRemovingMember(null); }}
+              className="px-4 py-2 bg-red-500 text-white text-sm font-medium rounded-lg hover:bg-red-600 transition-colors"
+            >
+              Remove
+            </button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

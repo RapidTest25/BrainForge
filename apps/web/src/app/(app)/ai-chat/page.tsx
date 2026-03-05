@@ -7,14 +7,18 @@ import {
   Sparkles, Target, BarChart3, Clock,
   Edit2, Check, X, PanelLeftClose, PanelLeftOpen,
   ArrowUp, Zap, AlertCircle, Search, ChevronDown,
+  CheckSquare, FileText, Rocket,
 } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { useTeamStore } from '@/stores/team-store';
+import { useProjectStore } from '@/stores/project-store';
 import { api } from '@/lib/api';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { DeleteConfirmDialog } from '@/components/shared/delete-confirm-dialog';
+import { LOCAL_MODELS, LoadingStatus, isWebGPUSupported, loadLocalModel, chatWithLocalModel } from '@/lib/webllm';
+import type { ChatCompletionMessageParam } from '@mlc-ai/web-llm';
 
 const PROVIDER_INFO: Record<string, { label: string; icon: string; color: string }> = {
   OPENAI: { label: 'OpenAI', icon: '🟢', color: '#10a37f' },
@@ -26,6 +30,7 @@ const PROVIDER_INFO: Record<string, { label: string; icon: string; color: string
   MISTRAL: { label: 'Mistral', icon: '🌀', color: '#ff7000' },
   DEEPSEEK: { label: 'DeepSeek', icon: '🌊', color: '#4d6bfe' },
   OLLAMA: { label: 'Ollama', icon: '🦙', color: '#1a1a2e' },
+  BROWSER: { label: 'Browser (Local)', icon: '💻', color: '#22c55e' },
 };
 
 const MODEL_CATEGORY_RULES = [
@@ -64,8 +69,25 @@ const QUICK_ACTIONS = [
   { label: 'Sprint planning', description: 'Plan your next sprint efficiently', prompt: 'Help me plan the next sprint. Based on incomplete tasks and current priorities, suggest what should be included in the next sprint.', icon: Clock, color: 'from-purple-500/10 to-purple-600/5 text-purple-600' },
 ];
 
+// Parse brainforge-updates JSON blocks from AI response
+function parseBrainforgeUpdates(content: string): { cleanContent: string; suggestions: any[] | null; summary: string | null } {
+  const regex = /```brainforge-updates\s*\n([\s\S]*?)```/g;
+  let suggestions: any[] | null = null;
+  let summary: string | null = null;
+  const cleanContent = content.replace(regex, (_match, jsonStr) => {
+    try {
+      const parsed = JSON.parse(jsonStr.trim());
+      if (parsed.suggestions) suggestions = parsed.suggestions;
+      if (parsed.summary) summary = parsed.summary;
+    } catch { /* ignore parse errors */ }
+    return '';
+  }).trim();
+  return { cleanContent, suggestions, summary };
+}
+
 export default function AiChatPage() {
   const { activeTeam } = useTeamStore();
+  const { activeProject } = useProjectStore();
   const teamId = activeTeam?.id;
   const queryClient = useQueryClient();
   const [activeChatId, setActiveChatId] = useState<string | null>(null);
@@ -79,6 +101,10 @@ export default function AiChatPage() {
   const [titleDraft, setTitleDraft] = useState('');
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [deleteConfirm, setDeleteConfirm] = useState<{ id: string; title: string } | null>(null);
+  const [localModelStatus, setLocalModelStatus] = useState<LoadingStatus>({ stage: 'idle', progress: 0, text: '' });
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const webgpuSupported = typeof window !== 'undefined' ? isWebGPUSupported() : falsee<Set<string>>(new Set());
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -178,6 +204,39 @@ export default function AiChatPage() {
     },
   });
 
+  // Apply AI-suggested updates to project
+  const handleApplyUpdates = async (messageId: string, suggestions: any[]) => {
+    if (!activeProject?.id) {
+      toast.error('Please select a project first');
+      return;
+    }
+    setApplyingUpdates(messageId);
+    try {
+      const res: any = await api.post(`/teams/${teamId}/ai-chat/apply-updates`, {
+        projectId: activeProject.id,
+        suggestions,
+      });
+      const results = res.data || res.results || [];
+      const successCount = results.filter((r: any) => r.success).length;
+      const failCount = results.filter((r: any) => !r.success).length;
+      setAppliedMessages(prev => new Set(prev).add(messageId));
+      if (failCount === 0) {
+        toast.success(`Successfully applied ${successCount} update${successCount > 1 ? 's' : ''} to "${activeProject.name}"`);
+      } else {
+        toast.warning(`Applied ${successCount} updates, ${failCount} failed`);
+      }
+      // Invalidate related queries
+      queryClient.invalidateQueries({ queryKey: ['tasks'] });
+      queryClient.invalidateQueries({ queryKey: ['goals'] });
+      queryClient.invalidateQueries({ queryKey: ['notes'] });
+      queryClient.invalidateQueries({ queryKey: ['project', activeProject.id] });
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to apply updates');
+    } finally {
+      setApplyingUpdates(null);
+    }
+  };
+
   // Send message
   const handleSend = async (content?: string) => {
     const text = content || message.trim();
@@ -218,12 +277,36 @@ export default function AiChatPage() {
         };
       });
 
-      await api.post(`/teams/${teamId}/ai-chat/${chatId}/messages`, {
-        content: text,
-        provider,
-        model,
-      });
-      queryClient.invalidateQueries({ queryKey: ['ai-chat', chatId] });
+      if (provider === 'BROWSER') {
+        // Client-side inference via WebLLM
+        const engine = await loadLocalModel(model, setLocalModelStatus);
+        const existingMessages = (activeChat?.messages || []).map((m: any) => ({
+          role: m.role === 'USER' ? 'user' : 'assistant',
+          content: m.content,
+        })) as ChatCompletionMessageParam[];
+        existingMessages.push({ role: 'user', content: text });
+
+        const reply = await chatWithLocalModel(engine, existingMessages,
+          'You are BrainForge AI, a helpful project management assistant. Be concise and actionable.'
+        );
+
+        // Save both messages to backend
+        await api.post(`/teams/${teamId}/ai-chat/${chatId}/messages`, {
+          content: text,
+          provider: 'BROWSER',
+          model,
+          localReply: reply,
+        });
+        queryClient.invalidateQueries({ queryKey: ['ai-chat', chatId] });
+      } else {
+        // Server-side inference
+        await api.post(`/teams/${teamId}/ai-chat/${chatId}/messages`, {
+          content: text,
+          provider,
+          model,
+        });
+        queryClient.invalidateQueries({ queryKey: ['ai-chat', chatId] });
+      }
     } catch (err: any) {
       toast.error(err.message || 'Failed to send message');
       queryClient.invalidateQueries({ queryKey: ['ai-chat', chatId] });
@@ -242,6 +325,7 @@ export default function AiChatPage() {
 
   const renderMarkdown = (text: string) => {
     return text
+      .replace(/```brainforge-updates\s*\n[\s\S]*?```/g, '')
       .replace(/```(\w*)\n([\s\S]*?)```/g, '<pre class="bg-[#1e1e2e] text-gray-100 rounded-xl p-4 my-3 overflow-x-auto text-[13px] leading-relaxed font-mono"><code>$2</code></pre>')
       .replace(/`([^`]+)`/g, '<code class="bg-primary/8 text-[#7b68ee] px-1.5 py-0.5 rounded-md text-[13px] font-mono">$1</code>')
       .replace(/\*\*(.+?)\*\*/g, '<strong class="font-semibold">$1</strong>')
@@ -252,7 +336,8 @@ export default function AiChatPage() {
       .replace(/^- (.+)$/gm, '<li class="ml-4 list-disc text-sm leading-relaxed">$1</li>')
       .replace(/^(\d+)\. (.+)$/gm, '<li class="ml-4 list-decimal text-sm leading-relaxed">$2</li>')
       .replace(/\n\n/g, '<br/><br/>')
-      .replace(/\n/g, '<br/>');
+      .replace(/\n/g, '<br/>')
+      .trim();
   };
 
   return (
@@ -447,20 +532,27 @@ export default function AiChatPage() {
                   </div>
                 )}
 
-                {activeChat?.messages?.map((msg: any) => (
-                  <div key={msg.id} className={cn('flex gap-3', msg.role === 'USER' ? 'justify-end' : '')}>
-                    {msg.role !== 'USER' && (
+                {activeChat?.messages?.map((msg: any) => {
+                  const isAI = msg.role !== 'USER';
+                  const parsed = isAI ? parseBrainforgeUpdates(msg.content) : null;
+                  const hasSuggestions = parsed?.suggestions && parsed.suggestions.length > 0;
+                  const isApplied = appliedMessages.has(msg.id);
+                  const isApplying = applyingUpdates === msg.id;
+
+                  return (
+                  <div key={msg.id} className={cn('flex gap-3', !isAI ? 'justify-end' : '')}>
+                    {isAI && (
                       <div className="h-8 w-8 rounded-xl bg-linear-to-br from-[#7b68ee] to-[#6c5ce7] flex items-center justify-center shrink-0 mt-0.5 shadow-sm">
                         <Bot className="h-4 w-4 text-white" />
                       </div>
                     )}
                     <div className={cn(
                       'max-w-[80%] rounded-2xl px-4 py-3',
-                      msg.role === 'USER'
+                      !isAI
                         ? 'bg-primary text-primary-foreground rounded-br-md'
                         : 'bg-card border border-border rounded-bl-md shadow-sm'
                     )}>
-                      {msg.role === 'USER' ? (
+                      {!isAI ? (
                         <p className="text-sm whitespace-pre-wrap leading-relaxed">{msg.content}</p>
                       ) : (
                         <div
@@ -468,8 +560,77 @@ export default function AiChatPage() {
                           dangerouslySetInnerHTML={{ __html: renderMarkdown(msg.content) }}
                         />
                       )}
-                      <div className={cn('flex items-center gap-2 mt-2 pt-1', msg.role !== 'USER' && 'border-t border-border/50')}>
-                        <span className={cn('text-[10px]', msg.role === 'USER' ? 'text-primary-foreground/60' : 'text-muted-foreground')}>
+
+                      {/* Suggestion Cards for AI project updates */}
+                      {isAI && hasSuggestions && (
+                        <div className="mt-3 pt-3 border-t border-border/50">
+                          <div className="flex items-center gap-2 mb-2.5">
+                            <Rocket className="h-3.5 w-3.5 text-primary" />
+                            <span className="text-xs font-semibold text-foreground">Suggested Updates</span>
+                            {parsed!.summary && (
+                              <span className="text-[10px] text-muted-foreground">— {parsed!.summary}</span>
+                            )}
+                          </div>
+                          <div className="space-y-2">
+                            {parsed!.suggestions!.map((s: any, i: number) => {
+                              const typeConfig = {
+                                task: { icon: CheckSquare, color: 'text-blue-500', bg: 'bg-blue-500/10', label: 'Task' },
+                                goal: { icon: Target, color: 'text-emerald-500', bg: 'bg-emerald-500/10', label: 'Goal' },
+                                note: { icon: FileText, color: 'text-amber-500', bg: 'bg-amber-500/10', label: 'Note' },
+                              }[s.type] || { icon: CheckSquare, color: 'text-gray-500', bg: 'bg-gray-500/10', label: s.type };
+                              const TypeIcon = typeConfig.icon;
+                              return (
+                                <div key={i} className="flex items-start gap-2.5 p-2.5 rounded-xl bg-muted/50 border border-border/50">
+                                  <div className={cn('h-7 w-7 rounded-lg flex items-center justify-center shrink-0', typeConfig.bg)}>
+                                    <TypeIcon className={cn('h-3.5 w-3.5', typeConfig.color)} />
+                                  </div>
+                                  <div className="flex-1 min-w-0">
+                                    <div className="flex items-center gap-2">
+                                      <span className="text-xs font-medium text-foreground truncate">{s.title}</span>
+                                      <span className={cn('text-[9px] px-1.5 py-0.5 rounded-full font-medium', typeConfig.bg, typeConfig.color)}>
+                                        {typeConfig.label}
+                                      </span>
+                                      {s.priority && (
+                                        <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground font-medium">
+                                          {s.priority}
+                                        </span>
+                                      )}
+                                    </div>
+                                    {s.description && (
+                                      <p className="text-[11px] text-muted-foreground mt-0.5 line-clamp-2">{s.description}</p>
+                                    )}
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                          <button
+                            onClick={() => handleApplyUpdates(msg.id, parsed!.suggestions!)}
+                            disabled={isApplying || isApplied || !activeProject}
+                            className={cn(
+                              'mt-3 w-full flex items-center justify-center gap-2 px-4 py-2 rounded-xl text-xs font-medium transition-all',
+                              isApplied
+                                ? 'bg-emerald-500/10 text-emerald-600 border border-emerald-500/20 cursor-default'
+                                : !activeProject
+                                ? 'bg-muted text-muted-foreground cursor-not-allowed'
+                                : 'bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm hover:shadow-md hover:shadow-primary/20'
+                            )}
+                          >
+                            {isApplying ? (
+                              <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Applying...</>
+                            ) : isApplied ? (
+                              <><Check className="h-3.5 w-3.5" /> Applied to {activeProject?.name}</>
+                            ) : !activeProject ? (
+                              <><AlertCircle className="h-3.5 w-3.5" /> Select a project first</>
+                            ) : (
+                              <><Rocket className="h-3.5 w-3.5" /> Apply to &quot;{activeProject.name}&quot;</>
+                            )}
+                          </button>
+                        </div>
+                      )}
+
+                      <div className={cn('flex items-center gap-2 mt-2 pt-1', isAI && 'border-t border-border/50')}>
+                        <span className={cn('text-[10px]', !isAI ? 'text-primary-foreground/60' : 'text-muted-foreground')}>
                           {new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                         </span>
                         {msg.model && (
@@ -479,13 +640,14 @@ export default function AiChatPage() {
                         )}
                       </div>
                     </div>
-                    {msg.role === 'USER' && (
+                    {!isAI && (
                       <div className="h-8 w-8 rounded-xl bg-linear-to-br from-blue-500 to-blue-600 flex items-center justify-center shrink-0 mt-0.5 shadow-sm">
                         <span className="text-xs font-bold text-white">U</span>
                       </div>
                     )}
                   </div>
-                ))}
+                  );
+                })}
 
                 {sending && (
                   <div className="flex gap-3">
@@ -518,13 +680,14 @@ export default function AiChatPage() {
                 <div className="space-y-2 mb-2">
                   {/* Provider pills */}
                   <div className="flex flex-wrap gap-1.5">
-                    {connectedProviders.size === 0 ? (
+                    {connectedProviders.size === 0 && !webgpuSupported ? (
                       <div className="w-full flex items-center gap-2 px-3 py-2 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-500 text-[11px]">
                         <AlertCircle className="h-3.5 w-3.5 shrink-0" />
                         No API keys connected. Go to Settings → AI Integration.
                       </div>
                     ) : (
-                      Object.keys(modelsData?.data || {}).filter(p => connectedProviders.has(p)).map(p => {
+                      <>
+                      {Object.keys(modelsData?.data || {}).filter(p => connectedProviders.has(p)).map(p => {
                         const info = PROVIDER_INFO[p];
                         const isSelected = provider === p;
                         return (
@@ -542,9 +705,47 @@ export default function AiChatPage() {
                             {info?.label || p}
                           </button>
                         );
-                      })
+                      })}
+                      {/* Browser (Local) provider — always available if WebGPU supported */}
+                      {webgpuSupported && (
+                        <button
+                          onClick={() => {
+                            setProvider('BROWSER');
+                            if (!LOCAL_MODELS.find(m => m.id === model)) {
+                              setModel(LOCAL_MODELS[0].id);
+                            }
+                          }}
+                          className={cn(
+                            'flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-medium transition-all border',
+                            provider === 'BROWSER'
+                              ? 'border-green-500 bg-green-500/5 text-green-600'
+                              : 'border-border bg-card text-muted-foreground hover:bg-muted'
+                          )}
+                        >
+                          <span className="text-xs leading-none">💻</span>
+                          Browser (Local)
+                        </button>
+                      )}
+                      </>
                     )}
                   </div>
+
+                  {/* Local model loading progress */}
+                  {provider === 'BROWSER' && localModelStatus.stage === 'loading' && (
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2">
+                        <Loader2 className="h-3 w-3 animate-spin text-green-500" />
+                        <span className="text-[11px] text-muted-foreground truncate">{localModelStatus.text}</span>
+                        <span className="text-[11px] font-medium text-green-600 ml-auto">{localModelStatus.progress}%</span>
+                      </div>
+                      <div className="h-1.5 rounded-full bg-muted overflow-hidden">
+                        <div
+                          className="h-full rounded-full bg-green-500 transition-all duration-300"
+                          style={{ width: `${localModelStatus.progress}%` }}
+                        />
+                      </div>
+                    </div>
+                  )}
 
                   {/* Model selector toggle */}
                   <button
@@ -553,7 +754,9 @@ export default function AiChatPage() {
                   >
                     <Zap className="h-3 w-3 text-amber-500 shrink-0" />
                     <span className="text-[11px] font-medium text-foreground truncate flex-1">
-                      {(modelsData?.data?.[provider] || []).find((m: any) => m.id === model)?.name || model || 'Select model'}
+                      {provider === 'BROWSER'
+                        ? LOCAL_MODELS.find(m => m.id === model)?.name || model || 'Select local model'
+                        : (modelsData?.data?.[provider] || []).find((m: any) => m.id === model)?.name || model || 'Select model'}
                     </span>
                     <ChevronDown className={cn('h-3 w-3 text-muted-foreground transition-transform', modelSelectorOpen && 'rotate-180')} />
                   </button>
@@ -561,83 +764,128 @@ export default function AiChatPage() {
                   {/* Expanded model list */}
                   {modelSelectorOpen && (
                     <div className="rounded-xl border border-border bg-card shadow-lg overflow-hidden">
-                      {/* Search */}
-                      {(modelsData?.data?.[provider] || []).length > 6 && (
-                        <div className="relative border-b border-border">
-                          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground" />
-                          <Input
-                            placeholder="Search models..."
-                            value={modelFilter}
-                            onChange={(e) => setModelFilter(e.target.value)}
-                            className="h-8 pl-8 text-[11px] rounded-none border-0 bg-transparent focus-visible:ring-0"
-                          />
-                        </div>
-                      )}
-                      <div className="max-h-[220px] overflow-y-auto p-1">
-                        {(() => {
-                          const allProviderModels = modelsData?.data?.[provider] || [];
-                          const filtered = modelFilter
-                            ? allProviderModels.filter((m: any) =>
-                                m.name.toLowerCase().includes(modelFilter.toLowerCase()) ||
-                                m.id.toLowerCase().includes(modelFilter.toLowerCase())
-                              )
-                            : allProviderModels;
-
-                          if (filtered.length === 0) {
+                      {provider === 'BROWSER' ? (
+                        /* Local model list */
+                        <div className="max-h-55 overflow-y-auto p-1">
+                          <div className="sticky top-0 z-10 flex items-center gap-1.5 px-2 py-1 text-[10px] font-bold text-muted-foreground uppercase tracking-wider bg-card/95 backdrop-blur-sm">
+                            <span className="text-xs leading-none">💻</span>
+                            Local Models (WebGPU)
+                            <span className="text-[9px] font-normal ml-auto opacity-50">{LOCAL_MODELS.length}</span>
+                          </div>
+                          {LOCAL_MODELS.map((m) => {
+                            const isSelected = model === m.id;
                             return (
-                              <div className="text-center py-4">
-                                <Search className="h-4 w-4 mx-auto text-muted-foreground/30 mb-1" />
-                                <p className="text-[11px] text-muted-foreground">No models match &quot;{modelFilter}&quot;</p>
-                              </div>
-                            );
-                          }
-
-                          const groups = categorizeModels(filtered);
-                          const showHeaders = groups.length > 1;
-
-                          return groups.map(group => (
-                            <div key={group.label}>
-                              {showHeaders && (
-                                <div className="sticky top-0 z-10 flex items-center gap-1.5 px-2 py-1 mt-1 first:mt-0 text-[10px] font-bold text-muted-foreground uppercase tracking-wider bg-card/95 backdrop-blur-sm">
-                                  <span className="text-xs leading-none">{group.icon}</span>
-                                  {group.label}
-                                  <span className="text-[9px] font-normal ml-auto opacity-50">{group.models.length}</span>
+                              <button
+                                key={m.id}
+                                onClick={() => { setModel(m.id); setModelSelectorOpen(false); }}
+                                className={cn(
+                                  'w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg transition-all text-left',
+                                  isSelected
+                                    ? 'bg-green-500/10 text-green-600'
+                                    : 'hover:bg-muted/50 text-foreground'
+                                )}
+                              >
+                                <div className={cn(
+                                  'h-3.5 w-3.5 rounded-full border-2 flex items-center justify-center shrink-0',
+                                  isSelected ? 'border-green-500' : 'border-muted-foreground/30'
+                                )}>
+                                  {isSelected && <div className="h-1.5 w-1.5 rounded-full bg-green-500" />}
                                 </div>
-                              )}
-                              {group.models.map((m: any) => {
-                                const isSelected = model === m.id;
-                                const isFree = m.costPer1kInput === 0 && m.costPer1kOutput === 0;
-                                return (
-                                  <button
-                                    key={m.id}
-                                    onClick={() => { setModel(m.id); setModelSelectorOpen(false); }}
-                                    className={cn(
-                                      'w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg transition-all text-left',
-                                      isSelected
-                                        ? 'bg-primary/10 text-primary'
-                                        : 'hover:bg-muted/50 text-foreground'
-                                    )}
-                                  >
-                                    <div className={cn(
-                                      'h-3.5 w-3.5 rounded-full border-2 flex items-center justify-center shrink-0',
-                                      isSelected ? 'border-primary' : 'border-muted-foreground/30'
-                                    )}>
-                                      {isSelected && <div className="h-1.5 w-1.5 rounded-full bg-primary" />}
-                                    </div>
-                                    <div className="flex-1 min-w-0">
-                                      <div className="flex items-center gap-1.5">
-                                        <span className="text-[12px] font-medium truncate">{m.name}</span>
-                                        {isFree && <span className="text-[8px] font-bold px-1 rounded bg-green-500/10 text-green-500">FREE</span>}
-                                      </div>
-                                    </div>
-                                    <span className="text-[10px] text-muted-foreground shrink-0">{(m.contextWindow / 1000).toFixed(0)}K</span>
-                                  </button>
-                                );
-                              })}
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center gap-1.5">
+                                    <span className="text-[12px] font-medium truncate">{m.name}</span>
+                                    <span className="text-[8px] font-bold px-1 rounded bg-green-500/10 text-green-500">LOCAL</span>
+                                  </div>
+                                </div>
+                                <span className="text-[10px] text-muted-foreground shrink-0">{m.size}</span>
+                              </button>
+                            );
+                          })}
+                          <div className="px-2.5 py-2 text-[10px] text-muted-foreground border-t border-border/50 mt-1">
+                            Models run entirely in your browser via WebGPU. First load downloads the model weights (cached for future use).
+                          </div>
+                        </div>
+                      ) : (
+                        <>
+                          {/* Search */}
+                          {(modelsData?.data?.[provider] || []).length > 6 && (
+                            <div className="relative border-b border-border">
+                              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground" />
+                              <Input
+                                placeholder="Search models..."
+                                value={modelFilter}
+                                onChange={(e) => setModelFilter(e.target.value)}
+                                className="h-8 pl-8 text-[11px] rounded-none border-0 bg-transparent focus-visible:ring-0"
+                              />
                             </div>
-                          ));
-                        })()}
-                      </div>
+                          )}
+                          <div className="max-h-55 overflow-y-auto p-1">
+                            {(() => {
+                              const allProviderModels = modelsData?.data?.[provider] || [];
+                              const filtered = modelFilter
+                                ? allProviderModels.filter((m: any) =>
+                                    m.name.toLowerCase().includes(modelFilter.toLowerCase()) ||
+                                    m.id.toLowerCase().includes(modelFilter.toLowerCase())
+                                  )
+                                : allProviderModels;
+
+                              if (filtered.length === 0) {
+                                return (
+                                  <div className="text-center py-4">
+                                    <Search className="h-4 w-4 mx-auto text-muted-foreground/30 mb-1" />
+                                    <p className="text-[11px] text-muted-foreground">No models match &quot;{modelFilter}&quot;</p>
+                                  </div>
+                                );
+                              }
+
+                              const groups = categorizeModels(filtered);
+                              const showHeaders = groups.length > 1;
+
+                              return groups.map(group => (
+                                <div key={group.label}>
+                                  {showHeaders && (
+                                    <div className="sticky top-0 z-10 flex items-center gap-1.5 px-2 py-1 mt-1 first:mt-0 text-[10px] font-bold text-muted-foreground uppercase tracking-wider bg-card/95 backdrop-blur-sm">
+                                      <span className="text-xs leading-none">{group.icon}</span>
+                                      {group.label}
+                                      <span className="text-[9px] font-normal ml-auto opacity-50">{group.models.length}</span>
+                                    </div>
+                                  )}
+                                  {group.models.map((m: any) => {
+                                    const isSelected = model === m.id;
+                                    const isFree = m.costPer1kInput === 0 && m.costPer1kOutput === 0;
+                                    return (
+                                      <button
+                                        key={m.id}
+                                        onClick={() => { setModel(m.id); setModelSelectorOpen(false); }}
+                                        className={cn(
+                                          'w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg transition-all text-left',
+                                          isSelected
+                                            ? 'bg-primary/10 text-primary'
+                                            : 'hover:bg-muted/50 text-foreground'
+                                        )}
+                                      >
+                                        <div className={cn(
+                                          'h-3.5 w-3.5 rounded-full border-2 flex items-center justify-center shrink-0',
+                                          isSelected ? 'border-primary' : 'border-muted-foreground/30'
+                                        )}>
+                                          {isSelected && <div className="h-1.5 w-1.5 rounded-full bg-primary" />}
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                          <div className="flex items-center gap-1.5">
+                                            <span className="text-[12px] font-medium truncate">{m.name}</span>
+                                            {isFree && <span className="text-[8px] font-bold px-1 rounded bg-green-500/10 text-green-500">FREE</span>}
+                                          </div>
+                                        </div>
+                                        <span className="text-[10px] text-muted-foreground shrink-0">{(m.contextWindow / 1000).toFixed(0)}K</span>
+                                      </button>
+                                    );
+                                  })}
+                                </div>
+                              ));
+                            })()}
+                          </div>
+                        </>
+                      )}
                     </div>
                   )}
                 </div>

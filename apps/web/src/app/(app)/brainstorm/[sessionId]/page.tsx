@@ -1,11 +1,11 @@
 'use client';
 
-import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   MessageSquare, Send, Swords, BarChart3,
-  Sparkles, Loader2, ArrowLeft, Pencil, GitBranch, Trash2,
+  Sparkles, Loader2, ArrowLeft, Pencil, Trash2,
   Circle, Square, Type, Minus, Eraser, Download,
   ArrowRight, Diamond, RotateCcw,
   Users, FileText, Check, X, Paperclip, Image as ImageIcon, File as FileIcon,
@@ -40,8 +40,6 @@ const DRAW_SIZES = [2, 4, 6, 8];
 
 // ===== TYPES =====
 type DrawTool = 'select' | 'pen' | 'line' | 'rect' | 'circle' | 'diamond' | 'text' | 'eraser' | 'arrow';
-type FlowNodeType = 'start' | 'process' | 'decision' | 'end' | 'note';
-type PortDir = 'n' | 'e' | 's' | 'w';
 
 interface DrawElement {
   id: string;
@@ -53,128 +51,7 @@ interface DrawElement {
   text?: string;
 }
 
-interface FlowNode {
-  id: string;
-  type: FlowNodeType;
-  x: number; y: number;
-  w: number; h: number;
-  label: string;
-  color: string;
-}
 
-interface FlowEdge {
-  id: string;
-  from: string; to: string;
-  fromPort: PortDir;
-  toPort: PortDir;
-  label?: string;
-}
-
-// ===== NODE STYLE CONFIG =====
-const NODE_STYLES: Record<FlowNodeType, { color: string; label: string }> = {
-  start: { color: '#22c55e', label: 'Start' },
-  process: { color: '#3b82f6', label: 'Process' },
-  decision: { color: '#f59e0b', label: 'Decision' },
-  end: { color: '#ef4444', label: 'End' },
-  note: { color: '#8b5cf6', label: 'Note' },
-};
-
-const NODE_DEFAULTS: Record<FlowNodeType, { w: number; h: number }> = {
-  start: { w: 120, h: 56 },
-  process: { w: 150, h: 60 },
-  decision: { w: 140, h: 100 },
-  end: { w: 120, h: 56 },
-  note: { w: 160, h: 70 },
-};
-
-// ===== HELPERS =====
-function getPortPos(node: FlowNode, port: PortDir) {
-  switch (port) {
-    case 'n': return { x: node.x + node.w / 2, y: node.y };
-    case 'e': return { x: node.x + node.w, y: node.y + node.h / 2 };
-    case 's': return { x: node.x + node.w / 2, y: node.y + node.h };
-    case 'w': return { x: node.x, y: node.y + node.h / 2 };
-  }
-}
-
-function getPortOffset(w: number, h: number, port: PortDir) {
-  switch (port) {
-    case 'n': return { x: w / 2, y: 0 };
-    case 'e': return { x: w, y: h / 2 };
-    case 's': return { x: w / 2, y: h };
-    case 'w': return { x: 0, y: h / 2 };
-  }
-}
-
-function getEdgePath(from: { x: number; y: number }, fp: PortDir, to: { x: number; y: number }, tp: PortDir) {
-  const dist = Math.hypot(to.x - from.x, to.y - from.y);
-  const off = Math.max(40, Math.min(80, dist * 0.4));
-  const dirs: Record<PortDir, [number, number]> = { n: [0, -1], e: [1, 0], s: [0, 1], w: [-1, 0] };
-  const [fdx, fdy] = dirs[fp];
-  const [tdx, tdy] = dirs[tp];
-  return `M ${from.x} ${from.y} C ${from.x + fdx * off} ${from.y + fdy * off}, ${to.x + tdx * off} ${to.y + tdy * off}, ${to.x} ${to.y}`;
-}
-
-// ===== SVG NODE SHAPES =====
-function NodeShape({ type, w, h, color, selected }: { type: FlowNodeType; w: number; h: number; color: string; selected: boolean }) {
-  const stroke = selected ? '#7b68ee' : `${color}cc`;
-  const fill = `${color}12`;
-  const sw = selected ? 2.5 : 2;
-
-  switch (type) {
-    case 'start':
-    case 'end':
-      return (
-        <svg className="absolute inset-0 w-full h-full" viewBox={`0 0 ${w} ${h}`}>
-          <rect x={2} y={2} width={w - 4} height={h - 4} rx={h / 2 - 2} ry={h / 2 - 2}
-            fill={fill} stroke={stroke} strokeWidth={sw} />
-        </svg>
-      );
-    case 'process':
-      return (
-        <svg className="absolute inset-0 w-full h-full" viewBox={`0 0 ${w} ${h}`}>
-          <rect x={2} y={2} width={w - 4} height={h - 4} rx={10} ry={10}
-            fill={fill} stroke={stroke} strokeWidth={sw} />
-        </svg>
-      );
-    case 'decision':
-      return (
-        <svg className="absolute inset-0 w-full h-full" viewBox={`0 0 ${w} ${h}`}>
-          <polygon
-            points={`${w / 2},3 ${w - 3},${h / 2} ${w / 2},${h - 3} 3,${h / 2}`}
-            fill={fill} stroke={stroke} strokeWidth={sw}
-          />
-        </svg>
-      );
-    case 'note':
-      return (
-        <svg className="absolute inset-0 w-full h-full" viewBox={`0 0 ${w} ${h}`}>
-          <path
-            d={`M 16 2 L ${w - 2} 2 L ${w - 2} ${h - 2} L 2 ${h - 2} L 2 16 Z`}
-            fill={fill} stroke={stroke} strokeWidth={sw}
-          />
-          <path d={`M 2 16 L 16 16 L 16 2`} fill={`${color}25`} stroke={stroke} strokeWidth={1.5} />
-        </svg>
-      );
-  }
-}
-
-// Toolbar icon for each node type
-function NodeTypeIcon({ type, size = 14 }: { type: FlowNodeType; size?: number }) {
-  const color = NODE_STYLES[type].color;
-  switch (type) {
-    case 'start':
-      return <Circle className={`h-[${size}px] w-[${size}px]`} style={{ color, width: size, height: size }} fill={`${color}40`} />;
-    case 'process':
-      return <Square className={`h-[${size}px] w-[${size}px]`} style={{ color, width: size, height: size }} />;
-    case 'decision':
-      return <Diamond className={`h-[${size}px] w-[${size}px]`} style={{ color, width: size, height: size }} />;
-    case 'end':
-      return <Circle className={`h-[${size}px] w-[${size}px]`} style={{ color, width: size, height: size }} fill={`${color}40`} strokeWidth={2.5} />;
-    case 'note':
-      return <FileText className={`h-[${size}px] w-[${size}px]`} style={{ color, width: size, height: size }} />;
-  }
-}
 
 // ===== MAIN COMPONENT =====
 export default function BrainstormSessionPage() {
@@ -186,7 +63,7 @@ export default function BrainstormSessionPage() {
   const teamId = activeTeam?.id;
   const queryClient = useQueryClient();
 
-  const [activeTab, setActiveTab] = useState<'chat' | 'whiteboard' | 'flow'>('chat');
+  const [activeTab, setActiveTab] = useState<'chat' | 'whiteboard'>('chat');
 
   // Chat state
   const [message, setMessage] = useState('');
@@ -207,17 +84,7 @@ export default function BrainstormSessionPage() {
   const [elements, setElements] = useState<DrawElement[]>([]);
   const [currentElement, setCurrentElement] = useState<DrawElement | null>(null);
 
-  // Flow state
-  const [flowNodes, setFlowNodes] = useState<FlowNode[]>([]);
-  const [flowEdges, setFlowEdges] = useState<FlowEdge[]>([]);
-  const [selectedNode, setSelectedNode] = useState<string | null>(null);
-  const [connectingFrom, setConnectingFrom] = useState<{ nodeId: string; port: PortDir } | null>(null);
-  const [draggingNode, setDraggingNode] = useState<string | null>(null);
-  const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
-  const [showNodeDialog, setShowNodeDialog] = useState(false);
-  const [editingNode, setEditingNode] = useState<FlowNode | null>(null);
-  const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
-  const flowCanvasRef = useRef<HTMLDivElement>(null);
+
   const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [msgDeleteConfirm, setMsgDeleteConfirm] = useState<{ id: string } | null>(null);
   const canvasLoadedRef = useRef(false);
@@ -242,22 +109,6 @@ export default function BrainstormSessionPage() {
       setElements([]);
       setCurrentElement(null);
     }));
-    unsubs.push(socketOn('flow:node-add', (node: FlowNode) => {
-      setFlowNodes(prev => [...prev, node]);
-    }));
-    unsubs.push(socketOn('flow:node-update', (node: FlowNode) => {
-      setFlowNodes(prev => prev.map(n => n.id === node.id ? node : n));
-    }));
-    unsubs.push(socketOn('flow:node-delete', (nodeId: string) => {
-      setFlowNodes(prev => prev.filter(n => n.id !== nodeId));
-      setFlowEdges(prev => prev.filter(e => e.from !== nodeId && e.to !== nodeId));
-    }));
-    unsubs.push(socketOn('flow:edge-add', (edge: FlowEdge) => {
-      setFlowEdges(prev => [...prev, edge]);
-    }));
-    unsubs.push(socketOn('flow:edge-delete', (edgeId: string) => {
-      setFlowEdges(prev => prev.filter(e => e.id !== edgeId));
-    }));
     return () => unsubs.forEach(fn => fn());
   }, [sessionId, socketOn]);
 
@@ -273,23 +124,10 @@ export default function BrainstormSessionPage() {
     if (session?.data) {
       canvasLoadedRef.current = false;
       const wb = session.data.whiteboardData;
-      const fl = session.data.flowData;
       if (wb && Array.isArray(wb)) {
         setElements(wb);
       } else {
         setElements([]);
-      }
-      if (fl && fl.nodes && fl.edges) {
-        setFlowNodes(fl.nodes);
-        // Migrate edges: add default ports if missing
-        setFlowEdges((fl.edges as any[]).map((e: any) => ({
-          ...e,
-          fromPort: e.fromPort || 's',
-          toPort: e.toPort || 'n',
-        })));
-      } else {
-        setFlowNodes([]);
-        setFlowEdges([]);
       }
       setTimeout(() => { canvasLoadedRef.current = true; }, 500);
     }
@@ -302,13 +140,12 @@ export default function BrainstormSessionPage() {
     autoSaveTimerRef.current = setTimeout(() => {
       api.patch(`/teams/${teamId}/brainstorm/${sessionId}/canvas`, {
         whiteboardData: elements,
-        flowData: { nodes: flowNodes, edges: flowEdges },
       }).catch(() => {});
     }, 1500);
     return () => {
       if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
     };
-  }, [elements, flowNodes, flowEdges, sessionId, teamId]);
+  }, [elements, sessionId, teamId]);
 
   // ===== MUTATIONS =====
   const titleMutation = useMutation({
@@ -581,108 +418,6 @@ export default function BrainstormSessionPage() {
     link.click();
   };
 
-  // ===== FLOW LOGIC =====
-  const getFlowPoint = useCallback((e: React.MouseEvent) => {
-    const rect = flowCanvasRef.current?.getBoundingClientRect();
-    if (!rect) return { x: 0, y: 0 };
-    return {
-      x: e.clientX - rect.left + (flowCanvasRef.current?.scrollLeft || 0),
-      y: e.clientY - rect.top + (flowCanvasRef.current?.scrollTop || 0),
-    };
-  }, []);
-
-  const addFlowNode = (type: FlowNodeType) => {
-    const { w, h } = NODE_DEFAULTS[type];
-    const newNode: FlowNode = {
-      id: crypto.randomUUID(),
-      type,
-      x: 80 + Math.random() * 300,
-      y: 80 + Math.random() * 200,
-      w, h,
-      label: NODE_STYLES[type].label,
-      color: NODE_STYLES[type].color,
-    };
-    setFlowNodes(prev => [...prev, newNode]);
-    if (sessionId) socketEmit('flow:node-add', { sessionId, node: newNode });
-  };
-
-  const handlePortClick = (nodeId: string, port: PortDir, e: React.MouseEvent) => {
-    e.stopPropagation();
-    e.preventDefault();
-    if (connectingFrom) {
-      // Complete connection
-      if (connectingFrom.nodeId !== nodeId) {
-        const newEdge: FlowEdge = {
-          id: crypto.randomUUID(),
-          from: connectingFrom.nodeId,
-          to: nodeId,
-          fromPort: connectingFrom.port,
-          toPort: port,
-        };
-        setFlowEdges(prev => [...prev, newEdge]);
-        if (sessionId) socketEmit('flow:edge-add', { sessionId, edge: newEdge });
-      }
-      setConnectingFrom(null);
-    } else {
-      // Start connection
-      setConnectingFrom({ nodeId, port });
-    }
-  };
-
-  const handleNodeMouseDown = (nodeId: string, e: React.MouseEvent) => {
-    e.stopPropagation();
-    const point = getFlowPoint(e);
-    const node = flowNodes.find(n => n.id === nodeId);
-    if (node) {
-      setDraggingNode(nodeId);
-      setDragOffset({ x: point.x - node.x, y: point.y - node.y });
-    }
-    setSelectedNode(nodeId);
-  };
-
-  const handleFlowMouseMove = (e: React.MouseEvent) => {
-    const point = getFlowPoint(e);
-    setMousePos(point);
-    if (draggingNode) {
-      setFlowNodes(prev => prev.map(n =>
-        n.id === draggingNode ? { ...n, x: point.x - dragOffset.x, y: point.y - dragOffset.y } : n
-      ));
-    }
-  };
-
-  const handleFlowMouseUp = () => {
-    if (draggingNode) {
-      const node = flowNodes.find(n => n.id === draggingNode);
-      if (node && sessionId) socketEmit('flow:node-update', { sessionId, node });
-    }
-    setDraggingNode(null);
-  };
-
-  const handleFlowCanvasClick = () => {
-    setSelectedNode(null);
-    setConnectingFrom(null);
-  };
-
-  const deleteFlowNode = (nodeId: string) => {
-    setFlowNodes(prev => prev.filter(n => n.id !== nodeId));
-    setFlowEdges(prev => prev.filter(e => e.from !== nodeId && e.to !== nodeId));
-    setSelectedNode(null);
-    if (sessionId) socketEmit('flow:node-delete', { sessionId, nodeId });
-  };
-
-  const deleteFlowEdge = (edgeId: string) => {
-    setFlowEdges(prev => prev.filter(e => e.id !== edgeId));
-    if (sessionId) socketEmit('flow:edge-delete', { sessionId, edgeId });
-  };
-
-  // Compute connecting line from source port to mouse
-  const connectLine = useMemo(() => {
-    if (!connectingFrom) return null;
-    const fromNode = flowNodes.find(n => n.id === connectingFrom.nodeId);
-    if (!fromNode) return null;
-    const from = getPortPos(fromNode, connectingFrom.port);
-    return { x1: from.x, y1: from.y, x2: mousePos.x, y2: mousePos.y };
-  }, [connectingFrom, flowNodes, mousePos]);
 
   const modeInfo = session?.data ? getModeInfo(session.data.mode) : null;
 
@@ -753,7 +488,6 @@ export default function BrainstormSessionPage() {
           {[
             { key: 'chat' as const, label: 'Chat', icon: MessageSquare },
             { key: 'whiteboard' as const, label: 'Draw', icon: Pencil },
-            { key: 'flow' as const, label: 'Flow', icon: GitBranch },
           ].map(tab => (
             <button
               key={tab.key}
@@ -1024,257 +758,6 @@ export default function BrainstormSessionPage() {
               className="absolute inset-0"
             />
           </div>
-        </div>
-      )}
-
-      {/* ===== FLOW TAB ===== */}
-      {activeTab === 'flow' && (
-        <div className="flex-1 flex flex-col mt-3 overflow-hidden rounded-xl border border-border">
-          {/* Flow Toolbar */}
-          <div className="flex items-center gap-1 px-3 py-2 bg-muted border-b border-border flex-wrap">
-            {(Object.keys(NODE_STYLES) as FlowNodeType[]).map(type => (
-              <button
-                key={type}
-                onClick={() => addFlowNode(type)}
-                className="flex items-center gap-1.5 h-8 px-3 rounded-lg text-xs font-medium text-muted-foreground hover:bg-accent transition-colors"
-              >
-                <NodeTypeIcon type={type} size={14} />
-                {NODE_STYLES[type].label}
-              </button>
-            ))}
-            <div className="w-px h-6 bg-muted mx-1" />
-            {connectingFrom && (
-              <div className="flex items-center gap-1.5">
-                <span className="text-xs font-medium text-[#7b68ee] animate-pulse">Click a target port...</span>
-                <button
-                  onClick={() => setConnectingFrom(null)}
-                  className="h-7 px-2.5 rounded-lg text-xs font-medium text-red-500 hover:bg-red-500/10 transition-colors"
-                >
-                  Cancel
-                </button>
-              </div>
-            )}
-            <div className="flex-1" />
-            {selectedNode && (
-              <>
-                <button
-                  onClick={() => {
-                    const node = flowNodes.find(n => n.id === selectedNode);
-                    if (node) { setEditingNode(node); setShowNodeDialog(true); }
-                  }}
-                  className="h-8 w-8 flex items-center justify-center rounded-lg text-muted-foreground hover:bg-accent transition-colors"
-                  title="Edit"
-                >
-                  <Pencil className="h-3.5 w-3.5" />
-                </button>
-                <button
-                  onClick={() => deleteFlowNode(selectedNode)}
-                  className="h-8 w-8 flex items-center justify-center rounded-lg text-muted-foreground hover:bg-red-500/10 hover:text-red-500 transition-colors"
-                  title="Delete"
-                >
-                  <Trash2 className="h-3.5 w-3.5" />
-                </button>
-              </>
-            )}
-          </div>
-
-          {/* Flow Canvas */}
-          <div
-            ref={flowCanvasRef}
-            className="flex-1 relative bg-card overflow-auto"
-            onMouseMove={handleFlowMouseMove}
-            onMouseUp={handleFlowMouseUp}
-            onClick={handleFlowCanvasClick}
-            style={{
-              backgroundImage: 'radial-gradient(circle, #e5e7eb 1px, transparent 1px)',
-              backgroundSize: '20px 20px',
-              cursor: connectingFrom ? 'crosshair' : 'default',
-            }}
-          >
-            {/* Edges SVG */}
-            <svg className="absolute inset-0 pointer-events-none" style={{ width: '100%', height: '100%', overflow: 'visible' }}>
-              <defs>
-                <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto">
-                  <polygon points="0 0, 10 3.5, 0 7" fill="currentColor" className="text-muted-foreground" />
-                </marker>
-                <marker id="arrowhead-active" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto">
-                  <polygon points="0 0, 10 3.5, 0 7" fill="#7b68ee" />
-                </marker>
-              </defs>
-
-              {flowEdges.map(edge => {
-                const fromNode = flowNodes.find(n => n.id === edge.from);
-                const toNode = flowNodes.find(n => n.id === edge.to);
-                if (!fromNode || !toNode) return null;
-                const from = getPortPos(fromNode, edge.fromPort || 's');
-                const to = getPortPos(toNode, edge.toPort || 'n');
-                const d = getEdgePath(from, edge.fromPort || 's', to, edge.toPort || 'n');
-                return (
-                  <g key={edge.id} className="pointer-events-auto cursor-pointer group/edge" onClick={(e) => { e.stopPropagation(); deleteFlowEdge(edge.id); }}>
-                    <path d={d} stroke="transparent" strokeWidth={14} fill="none" />
-                    <path d={d} stroke="#9ca3af" strokeWidth={2} fill="none" markerEnd="url(#arrowhead)"
-                      className="group-hover/edge:stroke-red-400 transition-colors" />
-                    {edge.label && (
-                      <text x={(from.x + to.x) / 2} y={(from.y + to.y) / 2 - 6} textAnchor="middle" className="text-[10px] fill-gray-400">{edge.label}</text>
-                    )}
-                  </g>
-                );
-              })}
-
-              {/* Connecting line that follows cursor */}
-              {connectLine && (
-                <line
-                  x1={connectLine.x1} y1={connectLine.y1}
-                  x2={connectLine.x2} y2={connectLine.y2}
-                  stroke="#7b68ee" strokeWidth={2} strokeDasharray="6,3"
-                  markerEnd="url(#arrowhead-active)"
-                />
-              )}
-            </svg>
-
-            {/* Nodes */}
-            {flowNodes.map(node => {
-              const isSelected = selectedNode === node.id;
-              const isConnSource = connectingFrom?.nodeId === node.id;
-              const ports: PortDir[] = ['n', 'e', 's', 'w'];
-
-              return (
-                <div
-                  key={node.id}
-                  className={cn(
-                    'absolute group/node cursor-move',
-                    isSelected && 'z-10',
-                  )}
-                  style={{ left: node.x, top: node.y, width: node.w, height: node.h }}
-                  onMouseDown={(e) => handleNodeMouseDown(node.id, e)}
-                  onClick={(e) => e.stopPropagation()}
-                  onDoubleClick={(e) => {
-                    e.stopPropagation();
-                    setEditingNode(node);
-                    setShowNodeDialog(true);
-                  }}
-                >
-                  {/* SVG Shape */}
-                  <NodeShape type={node.type} w={node.w} h={node.h} color={node.color} selected={isSelected} />
-
-                  {/* Label */}
-                  <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                    <span className="text-[11px] font-semibold text-foreground truncate px-3 max-w-full leading-tight text-center">
-                      {node.label}
-                    </span>
-                  </div>
-
-                  {/* Selection ring */}
-                  {isSelected && (
-                    <div className="absolute -inset-1 rounded-xl border-2 border-[#7b68ee]/30 pointer-events-none" />
-                  )}
-
-                  {/* Connection ports */}
-                  {ports.map(port => {
-                    const offset = getPortOffset(node.w, node.h, port);
-                    const isActive = isConnSource && connectingFrom?.port === port;
-                    return (
-                      <div
-                        key={port}
-                        className={cn(
-                          'absolute w-3.5 h-3.5 rounded-full border-2 z-20 transition-all duration-150',
-                          'hover:scale-125 cursor-crosshair',
-                          isActive
-                            ? 'bg-[#7b68ee] border-[#7b68ee] scale-125'
-                            : connectingFrom
-                              ? 'bg-card border-[#7b68ee] opacity-100'
-                              : 'bg-card border-blue-400 opacity-0 group-hover/node:opacity-100',
-                        )}
-                        style={{
-                          left: offset.x - 7,
-                          top: offset.y - 7,
-                        }}
-                        onMouseDown={(e) => handlePortClick(node.id, port, e)}
-                      />
-                    );
-                  })}
-                </div>
-              );
-            })}
-
-            {flowNodes.length === 0 && (
-              <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
-                <GitBranch className="h-12 w-12 text-muted-foreground/60 mb-3" />
-                <p className="text-sm font-medium text-muted-foreground">Create a flow diagram</p>
-                <p className="text-xs text-muted-foreground/60 mt-1">Click a shape in the toolbar to add nodes, then drag between ports to connect</p>
-              </div>
-            )}
-          </div>
-
-          {/* Node Edit Dialog */}
-          <Dialog open={showNodeDialog} onOpenChange={setShowNodeDialog}>
-            <DialogContent className="bg-card sm:max-w-[400px] rounded-2xl">
-              <DialogHeader>
-                <DialogTitle className="text-base font-bold text-foreground">Edit Node</DialogTitle>
-                <DialogDescription className="text-sm text-muted-foreground">Change the node label or type</DialogDescription>
-              </DialogHeader>
-              {editingNode && (
-                <div className="space-y-4">
-                  <div className="space-y-1.5">
-                    <label className="text-[13px] font-semibold text-muted-foreground">Label</label>
-                    <Input
-                      value={editingNode.label}
-                      onChange={(e) => setEditingNode({ ...editingNode, label: e.target.value })}
-                      className="border-border focus:border-[#7b68ee] rounded-xl"
-                      autoFocus
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <label className="text-[13px] font-semibold text-muted-foreground">Type</label>
-                    <Select
-                      value={editingNode.type}
-                      onValueChange={(v: string) => {
-                        const t = v as FlowNodeType;
-                        setEditingNode({
-                          ...editingNode,
-                          type: t,
-                          color: NODE_STYLES[t].color,
-                          w: NODE_DEFAULTS[t].w,
-                          h: NODE_DEFAULTS[t].h,
-                        });
-                      }}
-                    >
-                      <SelectTrigger className="rounded-xl"><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        {(Object.keys(NODE_STYLES) as FlowNodeType[]).map(type => (
-                          <SelectItem key={type} value={type}>
-                            <div className="flex items-center gap-2">
-                              <NodeTypeIcon type={type} size={14} />
-                              {NODE_STYLES[type].label}
-                            </div>
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-              )}
-              <DialogFooter>
-                <button onClick={() => setShowNodeDialog(false)} className="px-4 py-2 text-sm text-muted-foreground rounded-xl hover:bg-accent">Cancel</button>
-                <button
-                  onClick={() => {
-                    if (editingNode) {
-                      setFlowNodes(prev => {
-                        const exists = prev.find(n => n.id === editingNode.id);
-                        if (exists) return prev.map(n => n.id === editingNode.id ? editingNode : n);
-                        return [...prev, editingNode];
-                      });
-                      if (sessionId) socketEmit('flow:node-update', { sessionId, node: editingNode });
-                    }
-                    setShowNodeDialog(false);
-                  }}
-                  className="px-5 py-2 bg-[#7b68ee] text-white text-sm font-medium rounded-xl hover:bg-[#6c5ce7]"
-                >
-                  Save
-                </button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
         </div>
       )}
 

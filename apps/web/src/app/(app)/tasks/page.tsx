@@ -27,6 +27,7 @@ import { Sheet, SheetContent } from '@/components/ui/sheet';
 import { TaskDetailPanel } from '@/components/task-detail-panel';
 import { useTeamStore } from '@/stores/team-store';
 import { useProjectStore } from '@/stores/project-store';
+import { useProjectSocket } from '@/hooks/use-project-socket';
 import { api } from '@/lib/api';
 import { cn } from '@/lib/utils';
 import { DeleteConfirmDialog } from '@/components/shared/delete-confirm-dialog';
@@ -48,6 +49,7 @@ const PRIORITY_OPTIONS = [
 export default function TasksPage() {
   const { activeTeam } = useTeamStore();
   const activeProject = useProjectStore((s) => s.activeProject);
+  const { emitEntityChange } = useProjectSocket(activeProject?.id);
   const teamId = activeTeam?.id;
   const queryClient = useQueryClient();
   const [view, setView] = useState<'list' | 'board'>('board');
@@ -79,6 +81,7 @@ export default function TasksPage() {
       queryClient.invalidateQueries({ queryKey: ['tasks', teamId] });
       setShowCreateDialog(false);
       setNewTask({ title: '', description: '', priority: 'MEDIUM', status: 'TODO' });
+      emitEntityChange('task', 'create');
     },
   });
 
@@ -90,6 +93,7 @@ export default function TasksPage() {
       if (selectedTask && selectedTask.id === variables.taskId) {
         setSelectedTask((prev: any) => prev ? { ...prev, ...variables.data } : null);
       }
+      emitEntityChange('task', 'update');
     },
   });
 
@@ -99,6 +103,7 @@ export default function TasksPage() {
       queryClient.invalidateQueries({ queryKey: ['tasks', teamId] });
       setSelectedTask(null);
       toast.success('Task deleted');
+      emitEntityChange('task', 'delete');
     },
     onError: (error: Error) => {
       toast.error(error.message || 'Failed to delete task');

@@ -72,6 +72,8 @@ export default function AdminUsersPage() {
   const [banConfirm, setBanConfirm] = useState<{ id: string; name: string; isBanned: boolean } | null>(null);
   const [banReason, setBanReason] = useState('');
   const [banLoading, setBanLoading] = useState(false);
+  const [resetConfirm, setResetConfirm] = useState<{ id: string; name: string } | null>(null);
+  const [resetLoading, setResetLoading] = useState(false);
 
   useEffect(() => {
     fetchUsers();
@@ -161,15 +163,20 @@ export default function AdminUsersPage() {
   }
 
   async function handleResetPassword(userId: string, name: string) {
-    if (!confirm(`Reset password for ${name}? Their password will be cleared and they'll need to use Google or forgot-password to sign in.`)) return;
-    setActionLoading(userId);
+    setResetConfirm({ id: userId, name });
+  }
+
+  async function confirmResetPassword() {
+    if (!resetConfirm) return;
+    setResetLoading(true);
     try {
-      await api.post(`/admin/users/${userId}/reset-password`);
+      await api.post(`/admin/users/${resetConfirm.id}/reset-password`);
       toast.success('Password has been reset');
+      setResetConfirm(null);
     } catch (err: any) {
       toast.error(err?.error?.message || 'Failed to reset password');
     } finally {
-      setActionLoading(null);
+      setResetLoading(false);
     }
   }
 
@@ -623,6 +630,41 @@ export default function AdminUsersPage() {
               >
                 {banLoading && <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" />}
                 {banConfirm.isBanned ? 'Unban' : 'Ban User'}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Reset Password Dialog */}
+      {resetConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div className="absolute inset-0 bg-black/50" onClick={() => setResetConfirm(null)} />
+          <div className="relative bg-card border border-border rounded-xl p-6 w-full max-w-md mx-4 shadow-xl">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="h-10 w-10 rounded-full bg-purple-50 dark:bg-purple-500/10 flex items-center justify-center">
+                <KeyRound className="h-5 w-5 text-purple-500" />
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold text-foreground">Reset Password</h3>
+                <p className="text-xs text-muted-foreground">This action cannot be undone</p>
+              </div>
+            </div>
+            <p className="text-sm text-muted-foreground mb-4">
+              Are you sure you want to reset the password for <span className="font-semibold text-foreground">{resetConfirm.name}</span>? Their password will be cleared and they&apos;ll need to use Google or forgot-password to sign in.
+            </p>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" size="sm" onClick={() => setResetConfirm(null)}>
+                Cancel
+              </Button>
+              <Button
+                size="sm"
+                className="bg-purple-600 hover:bg-purple-700 text-white"
+                onClick={confirmResetPassword}
+                disabled={resetLoading}
+              >
+                {resetLoading && <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" />}
+                Reset Password
               </Button>
             </div>
           </div>

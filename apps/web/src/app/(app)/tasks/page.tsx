@@ -123,6 +123,8 @@ export default function TasksPage() {
 
   const handleTaskClick = (task: any, e: React.MouseEvent) => {
     if ((e.target as HTMLElement).closest('[data-dropdown-trigger]')) return;
+    if ((e.target as HTMLElement).closest('[data-radix-menu-content]')) return;
+    if ((e.target as HTMLElement).closest('[role="menu"]')) return;
     setSelectedTask(task);
   };
 
@@ -265,7 +267,7 @@ export default function TasksPage() {
                                       <MoreHorizontal className="h-3.5 w-3.5 text-muted-foreground" />
                                     </button>
                                   </DropdownMenuTrigger>
-                                  <DropdownMenuContent align="end" className="w-48">
+                                  <DropdownMenuContent align="end" className="w-48" onCloseAutoFocus={(e) => e.preventDefault()}>
                                     <DropdownMenuSub>
                                       <DropdownMenuSubTrigger className="text-[13px]">
                                         <ArrowRightCircle className="h-3.5 w-3.5 mr-2" /> Move to
@@ -430,7 +432,7 @@ export default function TasksPage() {
                           <MoreHorizontal className="h-3.5 w-3.5 text-muted-foreground" />
                         </Button>
                       </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end" className="w-48">
+                      <DropdownMenuContent align="end" className="w-48" onCloseAutoFocus={(e) => e.preventDefault()}>
                         <DropdownMenuSub>
                           <DropdownMenuSubTrigger className="text-[13px]">
                             <ArrowUpCircle className="h-3.5 w-3.5 mr-2" /> Priority

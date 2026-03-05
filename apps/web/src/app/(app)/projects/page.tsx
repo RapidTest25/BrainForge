@@ -35,24 +35,7 @@ const PROJECT_COLORS = [
 ];
 
 // Icon map: icon name string → Lucide component
-export const PROJECT_ICON_MAP: Record<string, LucideIcon> = {
-  rocket: Rocket,
-  package: Package,
-  paintBucket: PaintBucket,
-  lightbulb: Lightbulb,
-  zap: Zap,
-  flame: Flame,
-  star: Star,
-  barChart: BarChart3,
-  wrench: Wrench,
-  crosshair: Crosshair,
-  smartphone: Smartphone,
-  globe: Globe,
-  flask: FlaskConical,
-  fileText: FileText,
-  gamepad: Gamepad2,
-  building: Building2,
-};
+import { PROJECT_ICON_MAP } from '@/components/shared/project-icon';
 
 const PROJECT_ICONS = Object.keys(PROJECT_ICON_MAP);
 

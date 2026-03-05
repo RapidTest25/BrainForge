@@ -100,13 +100,14 @@ export const aiGenerateRoutes: FastifyPluginAsync = async (app) => {
       provider: string;
       model: string;
       generateTypes: string[]; // ['tasks', 'brainstorm', 'notes']
+      projectId?: string;
     };
   }>('/:teamId/ai-generate', {
     preHandler: [authGuard],
   }, async (request, reply) => {
     const userId = (request as any).user.id;
     const { teamId } = request.params;
-    const { prompt, provider, model, generateTypes } = request.body;
+    const { prompt, provider, model, generateTypes, projectId } = request.body;
 
     if (!prompt || !provider || !model || !generateTypes?.length) {
       return reply.status(400).send({
@@ -181,6 +182,7 @@ ${result.content}`;
                 status: safeStatus,
                 teamId,
                 createdBy: userId,
+                ...(projectId ? { projectId } : {}),
               },
             });
             created.tasks.push(t);
@@ -200,6 +202,7 @@ ${result.content}`;
               mode: safeMode,
               teamId,
               createdBy: userId,
+              ...(projectId ? { projectId } : {}),
               context: prompt,
               messages: parsed.brainstorm.initialMessage ? {
                 create: {
@@ -227,6 +230,7 @@ ${result.content}`;
                 content: note.content || '',
                 teamId,
                 createdBy: userId,
+                ...(projectId ? { projectId } : {}),
               },
             });
             created.notes.push(n);
@@ -252,6 +256,7 @@ ${result.content}`;
                 dueDate: goal.dueDate ? new Date(goal.dueDate) : null,
                 teamId,
                 createdBy: userId,
+                ...(projectId ? { projectId } : {}),
               },
             });
             created.goals.push(g);

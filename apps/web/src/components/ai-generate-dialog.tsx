@@ -15,6 +15,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
 import { useTeamStore } from '@/stores/team-store';
+import { useProjectStore } from '@/stores/project-store';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { cn } from '@/lib/utils';
@@ -112,6 +113,7 @@ interface AIGenerateDialogProps {
 
 export function AIGenerateDialog({ open, onOpenChange }: AIGenerateDialogProps) {
   const { activeTeam } = useTeamStore();
+  const { activeProject } = useProjectStore();
   const teamId = activeTeam?.id;
   const queryClient = useQueryClient();
   const [prompt, setPrompt] = useState('');
@@ -183,6 +185,7 @@ export function AIGenerateDialog({ open, onOpenChange }: AIGenerateDialogProps) 
       provider,
       model,
       generateTypes: selectedTypes,
+      projectId: activeProject?.id,
     });
   };
 

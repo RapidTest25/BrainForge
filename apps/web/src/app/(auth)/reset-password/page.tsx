@@ -3,7 +3,8 @@
 import { useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import { Brain, Loader2, Lock, Eye, EyeOff, ArrowLeft, CheckCircle, ShieldCheck, KeyRound } from 'lucide-react';
+import { Loader2, Lock, Eye, EyeOff, ArrowLeft, CheckCircle, ShieldCheck, KeyRound } from 'lucide-react';
+import { BrainForgeLogo } from '@/components/icons/brainforge-logo';
 import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -221,7 +222,7 @@ export default function ResetPasswordPage() {
         <div className="relative flex flex-col justify-between p-10 w-full">
           <Link href="/" className="flex items-center gap-2.5">
             <div className="h-9 w-9 rounded-xl bg-white/15 backdrop-blur-sm flex items-center justify-center">
-              <Brain className="h-4.5 w-4.5 text-white" />
+              <BrainForgeLogo size={18} />
             </div>
             <span className="text-lg font-bold text-white tracking-tight">BrainForge</span>
           </Link>
@@ -260,7 +261,7 @@ export default function ResetPasswordPage() {
         <div className="w-full max-w-sm">
           <div className="flex items-center gap-2.5 mb-8 lg:hidden">
             <div className="h-9 w-9 rounded-xl bg-linear-to-br from-[#7b68ee] to-[#a78bfa] flex items-center justify-center">
-              <Brain className="h-4.5 w-4.5 text-white" />
+              <BrainForgeLogo size={18} />
             </div>
             <span className="text-lg font-bold text-foreground">BrainForge</span>
           </div>

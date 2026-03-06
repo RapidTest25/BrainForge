@@ -6,9 +6,10 @@ import Link from 'next/link';
 import { motion } from 'framer-motion';
 import { useAuthStore } from '@/stores/auth-store';
 import {
-  Brain, CheckSquare, MessageSquare, GitBranch, Calendar,
+  CheckSquare, MessageSquare, GitBranch, Calendar,
   Zap, Bot, ArrowRight, Sparkles, Key, Shield, Globe,
 } from 'lucide-react';
+import { BrainForgeLogo } from '@/components/icons/brainforge-logo';
 import { Button } from '@/components/ui/button';
 import HeroSection from '@/components/landing/HeroSection';
 
@@ -86,7 +87,7 @@ export default function Home() {
         <div className="max-w-6xl mx-auto px-6 h-14 flex items-center justify-between">
           <Link href="/" className="flex items-center gap-2">
             <div className="h-8 w-8 rounded-lg bg-linear-to-br from-[#7b68ee] to-[#a78bfa] flex items-center justify-center">
-              <Brain className="h-4.5 w-4.5 text-white" />
+              <BrainForgeLogo size={18} />
             </div>
             <span className="text-lg font-bold text-foreground">BrainForge</span>
           </Link>
@@ -278,7 +279,7 @@ export default function Home() {
           <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
             <div className="flex items-center gap-2">
               <div className="h-6 w-6 rounded bg-linear-to-br from-[#7b68ee] to-[#a78bfa] flex items-center justify-center">
-                <Brain className="h-3 w-3 text-white" />
+                <BrainForgeLogo size={12} />
               </div>
               <span className="text-sm font-semibold text-foreground">BrainForge</span>
               <span className="text-xs text-muted-foreground px-1.5 py-0.5 bg-muted rounded">MIT</span>

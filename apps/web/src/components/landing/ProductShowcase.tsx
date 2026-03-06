@@ -4,7 +4,8 @@
 import { motion, useAnimation } from 'framer-motion';
 
 type AnimationControls = ReturnType<typeof useAnimation>;
-import { Brain, Home, CheckSquare, MessageSquare, GitBranch, Calendar, Zap } from 'lucide-react';
+import { Home, CheckSquare, MessageSquare, GitBranch, Calendar, Zap } from 'lucide-react';
+import { BrainForgeLogo } from '@/components/icons/brainforge-logo';
 import { KanbanMiniDemo } from './KanbanMiniDemo';
 import { AIMiniChatDemo } from './AIMiniChatDemo';
 import { AnimatedCursor } from './AnimatedCursor';
@@ -67,7 +68,7 @@ export function ProductShowcase({
           <div className="hidden md:block w-36 lg:w-40 border-r border-border bg-card p-2 space-y-0.5">
             <div className="flex items-center gap-2 mb-3 px-2 pt-0.5">
               <div className="h-5 w-5 rounded bg-linear-to-br from-primary to-[#a78bfa] flex items-center justify-center">
-                <Brain className="h-3 w-3 text-white" />
+                <BrainForgeLogo size={12} />
               </div>
               <span className="font-semibold text-[10px] text-foreground/80">
                 BrainForge

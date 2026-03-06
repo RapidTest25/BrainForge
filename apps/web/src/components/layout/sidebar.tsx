@@ -3,12 +3,13 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
-  Brain, LayoutDashboard, CheckSquare, MessageSquare,
+  LayoutDashboard, CheckSquare, MessageSquare,
   GitBranch, Calendar, Zap, FileText, Key, Settings,
   ChevronDown, Users, Home, Target, Star,
   PanelLeftClose, PanelLeftOpen, BookOpen, X, Bot,
   FolderKanban, Circle, ChevronsLeft, ChevronsRight, Shield
 } from 'lucide-react';
+import { BrainForgeLogo } from '@/components/icons/brainforge-logo';
 import { cn } from '@/lib/utils';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useTeamStore } from '@/stores/team-store';
@@ -271,7 +272,7 @@ export function Sidebar({ collapsed, onToggle, mobile, onMobileClose }: SidebarP
           className="h-7 w-7 rounded-lg bg-linear-to-br from-[#7b68ee] to-[#a78bfa] flex items-center justify-center shrink-0 hover:shadow-md transition-shadow"
           title={collapsed ? 'Expand sidebar (Ctrl+B)' : 'Collapse sidebar (Ctrl+B)'}
         >
-          <Brain className="h-4 w-4 text-white" />
+          <BrainForgeLogo size={18} />
         </button>
         {isExpanded && (
           <>

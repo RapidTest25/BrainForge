@@ -1,4 +1,8 @@
 <p align="center">
+  <img src="apps/web/public/logo.png" alt="BrainForge Logo" width="120" />
+</p>
+
+<p align="center">
   <img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="MIT License" />
   <img src="https://img.shields.io/badge/PRs-welcome-brightgreen.svg" alt="PRs Welcome" />
   <img src="https://img.shields.io/badge/node-%3E%3D22-brightgreen.svg" alt="Node >= 22" />
@@ -6,7 +10,7 @@
   <img src="https://img.shields.io/badge/TypeScript-5.4-blue.svg" alt="TypeScript" />
 </p>
 
-<h1 align="center">🧠 BrainForge</h1>
+<h1 align="center">BrainForge</h1>
 
 <p align="center">
   <strong>AI-Powered Project Management Workspace</strong><br/>

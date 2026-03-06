@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { Brain, Users, Loader2, CheckCircle2, XCircle } from 'lucide-react';
+import { Users, Loader2, CheckCircle2, XCircle } from 'lucide-react';
+import { BrainForgeLogo } from '@/components/icons/brainforge-logo';
 import { Button } from '@/components/ui/button';
 import { api } from '@/lib/api';
 import { useAuthStore } from '@/stores/auth-store';
@@ -56,7 +57,7 @@ export default function JoinTeamPage() {
         <div className="text-center mb-6">
           <Link href="/" className="inline-flex items-center gap-2">
             <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-[#7b68ee] to-[#a78bfa] flex items-center justify-center">
-              <Brain className="h-5 w-5 text-white" />
+              <BrainForgeLogo size={20} />
             </div>
             <span className="text-xl font-bold text-[#1a1a2e]">BrainForge</span>
           </Link>

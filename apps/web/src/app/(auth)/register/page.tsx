@@ -5,9 +5,10 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
 import {
-  Brain, Loader2, User, Mail, Lock, Key, Shield, Users,
+  Loader2, User, Mail, Lock, Key, Shield, Users,
   Eye, EyeOff, ArrowRight,
 } from 'lucide-react';
+import { BrainForgeLogo } from '@/components/icons/brainforge-logo';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useAuthStore } from '@/stores/auth-store';
@@ -109,7 +110,7 @@ export default function RegisterPage() {
         <div className="relative flex flex-col justify-between p-10 w-full">
           <Link href="/" className="flex items-center gap-2.5 group">
             <div className="h-9 w-9 rounded-xl bg-white/15 backdrop-blur-sm flex items-center justify-center group-hover:bg-white/20 transition-colors">
-              <Brain className="h-5 w-5 text-white" />
+              <BrainForgeLogo size={20} />
             </div>
             <span className="text-xl font-bold text-white">BrainForge</span>
           </Link>
@@ -168,7 +169,7 @@ export default function RegisterPage() {
           {/* Mobile logo */}
           <div className="flex items-center gap-2.5 mb-10 lg:hidden">
             <div className="h-9 w-9 rounded-xl bg-linear-to-br from-[#7b68ee] to-[#a78bfa] flex items-center justify-center">
-              <Brain className="h-5 w-5 text-white" />
+              <BrainForgeLogo size={20} />
             </div>
             <span className="text-xl font-bold text-foreground">BrainForge</span>
           </div>

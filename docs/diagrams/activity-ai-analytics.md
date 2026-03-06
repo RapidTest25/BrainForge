@@ -8,52 +8,83 @@
 
 ```mermaid
 flowchart TD
-    A([Mulai]) --> B[Admin buka halaman<br/>/admin/ai-usage]
-    B --> C{Admin middleware<br/>isAdmin?}
-    C -->|Tidak| D[Redirect ke Dashboard<br/>403 Forbidden]
-    C -->|Ya| E[Fetch data secara paralel]
+    A([Mulai]) --> B["Admin buka halaman
+    /admin/ai-usage"]
+    B --> C{"Admin middleware
+    isAdmin?"}
+    C -->|Tidak| D["Redirect ke Dashboard
+    403 Forbidden"]
+    C -->|Ya| E["Fetch data secara paralel"]
     
     E --> F["GET /admin/stats"]
     E --> G["GET /admin/ai-usage"]
     
-    F --> H[Query aggregat dari DB:<br/>totalAiKeys, totalBrainstorms,<br/>totalAiChats, aiUsage 30 hari]
-    G --> I[Query analitik dari DB<br/>5 groupBy queries]
+    F --> H["Query aggregat dari DB:
+    totalAiKeys, totalBrainstorms,
+    totalAiChats, aiUsage 30 hari"]
+    G --> I["Query analitik dari DB
+    5 groupBy queries"]
     
-    I --> I1["groupBy provider<br/>→ byProvider"]
-    I --> I2["groupBy provider+model<br/>→ byModel (top 20)"]
-    I --> I3["groupBy feature<br/>→ byFeature"]
-    I --> I4["groupBy userId<br/>→ topUsers (top 10)"]
-    I --> I5["Raw SQL: daily aggregate<br/>→ dailyUsage (30 hari)"]
+    I --> I1["groupBy provider
+    → byProvider"]
+    I --> I2["groupBy provider+model
+    → byModel - top 20"]
+    I --> I3["groupBy feature
+    → byFeature"]
+    I --> I4["groupBy userId
+    → topUsers - top 10"]
+    I --> I5["Raw SQL: daily aggregate
+    → dailyUsage - 30 hari"]
     
-    I1 --> J[Gabungkan semua data]
+    I1 --> J["Gabungkan semua data"]
     I2 --> J
     I3 --> J
     I4 --> J
     I5 --> J
     H --> J
     
-    J --> K[Tampilkan halaman Analytics]
+    J --> K["Tampilkan halaman Analytics"]
     
-    K --> L{Tab yang dipilih?}
+    K --> L{"Tab yang dipilih?"}
     
-    L -->|Overview| M[Tampilkan:<br/>• 4 Metric Cards<br/>  - Total Requests<br/>  - Total Tokens<br/>  - Estimated Cost<br/>  - Active API Keys]
-    M --> M1[Token Distribution Bar<br/>Input vs Output ratio]
-    M1 --> M2[Usage Summary:<br/>Avg Tokens/Request,<br/>Avg Cost/Request,<br/>Brainstorm Sessions,<br/>AI Chat Sessions]
-    M2 --> M3[Daily Requests Chart<br/>Bar chart 30 hari<br/>dengan tooltip]
-    M3 --> M4[Usage by Feature<br/>Progress bar per fitur<br/>chat, brainstorm, dll]
+    L -->|Overview| M["Tampilkan:
+    4 Metric Cards
+    Total Requests, Total Tokens,
+    Estimated Cost, Active API Keys"]
+    M --> M1["Token Distribution Bar
+    Input vs Output ratio"]
+    M1 --> M2["Usage Summary:
+    Avg Tokens per Request,
+    Avg Cost per Request,
+    Brainstorm + AI Chat Sessions"]
+    M2 --> M3["Daily Requests Chart
+    Bar chart 30 hari
+    dengan tooltip"]
+    M3 --> M4["Usage by Feature
+    Progress bar per fitur:
+    chat, brainstorm, dll"]
     
-    L -->|By Provider| N[Tampilkan card per provider:<br/>• Nama dan warna provider<br/>• Jumlah requests<br/>• Input/Output tokens<br/>• Estimated cost]
+    L -->|By Provider| N["Tampilkan card per provider:
+    Nama, warna, jumlah requests,
+    Input dan Output tokens,
+    Estimated cost"]
     
-    L -->|By Model| O[Tampilkan tabel:<br/>Provider | Model | Requests |<br/>Input | Output | Cost<br/>Sorted by usage]
+    L -->|By Model| O["Tampilkan tabel:
+    Provider - Model - Requests
+    Input - Output - Cost
+    Sorted by usage"]
     
-    L -->|Top Users| P[Tampilkan tabel:<br/># | User (avatar+name+email) |<br/>Requests | Input | Output | Cost<br/>Top 10 users]
+    L -->|Top Users| P["Tampilkan tabel:
+    Rank - User avatar+name+email
+    Requests - Input - Output - Cost
+    Top 10 users"]
     
-    M4 --> Q{Aksi lain?}
+    M4 --> Q{"Aksi lain?"}
     N --> Q
     O --> Q
     P --> Q
     
-    Q -->|Refresh| R[Klik tombol Refresh]
+    Q -->|Refresh| R["Klik tombol Refresh"]
     R --> E
     
     Q -->|Ganti Tab| L

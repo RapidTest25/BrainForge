@@ -24,7 +24,7 @@ const ROLES = [
 ];
 
 export default function TeamSettingsPage() {
-  const { activeTeam } = useTeamStore();
+  const { activeTeam, updateTeam } = useTeamStore();
   const teamId = activeTeam?.id;
   const queryClient = useQueryClient();
   const [showInvite, setShowInvite] = useState(false);
@@ -44,7 +44,15 @@ export default function TeamSettingsPage() {
 
   const updateMutation = useMutation({
     mutationFn: (data: any) => api.patch(`/teams/${teamId}`, data),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['team', teamId] }),
+    onSuccess: (_: any, variables: any) => {
+      queryClient.invalidateQueries({ queryKey: ['team', teamId] });
+      queryClient.invalidateQueries({ queryKey: ['teams'] });
+      if (teamId) updateTeam(teamId, variables);
+      toast.success('Team name updated');
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || 'Failed to update team name');
+    },
   });
 
   const inviteMutation = useMutation({

@@ -508,7 +508,7 @@ export function Sidebar({ collapsed, onToggle, mobile, onMobileClose }: SidebarP
           {isExpanded ? (
             <div className="flex items-center gap-2">
               <Avatar className="h-7 w-7 shrink-0">
-                {user.avatar && <AvatarImage src={user.avatar} alt={user.name} />}
+                {user.avatar && <AvatarImage src={user.avatar} alt={user.name} referrerPolicy="no-referrer" />}
                 <AvatarFallback className="bg-[#7b68ee]/15 text-[#7b68ee] text-xs font-medium">{user.name.charAt(0).toUpperCase()}</AvatarFallback>
               </Avatar>
               <div className="flex-1 min-w-0">
@@ -519,7 +519,7 @@ export function Sidebar({ collapsed, onToggle, mobile, onMobileClose }: SidebarP
           ) : (
             <NavTooltip label={user.name} show>
               <Avatar className="h-7 w-7">
-                {user.avatar && <AvatarImage src={user.avatar} alt={user.name} />}
+                {user.avatar && <AvatarImage src={user.avatar} alt={user.name} referrerPolicy="no-referrer" />}
                 <AvatarFallback className="bg-[#7b68ee]/15 text-[#7b68ee] text-xs font-medium">{user.name.charAt(0).toUpperCase()}</AvatarFallback>
               </Avatar>
             </NavTooltip>

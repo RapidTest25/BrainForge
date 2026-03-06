@@ -1,6 +1,7 @@
 'use client';
 
-import { useQuery } from '@tanstack/react-query';
+import { useState } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   CheckSquare, MessageSquare, GitBranch, Calendar,
   Zap, FileText, TrendingUp, Clock, ArrowRight, Plus,
@@ -13,13 +14,72 @@ import { useAuthStore } from '@/stores/auth-store';
 import { useRouter } from 'next/navigation';
 import { api } from '@/lib/api';
 import Link from 'next/link';
+import { FolderKanban } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
+import { ProjectIcon, PROJECT_ICON_MAP } from '@/components/shared/project-icon';
+
+const PROJECT_COLORS = [
+  '#7b68ee', '#3b82f6', '#22c55e', '#f59e0b', '#ef4444',
+  '#ec4899', '#8b5cf6', '#06b6d4', '#f97316', '#14b8a6',
+  '#6366f1', '#84cc16',
+];
+
+const PROJECT_ICONS = Object.keys(PROJECT_ICON_MAP);
+
+const PROJECT_DEPENDENT_HREFS = new Set(['/goals', '/tasks', '/brainstorm', '/diagrams', '/calendar', '/sprints', '/notes']);
 
 export default function DashboardPage() {
   const { activeTeam } = useTeamStore();
   const activeProject = useProjectStore((s) => s.activeProject);
   const { user } = useAuthStore();
   const router = useRouter();
+  const queryClient = useQueryClient();
   const teamId = activeTeam?.id;
+
+  // Create project modal state
+  const [showCreateProject, setShowCreateProject] = useState(false);
+  const [cpName, setCpName] = useState('');
+  const [cpDescription, setCpDescription] = useState('');
+  const [cpColor, setCpColor] = useState(PROJECT_COLORS[0]);
+  const [cpIcon, setCpIcon] = useState(PROJECT_ICONS[0]);
+
+  const createProjectMutation = useMutation({
+    mutationFn: (data: { name: string; description?: string; color: string; icon: string }) =>
+      api.post(`/teams/${teamId}/projects`, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['projects', teamId] });
+      setCpName('');
+      setCpDescription('');
+      setCpColor(PROJECT_COLORS[0]);
+      setCpIcon(PROJECT_ICONS[0]);
+      setShowCreateProject(false);
+    },
+  });
+
+  function handleCreateProject() {
+    if (!cpName.trim()) return;
+    createProjectMutation.mutate({ name: cpName.trim(), description: cpDescription.trim() || undefined, color: cpColor, icon: cpIcon });
+  }
+
+  function openCreateProjectModal() {
+    setCpName('');
+    setCpDescription('');
+    setCpColor(PROJECT_COLORS[0]);
+    setCpIcon(PROJECT_ICONS[0]);
+    setShowCreateProject(true);
+  }
+
+  const { data: projectsRes } = useQuery({
+    queryKey: ['projects', teamId],
+    queryFn: () => api.get<{ data: any[] }>('/teams/' + teamId + '/projects'),
+    enabled: !!teamId,
+  });
+  const projectList = projectsRes?.data || [];
+  const hasProjects = projectList.length > 0;
 
   const { data: tasks } = useQuery({
     queryKey: ['tasks', teamId, activeProject?.id],
@@ -111,12 +171,21 @@ export default function DashboardPage() {
               >
                 <Sparkles className="h-3.5 w-3.5" /> AI Chat
               </button>
-              <button
-                onClick={() => router.push('/tasks?new=true')}
-                className="flex items-center gap-1.5 px-4 py-2 bg-white/20 backdrop-blur-sm text-white text-sm font-medium rounded-xl hover:bg-white/30 transition-colors border border-white/10"
-              >
-                <Plus className="h-3.5 w-3.5" /> New Task
-              </button>
+              {hasProjects ? (
+                <button
+                  onClick={() => router.push('/tasks?new=true')}
+                  className="flex items-center gap-1.5 px-4 py-2 bg-white/20 backdrop-blur-sm text-white text-sm font-medium rounded-xl hover:bg-white/30 transition-colors border border-white/10"
+                >
+                  <Plus className="h-3.5 w-3.5" /> New Task
+                </button>
+              ) : (
+                <button
+                  onClick={openCreateProjectModal}
+                  className="flex items-center gap-1.5 px-4 py-2 bg-white/20 backdrop-blur-sm text-white text-sm font-medium rounded-xl hover:bg-white/30 transition-colors border border-white/10"
+                >
+                  <Plus className="h-3.5 w-3.5" /> New Project
+                </button>
+              )}
             </div>
           </div>
 
@@ -140,7 +209,7 @@ export default function DashboardPage() {
       </div>
 
       {/* Stats row - Enhanced */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+      {hasProjects && <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         {[
           { label: 'Total Tasks', value: totalTasks, icon: CheckSquare, color: '#7b68ee', change: inProgressCount > 0 ? inProgressCount + ' active' : undefined },
           { label: 'In Progress', value: inProgressCount, icon: Activity, color: '#3b82f6', change: inReviewCount > 0 ? inReviewCount + ' in review' : undefined },
@@ -164,10 +233,10 @@ export default function DashboardPage() {
             )}
           </div>
         ))}
-      </div>
+      </div>}
 
       {/* Task distribution bar - Enhanced */}
-      {totalTasks > 0 && (
+      {hasProjects && totalTasks > 0 && (
         <div className="bg-card rounded-xl border border-border p-5">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
@@ -205,10 +274,29 @@ export default function DashboardPage() {
         </div>
       )}
 
+      {/* No projects banner */}
+      {!hasProjects && (
+        <div className="bg-card rounded-xl border border-border p-8 text-center">
+          <div className="h-16 w-16 mx-auto rounded-2xl bg-[#7b68ee]/10 flex items-center justify-center mb-4">
+            <FolderKanban className="h-8 w-8 text-[#7b68ee]" />
+          </div>
+          <h3 className="text-lg font-semibold text-foreground mb-2">Create Your First Project</h3>
+          <p className="text-sm text-muted-foreground mb-5 max-w-md mx-auto">
+            Create a project to start using Tasks, Brainstorm, Notes, Diagrams, Sprints, Calendar, and Goals.
+          </p>
+          <button
+            onClick={openCreateProjectModal}
+            className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#7b68ee] text-white text-sm font-medium rounded-xl hover:bg-[#6c5ce7] transition-colors"
+          >
+            <Plus className="h-4 w-4" /> Create Project
+          </button>
+        </div>
+      )}
+
       {/* Main content grid */}
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
         {/* Recent Tasks - wider */}
-        <div className="lg:col-span-3 space-y-4">
+        {hasProjects && <div className="lg:col-span-3 space-y-4">
           {/* Urgent tasks alert */}
           {urgentTasks.length > 0 && (
             <div className="bg-red-500/5 border border-red-500/15 rounded-xl p-4">
@@ -285,10 +373,10 @@ export default function DashboardPage() {
               </div>
             )}
           </div>
-        </div>
+        </div>}
 
         {/* Right column */}
-        <div className="lg:col-span-2 space-y-4">
+        <div className={hasProjects ? 'lg:col-span-2 space-y-4' : 'lg:col-span-5 space-y-4'}>
           {/* Quick Access - Enhanced */}
           <div className="bg-card rounded-xl border border-border overflow-hidden">
             <div className="px-5 py-3.5 border-b border-border/50">
@@ -306,7 +394,7 @@ export default function DashboardPage() {
                 { label: 'AI Chat', desc: 'Ask anything', href: '/ai-chat', icon: Sparkles, color: '#7b68ee' },
                 { label: 'Calendar', desc: 'View schedule', href: '/calendar', icon: Calendar, color: '#3b82f6' },
                 { label: 'Goals', desc: (goals?.data?.length || 0) + ' goals', href: '/goals', icon: Target, color: '#f97316' },
-              ].map(({ label, desc, href, icon: Icon, color }) => (
+              ].filter(({ href }) => hasProjects || !PROJECT_DEPENDENT_HREFS.has(href)).map(({ label, desc, href, icon: Icon, color }) => (
                 <Link
                   key={href}
                   href={href}
@@ -329,7 +417,7 @@ export default function DashboardPage() {
           </div>
 
           {/* Workspace overview */}
-          <div className="bg-card rounded-xl border border-border p-5">
+          {hasProjects && <div className="bg-card rounded-xl border border-border p-5">
             <h3 className="text-sm font-semibold text-foreground mb-4 flex items-center gap-2">
               <Star className="h-4 w-4 text-[#f59e0b]" /> Workspace Overview
             </h3>
@@ -352,9 +440,78 @@ export default function DashboardPage() {
                 </div>
               ))}
             </div>
-          </div>
+          </div>}
         </div>
       </div>
+
+      {/* Create Project Modal */}
+      <Dialog open={showCreateProject} onOpenChange={setShowCreateProject}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Create New Project</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            {/* Preview */}
+            <div className="flex items-center gap-3 p-3 rounded-lg border bg-accent/30">
+              <div className="h-11 w-11 rounded-lg flex items-center justify-center shrink-0"
+                style={{ backgroundColor: `${cpColor}18` }}>
+                <ProjectIcon icon={cpIcon} className="h-5 w-5" style={{ color: cpColor }} />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="font-semibold text-foreground truncate">{cpName || 'Project Name'}</p>
+                <p className="text-xs text-muted-foreground truncate">{cpDescription || 'Description'}</p>
+              </div>
+            </div>
+
+            {/* Name */}
+            <div>
+              <label className="text-sm font-medium text-foreground mb-1.5 block">Name</label>
+              <Input placeholder="e.g., Mobile App, Marketing Site" value={cpName}
+                onChange={e => setCpName(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && handleCreateProject()} autoFocus />
+            </div>
+
+            {/* Description */}
+            <div>
+              <label className="text-sm font-medium text-foreground mb-1.5 block">Description</label>
+              <Textarea placeholder="What is this project about?" value={cpDescription}
+                onChange={e => setCpDescription(e.target.value)} rows={2} className="resize-none" />
+            </div>
+
+            {/* Icon picker */}
+            <div>
+              <label className="text-sm font-medium text-foreground mb-1.5 block">Icon</label>
+              <div className="flex flex-wrap gap-1.5">
+                {PROJECT_ICONS.map(i => (
+                  <button key={i} onClick={() => setCpIcon(i)}
+                    className={cn('h-9 w-9 rounded-lg flex items-center justify-center transition-all',
+                      cpIcon === i ? 'bg-accent ring-2 ring-[#7b68ee] scale-110' : 'hover:bg-accent')}>
+                    <ProjectIcon icon={i} className="h-4 w-4 text-muted-foreground" />
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Color picker */}
+            <div>
+              <label className="text-sm font-medium text-foreground mb-1.5 block">Color</label>
+              <div className="flex flex-wrap gap-2">
+                {PROJECT_COLORS.map(c => (
+                  <button key={c} onClick={() => setCpColor(c)}
+                    className={cn('h-7 w-7 rounded-full transition-all',
+                      cpColor === c ? 'ring-2 ring-offset-2 scale-110' : 'hover:scale-110')}
+                    style={{ backgroundColor: c, boxShadow: cpColor === c ? `0 0 0 2px ${c}` : undefined }} />
+                ))}
+              </div>
+            </div>
+
+            <Button onClick={handleCreateProject} disabled={!cpName.trim() || createProjectMutation.isPending}
+              className="w-full bg-[#7b68ee] hover:bg-[#6c5ce7] text-white">
+              {createProjectMutation.isPending ? 'Creating...' : 'Create Project'}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

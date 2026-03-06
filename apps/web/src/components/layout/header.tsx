@@ -261,7 +261,7 @@ export function Header({ onMobileMenuToggle }: HeaderProps) {
           <DropdownMenuTrigger asChild>
             <button className="flex items-center gap-1 md:gap-1.5 rounded-md px-1 md:px-1.5 py-1 hover:bg-accent transition-colors">
               <Avatar className="h-6 w-6">
-                {user?.avatar && <AvatarImage src={user.avatar} alt={user?.name || 'User'} />}
+                {user?.avatar && <AvatarImage src={user.avatar} alt={user?.name || 'User'} referrerPolicy="no-referrer" />}
                 <AvatarFallback className="bg-[#7b68ee]/15 text-[#7b68ee] text-[10px] font-semibold">
                   {user?.name?.charAt(0).toUpperCase() || 'U'}
                 </AvatarFallback>
@@ -273,7 +273,7 @@ export function Header({ onMobileMenuToggle }: HeaderProps) {
             <DropdownMenuLabel className="text-[13px] font-normal pb-2">
               <div className="flex items-center gap-2.5">
                 <Avatar className="h-8 w-8">
-                  {user?.avatar && <AvatarImage src={user.avatar} alt={user?.name || 'User'} />}
+                  {user?.avatar && <AvatarImage src={user.avatar} alt={user?.name || 'User'} referrerPolicy="no-referrer" />}
                   <AvatarFallback className="bg-[#7b68ee]/15 text-[#7b68ee] text-xs font-semibold">
                     {user?.name?.charAt(0).toUpperCase() || 'U'}
                   </AvatarFallback>

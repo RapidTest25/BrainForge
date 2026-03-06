@@ -39,14 +39,16 @@ Dokumentasi ini dipecah menjadi beberapa file agar lebih mudah dibaca dan diagra
 | 3 | [diagrams/activity-login.md](./diagrams/activity-login.md) | Activity Diagram — Login |
 | 4 | [diagrams/activity-brainstorm.md](./diagrams/activity-brainstorm.md) | Activity Diagram — Brainstorm AI |
 | 5 | [diagrams/activity-task.md](./diagrams/activity-task.md) | Activity Diagram — Manajemen Task |
-| 6 | [diagrams/sequence-autentikasi.md](./diagrams/sequence-autentikasi.md) | Sequence Diagram — Autentikasi |
-| 7 | [diagrams/sequence-ai-chat.md](./diagrams/sequence-ai-chat.md) | Sequence Diagram — AI Chat |
-| 8 | [diagrams/class-diagram-entity.md](./diagrams/class-diagram-entity.md) | Class Diagram — Database Entity |
-| 9 | [diagrams/class-diagram-ai-provider.md](./diagrams/class-diagram-ai-provider.md) | Class Diagram — AI Provider |
-| 10 | [diagrams/component-diagram.md](./diagrams/component-diagram.md) | Component Diagram |
-| 11 | [diagrams/deployment-diagram.md](./diagrams/deployment-diagram.md) | Deployment Diagram |
-| 12 | [diagrams/navigation-diagram.md](./diagrams/navigation-diagram.md) | Navigation Diagram (Sitemap) |
-| 13 | [diagrams/erd-diagram.md](./diagrams/erd-diagram.md) | Entity Relationship Diagram (ERD) |
+| 6 | [diagrams/activity-ai-generate.md](./diagrams/activity-ai-generate.md) | Activity Diagram — AI Generate (Bulk Generation) |
+| 7 | [diagrams/activity-byok.md](./diagrams/activity-byok.md) | Activity Diagram — BYOK (Bring Your Own Key) |
+| 8 | [diagrams/sequence-autentikasi.md](./diagrams/sequence-autentikasi.md) | Sequence Diagram — Autentikasi |
+| 9 | [diagrams/sequence-ai-chat.md](./diagrams/sequence-ai-chat.md) | Sequence Diagram — AI Chat |
+| 10 | [diagrams/class-diagram-entity.md](./diagrams/class-diagram-entity.md) | Class Diagram — Database Entity |
+| 11 | [diagrams/class-diagram-ai-provider.md](./diagrams/class-diagram-ai-provider.md) | Class Diagram — AI Provider |
+| 12 | [diagrams/component-diagram.md](./diagrams/component-diagram.md) | Component Diagram |
+| 13 | [diagrams/deployment-diagram.md](./diagrams/deployment-diagram.md) | Deployment Diagram |
+| 14 | [diagrams/navigation-diagram.md](./diagrams/navigation-diagram.md) | Navigation Diagram (Sitemap) |
+| 15 | [diagrams/erd-diagram.md](./diagrams/erd-diagram.md) | Entity Relationship Diagram (ERD) |
 
 ---
 

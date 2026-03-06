@@ -41,7 +41,7 @@ Dokumentasi ini dipecah menjadi beberapa file agar lebih mudah dibaca dan diagra
 | 5 | [diagrams/activity-task.md](./diagrams/activity-task.md) | Activity Diagram — Manajemen Task |
 | 6 | [diagrams/activity-ai-generate.md](./diagrams/activity-ai-generate.md) | Activity Diagram — AI Generate (Bulk Generation) |
 | 7 | [diagrams/activity-byok.md](./diagrams/activity-byok.md) | Activity Diagram — BYOK (Bring Your Own Key) |
-| 8 | [diagrams/activity-ai-analytics.md](./diagrams/activity-ai-analytics.md) | Activity Diagram — AI Usage Analytics (Admin) |
+| 8 | [diagrams/activity-ai-analytics.md](./diagrams/activity-ai-analytics.md) | Activity Diagram — AI Chat Project Analysis |
 | 9 | [diagrams/sequence-autentikasi.md](./diagrams/sequence-autentikasi.md) | Sequence Diagram — Autentikasi |
 | 10 | [diagrams/sequence-ai-chat.md](./diagrams/sequence-ai-chat.md) | Sequence Diagram — AI Chat |
 | 11 | [diagrams/class-diagram-entity.md](./diagrams/class-diagram-entity.md) | Class Diagram — Database Entity |

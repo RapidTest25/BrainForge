@@ -109,7 +109,7 @@ export default function RegisterPage() {
         {/* Content */}
         <div className="relative flex flex-col justify-between p-10 w-full">
           <Link href="/" className="flex items-center gap-2.5 group">
-            <BrainForgeLogo size={36} className="group-hover:opacity-90 transition-opacity" />
+            <BrainForgeLogo size={36} variant="dark" className="group-hover:opacity-90 transition-opacity" />
             <span className="text-xl font-bold text-white">BrainForge</span>
           </Link>
 

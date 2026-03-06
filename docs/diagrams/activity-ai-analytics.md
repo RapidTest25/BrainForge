@@ -1,95 +1,132 @@
-# Activity Diagram — AI Usage Analytics (Admin)
+# Activity Diagram — AI Chat Project Analysis
 
 [← Kembali ke Daftar Diagram](../README.md#diagram-uml-file-terpisah)
 
 ---
 
-> Fitur AI Usage Analytics hanya dapat diakses oleh **Admin**. Menampilkan statistik lengkap penggunaan AI di seluruh platform: per provider, per model, per fitur, top users, dan tren harian.
+> Fitur **AI Chat** adalah asisten AI yang **menganalisis project** secara real-time. AI membaca konteks project (tasks, goals, brainstorm sessions, sprints) lalu membantu user untuk mengembangkan dan menambahkan task baru, notes, goals, dan lainnya langsung dari percakapan AI.
 
 ```mermaid
 flowchart TD
-    A([Mulai]) --> B["Admin buka halaman
-    /admin/ai-usage"]
-    B --> C{"Admin middleware
-    isAdmin?"}
-    C -->|Tidak| D["Redirect ke Dashboard
-    403 Forbidden"]
-    C -->|Ya| E["Fetch data secara paralel"]
+    A([Mulai]) --> B["User buka halaman /ai-chat"]
+    B --> C["Fetch daftar chat sebelumnya
+    GET /teams/:teamId/ai-chat"]
+    C --> D{"Pilih chat atau
+    buat baru?"}
     
-    E --> F["GET /admin/stats"]
-    E --> G["GET /admin/ai-usage"]
+    D -->|Buat Baru| E["Klik tombol New Chat
+    POST /teams/:teamId/ai-chat"]
+    E --> F["Chat baru dibuat
+    dengan judul default"]
+    F --> G["Tampilkan Quick Actions"]
     
-    F --> H["Query aggregat dari DB:
-    totalAiKeys, totalBrainstorms,
-    totalAiChats, aiUsage 30 hari"]
-    G --> I["Query analitik dari DB
-    5 groupBy queries"]
+    D -->|Pilih Existing| H["Klik chat dari sidebar"]
+    H --> I["Fetch chat + messages
+    GET /teams/:teamId/ai-chat/:chatId"]
+    I --> J["Tampilkan riwayat pesan"]
     
-    I --> I1["groupBy provider
-    → byProvider"]
-    I --> I2["groupBy provider+model
-    → byModel - top 20"]
-    I --> I3["groupBy feature
-    → byFeature"]
-    I --> I4["groupBy userId
-    → topUsers - top 10"]
-    I --> I5["Raw SQL: daily aggregate
-    → dailyUsage - 30 hari"]
+    G --> K{"User memilih aksi?"}
+    J --> K
     
-    I1 --> J["Gabungkan semua data"]
-    I2 --> J
-    I3 --> J
-    I4 --> J
-    I5 --> J
-    H --> J
+    K -->|Quick Action| L{"Pilih Quick Action"}
+    L -->|Summarize Project| L1["Prompt: ringkasan status
+    project, progress task, goals,
+    brainstorm sessions"]
+    L -->|Suggest Next Goals| L2["Prompt: saran 3-5 goals
+    berdasarkan state project"]
+    L -->|Analyze Blockers| L3["Prompt: identifikasi resiko,
+    task overdue, goals terhenti"]
+    L -->|Sprint Planning| L4["Prompt: rencana sprint
+    berdasarkan task belum selesai"]
     
-    J --> K["Tampilkan halaman Analytics"]
+    L1 --> M["Kirim pesan ke AI"]
+    L2 --> M
+    L3 --> M
+    L4 --> M
     
-    K --> L{"Tab yang dipilih?"}
+    K -->|Ketik Manual| M
     
-    L -->|Overview| M["Tampilkan:
-    4 Metric Cards
-    Total Requests, Total Tokens,
-    Estimated Cost, Active API Keys"]
-    M --> M1["Token Distribution Bar
-    Input vs Output ratio"]
-    M1 --> M2["Usage Summary:
-    Avg Tokens per Request,
-    Avg Cost per Request,
-    Brainstorm + AI Chat Sessions"]
-    M2 --> M3["Daily Requests Chart
-    Bar chart 30 hari
-    dengan tooltip"]
-    M3 --> M4["Usage by Feature
-    Progress bar per fitur:
-    chat, brainstorm, dll"]
+    M --> N["Pilih AI Provider dan Model"]
+    N --> O{"Tipe Provider?"}
     
-    L -->|By Provider| N["Tampilkan card per provider:
-    Nama, warna, jumlah requests,
-    Input dan Output tokens,
-    Estimated cost"]
+    O -->|Cloud Provider| P["POST /ai-chat/:chatId/messages
+    content, provider, model"]
+    O -->|Browser Local| Q["Inferensi via WebGPU
+    di browser user"]
     
-    L -->|By Model| O["Tampilkan tabel:
-    Provider - Model - Requests
-    Input - Output - Cost
-    Sorted by usage"]
+    P --> R["Backend: Simpan pesan user
+    ke AiChatMessage"]
+    R --> S["Backend: Ambil Project Context"]
     
-    L -->|Top Users| P["Tampilkan tabel:
-    Rank - User avatar+name+email
-    Requests - Input - Output - Cost
-    Top 10 users"]
+    S --> S1["Query 30 task terbaru
+    status, priority, dueDate"]
+    S --> S2["Query 15 goals terbaru
+    status, progress"]
+    S --> S3["Query 10 brainstorm sessions
+    title, mode, context"]
+    S --> S4["Query 5 sprints terbaru
+    title, goal, status, deadline"]
     
-    M4 --> Q{"Aksi lain?"}
-    N --> Q
-    O --> Q
-    P --> Q
+    S1 --> T["Bangun System Prompt
+    dengan project context"]
+    S2 --> T
+    S3 --> T
+    S4 --> T
     
-    Q -->|Refresh| R["Klik tombol Refresh"]
-    R --> E
+    T --> U["Kirim ke AI Provider
+    system prompt + chat history"]
+    U --> V["AI menganalisis dan
+    memberikan respons"]
     
-    Q -->|Ganti Tab| L
+    Q --> V2["Simpan pesan user + AI
+    POST /ai-chat/:chatId/messages
+    provider: BROWSER, localReply"]
+    V2 --> W
     
-    Q -->|Selesai| S([Selesai])
+    V --> V1["Simpan respons AI
+    ke AiChatMessage"]
+    V1 --> W["Tampilkan respons AI
+    di chat interface"]
+    
+    W --> X{"Respons mengandung
+    brainforge-updates?"}
+    
+    X -->|Ya| Y["Parse JSON block:
+    suggestions array dengan
+    type, title, description"]
+    Y --> Z["Tampilkan tombol
+    Apply to Project"]
+    
+    Z --> AA{"User klik Apply?"}
+    AA -->|Ya| AB["POST /ai-chat/apply-updates
+    suggestions + projectId"]
+    
+    AB --> AC{"Proses setiap suggestion"}
+    AC -->|type: task| AD["Buat Task baru via
+    prisma.task.create
+    title, description, priority"]
+    AC -->|type: goal| AE["Buat Goal baru via
+    prisma.goal.create
+    title, description, progress: 0"]
+    AC -->|type: note| AF["Buat Note baru via
+    prisma.note.create
+    title, content"]
+    
+    AD --> AG["Return hasil:
+    success count + fail count"]
+    AE --> AG
+    AF --> AG
+    
+    AG --> AH["Tampilkan toast notifikasi
+    N updates applied"]
+    AH --> AI["Invalidate queries:
+    tasks, goals, notes, project"]
+    AI --> K
+    
+    AA -->|Tidak| K
+    X -->|Tidak| K
+    
+    K -->|Selesai| AJ([Selesai])
 ```
 
 ---
@@ -98,86 +135,95 @@ flowchart TD
 
 | Langkah | Deskripsi |
 |---------|-----------|
-| 1 | Admin membuka halaman `/admin/ai-usage` |
-| 2 | Admin middleware memverifikasi bahwa user memiliki `isAdmin: true` |
-| 3 | Frontend melakukan 2 API call paralel: `/admin/stats` dan `/admin/ai-usage` |
-| 4 | Backend menjalankan 5 `groupBy` query + 1 raw SQL query ke tabel `AIUsageLog` (30 hari terakhir) |
-| 5 | Data ditampilkan dalam 4 tab: Overview, By Provider, By Model, dan Top Users |
-| 6 | Admin dapat refresh data atau berpindah antar tab |
+| 1 | User membuka halaman `/ai-chat` dan melihat daftar chat sebelumnya di sidebar |
+| 2 | User bisa membuat chat baru atau melanjutkan chat yang sudah ada |
+| 3 | Saat chat baru, ditampilkan **4 Quick Actions**: Summarize Project, Suggest Next Goals, Analyze Blockers, Sprint Planning |
+| 4 | User mengirim pesan (via Quick Action atau manual) beserta pilihan AI Provider dan Model |
+| 5 | Backend menyimpan pesan user, lalu mengambil **Project Context** dari database |
+| 6 | Project Context berisi: 30 task terbaru, 15 goals, 10 brainstorm sessions, 5 sprints |
+| 7 | AI menerima system prompt + project context + chat history, lalu menganalisis dan merespons |
+| 8 | Jika AI menyarankan perubahan konkret, respons berisi blok `brainforge-updates` JSON |
+| 9 | User dapat menekan **Apply to Project** untuk langsung membuat task, goal, atau note baru |
+| 10 | Sistem memproses setiap suggestion dan membuat entitas baru di database |
 
-### Detail Data Analytics
+### System Prompt AI
 
-#### Metric Cards (Overview)
-| Metrik | Sumber | Deskripsi |
-|--------|--------|-----------|
-| **Total Requests** | `AIUsageLog` count | Jumlah total request AI dalam 30 hari |
-| **Total Tokens** | `promptTokens + completionTokens` | Total token yang digunakan (input + output) |
-| **Estimated Cost** | `estimatedCost` sum | Estimasi biaya total AI |
-| **Active API Keys** | `UserAIKey` count | Jumlah API key aktif di platform |
-
-#### By Provider Breakdown
-| Field | Deskripsi |
-|-------|-----------|
-| **Provider** | Nama provider (OpenAI, Claude, Gemini, Groq, OpenRouter, Copilot) |
-| **Requests** | Jumlah request per provider |
-| **Input Tokens** | Total prompt tokens per provider |
-| **Output Tokens** | Total completion tokens per provider |
-| **Cost** | Estimasi biaya per provider |
-
-#### By Model Breakdown (Top 20)
-| Field | Deskripsi |
-|-------|-----------|
-| **Provider** | Provider yang menyediakan model |
-| **Model** | Nama model spesifik (gpt-4o, claude-sonnet-4, gemini-2.5-flash, dll.) |
-| **Requests** | Jumlah request per model |
-| **Input/Output** | Token usage per model |
-| **Cost** | Estimasi biaya per model |
-
-#### By Feature Breakdown
-| Feature | Deskripsi |
-|---------|-----------|
-| `chat` | AI Chat mandiri dan brainstorm chat |
-| `brainstorm` | Sesi brainstorm AI |
-| `generate` | AI Generate (bulk generation) |
-| `diagram` | AI diagram generation |
-| `sprint` | AI sprint planning |
-| `note` | AI note assistance |
-| `goal` | AI goal generation |
-
-#### Top Users (Top 10)
-| Field | Deskripsi |
-|-------|-----------|
-| **User** | Avatar, nama, dan email pengguna |
-| **Requests** | Jumlah request yang dilakukan |
-| **Input/Output** | Total token yang digunakan |
-| **Cost** | Estimasi biaya yang dihasilkan |
-
-#### Daily Usage (30 Hari)
-| Field | Deskripsi |
-|-------|-----------|
-| **Date** | Tanggal (per hari) |
-| **Requests** | Jumlah request pada hari tersebut |
-| **Tokens** | Total token pada hari tersebut |
-| **Cost** | Estimasi biaya pada hari tersebut |
-
-### Query Database
+AI menerima system prompt khusus yang berisi:
 
 ```
-┌────────────────────────────────────────┐
-│         AIUsageLog Table               │
-│ (Sumber utama semua analytics)         │
-├────────────────────────────────────────┤
-│ id, provider, model, feature,          │
-│ promptTokens, completionTokens,        │
-│ estimatedCost, userId, createdAt       │
-├────────────────────────────────────────┤
-│ Query 1: groupBy(provider)             │
-│ Query 2: groupBy(provider, model)      │
-│ Query 3: groupBy(feature)              │
-│ Query 4: groupBy(userId) + JOIN User   │
-│ Query 5: Raw SQL DATE() aggregate      │
-└────────────────────────────────────────┘
+You are BrainForge AI Assistant — a smart project management helper.
+You have access to the current project/workspace context below.
+
+=== PROJECT CONTEXT ===
+TASKS (30 recent): status summary + detail per task
+GOALS (15): status, progress %, description
+BRAINSTORM SESSIONS (10 recent): title, mode, context
+SPRINTS (5): status, title, goal, deadline
+=== END CONTEXT ===
+
+Guidelines:
+- Be concise and actionable
+- Highlight key progress, blockers, and upcoming work
+- Suggest goals based on task statuses and team activity
+- Analyze incomplete tasks, goals, and recent brainstorm sessions
 ```
+
+### Format Project Updates (brainforge-updates)
+
+Ketika AI mengidentifikasi item yang bisa ditindaklanjuti, AI menyertakan blok JSON:
+
+```json
+{
+  "suggestions": [
+    {
+      "type": "task",
+      "title": "Implementasi fitur notifikasi",
+      "description": "Buat sistem notifikasi real-time",
+      "priority": "HIGH",
+      "status": "TODO"
+    },
+    {
+      "type": "goal",
+      "title": "Tingkatkan test coverage ke 80%",
+      "description": "Tulis unit test untuk semua service"
+    },
+    {
+      "type": "note",
+      "title": "Catatan arsitektur microservice",
+      "content": "Pertimbangkan untuk memisahkan AI service..."
+    }
+  ],
+  "summary": "3 suggestions berdasarkan analisis task yang overdue"
+}
+```
+
+### Quick Actions
+
+| Quick Action | Deskripsi | Ikon |
+|-------------|-----------|------|
+| **Summarize Project** | Ringkasan komprehensif status project: progress task, goals, brainstorm | BarChart3 |
+| **Suggest Next Goals** | Saran 3-5 goals prioritas berdasarkan state project saat ini | Target |
+| **Analyze Blockers** | Identifikasi resiko, task overdue, goals terhenti, dan solusinya | Sparkles |
+| **Sprint Planning** | Rencana sprint berikutnya berdasarkan task belum selesai dan prioritas | Clock |
+
+### Apply Updates Flow
+
+| Tipe | Aksi | Data yang Dibuat |
+|------|------|-----------------|
+| **task** | `prisma.task.create()` | title, description, priority, status, projectId, teamId |
+| **goal** | `prisma.goal.create()` | title, description, status: NOT_STARTED, progress: 0, projectId |
+| **note** | `prisma.note.create()` | title, content, projectId, teamId |
+
+### Fitur Tambahan
+
+| Fitur | Deskripsi |
+|-------|-----------|
+| **Multi-Provider** | Mendukung semua 6 provider cloud + Browser local (WebGPU) |
+| **Model Selection** | Kategori otomatis: GPT, Claude, Gemini, Reasoning, Meta, DeepSeek, Mistral, Qwen |
+| **Browser Inference** | Inferensi lokal via WebGPU tanpa API key, model di-download ke browser |
+| **Chat History** | Riwayat semua percakapan tersimpan per team, bisa di-rename dan dihapus |
+| **Project Context** | AI membaca data project secara real-time setiap kali user mengirim pesan |
+| **Auto-create Chat** | Chat otomatis dibuat jika user mengirim pesan tanpa chat aktif |
 
 ---
 

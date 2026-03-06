@@ -221,7 +221,7 @@ export default function ResetPasswordPage() {
 
         <div className="relative flex flex-col justify-between p-10 w-full">
           <Link href="/" className="flex items-center gap-2.5">
-            <BrainForgeLogo size={36} />
+            <BrainForgeLogo size={36} variant="dark" />
             <span className="text-lg font-bold text-white tracking-tight">BrainForge</span>
           </Link>
 

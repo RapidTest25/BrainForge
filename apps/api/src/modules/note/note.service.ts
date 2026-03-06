@@ -4,7 +4,22 @@ import { NotFoundError } from '../../lib/errors.js';
 import type { ChatMsg } from '../../ai/providers/base.js';
 
 class NoteService {
+  private async generateCode(teamId: string): Promise<string> {
+    const lastNote = await prisma.note.findFirst({
+      where: { teamId, code: { not: '' } },
+      orderBy: { createdAt: 'desc' },
+      select: { code: true },
+    });
+    let nextNum = 1;
+    if (lastNote?.code) {
+      const match = lastNote.code.match(/NOTE-(\d+)/);
+      if (match) nextNum = parseInt(match[1], 10) + 1;
+    }
+    return `NOTE-${String(nextNum).padStart(3, '0')}`;
+  }
+
   async create(teamId: string, userId: string, data: { title: string; content?: string; projectId?: string }) {
+    const code = await this.generateCode(teamId);
     return prisma.note.create({
       data: {
         teamId,
@@ -12,6 +27,7 @@ class NoteService {
         title: data.title,
         content: data.content || '',
         projectId: data.projectId,
+        code,
       },
       include: { creator: { select: { id: true, name: true, avatarUrl: true } } },
     });

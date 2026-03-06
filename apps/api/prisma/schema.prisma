@@ -517,6 +517,7 @@ model CalendarEvent {
 
 model Note {
   id        String   @id @default(cuid())
+  code      String   @default("")
   teamId    String
   projectId String?
   createdBy String
@@ -530,6 +531,8 @@ model Note {
   project Project?      @relation(fields: [projectId], references: [id])
   creator User          @relation(fields: [createdBy], references: [id])
   history NoteHistory[]
+
+  @@unique([teamId, code])
 }
 
 model NoteHistory {

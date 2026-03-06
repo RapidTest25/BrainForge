@@ -34,10 +34,19 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
 
   setProjects: (projects) => {
     set({ projects });
+    const current = get().activeProject;
     const saved = localStorage.getItem('brainforge_active_project');
     if (saved) {
       const active = projects.find(p => p.id === saved);
-      if (active) set({ activeProject: active });
+      if (active) {
+        set({ activeProject: active });
+        return;
+      }
+    }
+    // Auto-select first project if none is active
+    if (!current && projects.length > 0) {
+      localStorage.setItem('brainforge_active_project', projects[0].id);
+      set({ activeProject: projects[0] });
     }
   },
 

@@ -17,6 +17,7 @@ import {
 } from '@/components/ui/select';
 import { useTeamStore } from '@/stores/team-store';
 import { useProjectStore } from '@/stores/project-store';
+import { NoProjectGuard } from '@/components/no-project-guard';
 import { api } from '@/lib/api';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';

@@ -26,6 +26,8 @@ const MAIN_NAV = [
   { label: 'AI Chat', href: '/ai-chat', icon: Bot },
 ];
 
+const PROJECT_DEPENDENT_HREFS = new Set(['/goals', '/tasks', '/brainstorm', '/diagrams', '/calendar', '/sprints', '/notes']);
+
 const DEFAULT_FAVORITES = ['/tasks', '/sprints'];
 
 // All favoritable items (MAIN_NAV + SPACE_NAV + BOTTOM_NAV)
@@ -181,11 +183,6 @@ export function Sidebar({ collapsed, onToggle, mobile, onMobileClose }: SidebarP
 
   const isFavorite = useCallback((href: string) => favoriteHrefs.includes(href), [favoriteHrefs]);
 
-  // Resolve favorite items from ALL_NAV_ITEMS
-  const favoriteItems = favoriteHrefs
-    .map(href => ALL_NAV_ITEMS.find(item => item.href === href))
-    .filter(Boolean) as typeof ALL_NAV_ITEMS;
-
   const handleContextMenu = useCallback((e: React.MouseEvent, href: string) => {
     e.preventDefault();
     e.stopPropagation();
@@ -202,11 +199,25 @@ export function Sidebar({ collapsed, onToggle, mobile, onMobileClose }: SidebarP
     enabled: !!activeTeam?.id,
   });
   const projectList = projectsRes?.data || [];
+  const hasProjects = projectList.length > 0;
 
-  // Sync projects to store
+  // Resolve favorite items from ALL_NAV_ITEMS (hide project-dependent ones when no projects)
+  const favoriteItems = favoriteHrefs
+    .map(href => ALL_NAV_ITEMS.find(item => item.href === href))
+    .filter((item): item is (typeof ALL_NAV_ITEMS)[number] => !!item && (hasProjects || !PROJECT_DEPENDENT_HREFS.has(item.href)));
+
+  // Sync projects to store & auto-select first project if none active
   useEffect(() => {
-    if (projectList.length > 0) setProjects(projectList);
-  }, [projectList, setProjects]);
+    if (projectList.length > 0) {
+      setProjects(projectList);
+      // Auto-select the first project if none is currently active
+      if (!activeProject) {
+        const saved = localStorage.getItem('brainforge_active_project');
+        const savedProject = saved ? projectList.find((p: Project) => p.id === saved) : null;
+        setActiveProject(savedProject || projectList[0]);
+      }
+    }
+  }, [projectList, setProjects, activeProject, setActiveProject]);
 
   // Close project picker on outside click
   useEffect(() => {
@@ -323,23 +334,13 @@ export function Sidebar({ collapsed, onToggle, mobile, onMobileClose }: SidebarP
             ) : (
               <>
                 <FolderKanban className="h-3.5 w-3.5 text-muted-foreground" />
-                <span className="flex-1 text-left truncate text-muted-foreground">All Projects</span>
+                <span className="flex-1 text-left truncate text-muted-foreground">Select Project</span>
               </>
             )}
             <ChevronDown className={cn('h-3 w-3 text-muted-foreground transition-transform duration-200', showProjectPicker && 'rotate-180')} />
           </button>
           {showProjectPicker && (
             <div className="absolute top-full left-0 right-0 mt-1 bg-popover border rounded-lg shadow-lg z-50 py-1 max-h-48 overflow-y-auto animate-in fade-in slide-in-from-top-1 duration-150">
-              <button
-                onClick={() => { setActiveProject(null); setShowProjectPicker(false); }}
-                className={cn(
-                  'flex items-center gap-2 w-full px-3 py-1.5 text-[12px] transition-colors hover:bg-accent',
-                  !activeProject && 'bg-accent/50 font-medium'
-                )}
-              >
-                <FolderKanban className="h-3.5 w-3.5 text-muted-foreground" />
-                <span className="text-muted-foreground">All Projects</span>
-              </button>
               {projectList.map((p: Project) => (
                 <button
                   key={p.id}
@@ -361,7 +362,7 @@ export function Sidebar({ collapsed, onToggle, mobile, onMobileClose }: SidebarP
 
       {/* ── Main nav ── */}
       <div className={cn('pt-3 pb-1 shrink-0', isExpanded ? 'px-2 space-y-0.5' : 'px-1.5 space-y-1')}>
-        {MAIN_NAV.filter(({ href }) => !isExpanded || !favoriteHrefs.includes(href)).map(({ label, href, icon: Icon }) => (
+        {MAIN_NAV.filter(({ href }) => (!isExpanded || !favoriteHrefs.includes(href)) && (hasProjects || !PROJECT_DEPENDENT_HREFS.has(href))).map(({ label, href, icon: Icon }) => (
           <NavTooltip key={href} label={label} show={!isExpanded}>
             <Link
               href={href}
@@ -385,7 +386,7 @@ export function Sidebar({ collapsed, onToggle, mobile, onMobileClose }: SidebarP
 
       {/* ── Middle scrollable area ── */}
       <div className={cn('flex-1 overflow-y-auto', isExpanded ? 'px-2 pt-1 space-y-3' : 'px-1.5 pt-1 space-y-1')}>
-        {isExpanded ? (
+        {!hasProjects ? null : isExpanded ? (
           <>
             {/* Favorites */}
             {favoriteItems.length > 0 && (

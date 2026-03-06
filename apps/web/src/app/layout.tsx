@@ -9,6 +9,10 @@ const jetbrainsMono = JetBrains_Mono({ subsets: ['latin'], variable: '--font-mon
 export const metadata: Metadata = {
   title: 'BrainForge - AI Collaborative Workspace',
   description: 'Manage tasks, brainstorm with AI, create diagrams, plan sprints — all in one workspace.',
+  icons: {
+    icon: '/favicon.ico',
+    apple: '/apple-icon.png',
+  },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

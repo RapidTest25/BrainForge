@@ -86,9 +86,7 @@ export default function Home() {
       <nav className="fixed top-0 w-full z-50 bg-card/90 backdrop-blur-sm border-b border-border">
         <div className="max-w-6xl mx-auto px-6 h-14 flex items-center justify-between">
           <Link href="/" className="flex items-center gap-2">
-            <div className="h-8 w-8 rounded-lg bg-linear-to-br from-[#7b68ee] to-[#a78bfa] flex items-center justify-center">
-              <BrainForgeLogo size={18} />
-            </div>
+            <BrainForgeLogo size={32} />
             <span className="text-lg font-bold text-foreground">BrainForge</span>
           </Link>
           <div className="flex items-center gap-1 sm:gap-2">
@@ -278,9 +276,7 @@ export default function Home() {
         <div className="max-w-6xl mx-auto">
           <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
             <div className="flex items-center gap-2">
-              <div className="h-6 w-6 rounded bg-linear-to-br from-[#7b68ee] to-[#a78bfa] flex items-center justify-center">
-                <BrainForgeLogo size={12} />
-              </div>
+              <BrainForgeLogo size={24} />
               <span className="text-sm font-semibold text-foreground">BrainForge</span>
               <span className="text-xs text-muted-foreground px-1.5 py-0.5 bg-muted rounded">MIT</span>
             </div>

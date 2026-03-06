@@ -56,9 +56,7 @@ export default function JoinTeamPage() {
       <div className="max-w-md w-full">
         <div className="text-center mb-6">
           <Link href="/" className="inline-flex items-center gap-2">
-            <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-[#7b68ee] to-[#a78bfa] flex items-center justify-center">
-              <BrainForgeLogo size={20} />
-            </div>
+            <BrainForgeLogo size={40} />
             <span className="text-xl font-bold text-[#1a1a2e]">BrainForge</span>
           </Link>
         </div>

@@ -13,8 +13,9 @@ export function BrainForgeLogo({ className, size = 24, style }: BrainForgeLogoPr
       alt="BrainForge"
       width={size}
       height={size}
-      className={className}
+      className={`rounded-lg shrink-0 ${className ?? ''}`}
       style={style}
+      priority
     />
   );
 }

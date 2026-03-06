@@ -269,10 +269,10 @@ export function Sidebar({ collapsed, onToggle, mobile, onMobileClose }: SidebarP
       )}>
         <button
           onClick={isExpanded && !mobile ? onToggle : (!mobile ? onToggle : undefined)}
-          className="h-7 w-7 rounded-lg bg-linear-to-br from-[#7b68ee] to-[#a78bfa] flex items-center justify-center shrink-0 hover:shadow-md transition-shadow"
+          className="shrink-0 hover:shadow-md transition-shadow rounded-lg"
           title={collapsed ? 'Expand sidebar (Ctrl+B)' : 'Collapse sidebar (Ctrl+B)'}
         >
-          <BrainForgeLogo size={18} />
+          <BrainForgeLogo size={28} />
         </button>
         {isExpanded && (
           <>

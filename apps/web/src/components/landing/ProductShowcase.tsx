@@ -67,9 +67,7 @@ export function ProductShowcase({
           {/* Sidebar - hidden on mobile, icons only on tablet, full on desktop */}
           <div className="hidden md:block w-36 lg:w-40 border-r border-border bg-card p-2 space-y-0.5">
             <div className="flex items-center gap-2 mb-3 px-2 pt-0.5">
-              <div className="h-5 w-5 rounded bg-linear-to-br from-primary to-[#a78bfa] flex items-center justify-center">
-                <BrainForgeLogo size={12} />
-              </div>
+              <BrainForgeLogo size={20} />
               <span className="font-semibold text-[10px] text-foreground/80">
                 BrainForge
               </span>

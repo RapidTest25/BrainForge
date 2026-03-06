@@ -95,9 +95,7 @@ export default function LoginPage() {
         {/* Content */}
         <div className="relative flex flex-col justify-between p-10 w-full">
           <Link href="/" className="flex items-center gap-2.5 group">
-            <div className="h-9 w-9 rounded-xl bg-white/15 backdrop-blur-sm flex items-center justify-center group-hover:bg-white/20 transition-colors">
-              <BrainForgeLogo size={20} />
-            </div>
+            <BrainForgeLogo size={36} className="group-hover:opacity-90 transition-opacity" />
             <span className="text-xl font-bold text-white">BrainForge</span>
           </Link>
 
@@ -157,9 +155,7 @@ export default function LoginPage() {
         >
           {/* Mobile logo */}
           <div className="flex items-center gap-2.5 mb-10 lg:hidden">
-            <div className="h-9 w-9 rounded-xl bg-linear-to-br from-[#7b68ee] to-[#a78bfa] flex items-center justify-center">
-              <BrainForgeLogo size={20} />
-            </div>
+            <BrainForgeLogo size={36} />
             <span className="text-xl font-bold text-foreground">BrainForge</span>
           </div>
 

@@ -263,7 +263,7 @@ function DrawIOEditor({ diagram, onBack, onDelete, onSave }: {
 export default function DiagramsPage() {
   const { activeTeam } = useTeamStore();
   const activeProject = useProjectStore((s) => s.activeProject);
-  const { emitEntityChange } = useProjectSocket(activeProject?.id);
+  const { emitEntityChange, on: onProjectEvent } = useProjectSocket(activeProject?.id);
   const teamId = activeTeam?.id;
   const queryClient = useQueryClient();
   const [activeDiagram, setActiveDiagram] = useState<string | null>(null);
@@ -275,6 +275,19 @@ export default function DiagramsPage() {
   useEffect(() => {
     if (searchParams.get('new') === 'true') setShowCreate(true);
   }, [searchParams]);
+
+  // Listen for real-time diagram changes from other team members
+  useEffect(() => {
+    const unsub = onProjectEvent('entity:changed', (data: any) => {
+      if (data.type === 'diagram') {
+        queryClient.invalidateQueries({ queryKey: ['diagrams', teamId] });
+        if (activeDiagram) {
+          queryClient.invalidateQueries({ queryKey: ['diagram', activeDiagram] });
+        }
+      }
+    });
+    return unsub;
+  }, [onProjectEvent, teamId, activeDiagram, queryClient]);
   const [newDiagram, setNewDiagram] = useState({ title: '', type: 'FLOWCHART', description: '' });
   const [aiForm, setAiForm] = useState({ title: '', type: 'FLOWCHART', description: '', provider: 'OPENROUTER', model: 'google/gemini-2.5-flash-preview-05-20' });
   const [search, setSearch] = useState('');

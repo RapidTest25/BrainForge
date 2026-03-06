@@ -3,67 +3,76 @@ import { aiService } from '../../ai/ai.service.js';
 import { AppError, NotFoundError } from '../../lib/errors.js';
 import type { ChatMsg } from '../../ai/providers/base.js';
 
-const DIAGRAM_PROMPT = `You are an expert software architect and diagram designer. Generate diagram data based on user descriptions.
+const DIAGRAM_PROMPT = `You are an expert diagram designer. Generate diagrams in draw.io mxGraphModel XML format.
 
-Output MUST be valid JSON with this structure:
-{
-  "nodes": [
-    { "id": "1", "type": "default", "position": { "x": 0, "y": 0 }, "data": { "label": "Node Name", "description": "Optional description" } }
-  ],
-  "edges": [
-    { "id": "e1-2", "source": "1", "target": "2", "label": "relationship" }
-  ]
-}
+Output MUST be valid draw.io XML starting with <mxGraphModel> and ending with </mxGraphModel>.
+The root must contain <root> with cell id="0" and cell id="1" parent="0" as the first two cells.
 
-TYPE-SPECIFIC RULES:
+IMPORTANT: All text values in XML attributes MUST be XML-escaped:
+- & → &amp;  < → &lt;  > → &gt;  " → &quot;  ' → &apos;
+- For multi-line text in labels, use &#xa; for newlines
+
+CELL ID RULES:
+- Use simple numeric string IDs: "2", "3", "4", etc.
+- Edge IDs can be like "e1", "e2", etc.
+- Cell 0 and 1 are reserved for the graph root.
+
+TYPE-SPECIFIC TEMPLATES:
 
 FLOWCHART:
-- Position nodes top-to-bottom (increment y by 120 for each step)
-- Use meaningful labels. Start first node with "Start", end with "End"
-- Decision nodes should have labels ending with "?"
-- Edge labels: "Yes", "No" for decisions, or action descriptions
-- Spread x positions (200px apart) for parallel branches
+- Start/End: style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" (green)
+- Process: style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" (blue)
+- Decision: style="rhombus;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" (yellow diamond)
+- Edges: style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;"
+- Layout: top-to-bottom, y increments of 100, centered at x=200
+- Width: 160, Height: 60 for process, 80x80 for decisions
 
 ERD (Entity Relationship Diagram):
-- Each node is a database table. Label = table name (e.g. "Users", "Orders")
-- Description MUST list columns, one per line in format: "column_name: TYPE (PK)" or "column_name: TYPE (FK)"
-  Example description: "id: UUID (PK)\nname: VARCHAR\nemail: VARCHAR\ncreated_at: TIMESTAMP"
-- Position tables in a grid layout (x increments of 300, y increments of 250)
-- Edge labels should show relationship type: "1:N", "1:1", "N:M", or "has many", "belongs to"
+- Table header: style="shape=table;startSize=30;container=1;collapsible=0;childLayout=tableLayout;fixedRows=1;rowLines=0;fontStyle=1;align=center;resizeSizeByChildColumns=0;fillColor=#dae8fc;strokeColor=#6c8ebf;html=1;whiteSpace=wrap;"
+- Table row: Use child cells with style="shape=tableRow;horizontal=0;startSize=0;swimlaneHead=0;swimlaneBody=0;fillColor=none;collapsible=0;dropTarget=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;fontSize=12;html=1;" as container
+  - Inside each row, 3 cells: column name, type, constraints (PK/FK)
+- Use parent= to nest rows inside tables
+- Position tables in grid layout (x increments of 300, y increments of 300)
+- Edges between tables: style="edgeStyle=entityRelationEdgeStyle;fontSize=12;html=1;" with relationship labels
 
 MINDMAP:
-- First node is the CENTRAL topic, position at center (x:350, y:250)
-- Branch nodes radiate outward from center
-- Level 1 branches: position at radius ~200px from center in a circle
-- Level 2 branches: position at radius ~350px from center
-- Edge connections flow outward from center. No labels needed on edges.
-- Use short, concise labels
+- Central node: style="ellipse;whiteSpace=wrap;html=1;fillColor=#7b68ee;fontColor=#ffffff;strokeColor=#6c5ce7;fontSize=16;" (large, ~180x80)
+- Level 1: style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;" (~140x50)
+- Level 2: style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;" (~120x40)
+- Central at (350, 250), branches radiate outward
+- Edges: style="edgeStyle=orthogonalEdgeStyle;curved=1;rounded=1;html=1;"
 
 ARCHITECTURE:
-- Nodes represent system components/services/layers
-- Use labels like "API Gateway", "Auth Service", "Database Layer", "CDN"
-- Position in logical layers: top=presentation, middle=business, bottom=data
-- Space nodes 250px apart in x, 180px in y
-- Edge labels: "REST", "gRPC", "WebSocket", "SQL", etc.
+- Service/Component: style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;shadow=1;" (~160x60)
+- Database: style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=15;fillColor=#d5e8d4;strokeColor=#82b366;" (~120x80)
+- Gateway/Load Balancer: style="shape=hexagon;perimeter=hexagonPerimeter2;whiteSpace=wrap;html=1;fixedSize=1;fillColor=#fff2cc;strokeColor=#d6b656;" (~160x60)
+- Client/External: style="shape=mxgraph.aws3.users;fillColor=#D2D3D3;strokeColor=none;" or simple rounded rect
+- Queue: style="shape=process;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;" (~140x40)
+- Organize in layers: clients on top, services in middle, data at bottom
+- Edges with protocol labels: style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;"
 
 SEQUENCE:
-- Nodes represent actors/participants (e.g. "Client", "Server", "Database")
-- Position ALL nodes horizontally at y:30, spaced 200px apart in x
-- Edge labels describe messages: "POST /login", "SELECT * FROM users", "200 OK"
-- Multiple edges between same nodes represent sequential messages
+- Participant boxes at top: style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" (~120x40)
+- Lifelines: style="endArrow=none;dashed=1;html=1;strokeColor=#999999;" (vertical dashed lines below each participant)
+- Messages (arrows): style="html=1;" or style="html=1;dashed=1;" for returns
+- Position participants horizontally at y=20, spaced 200px apart
+- Messages go left-to-right or right-to-left between lifelines at increasing y positions (40px increments)
 
 COMPONENT:
-- Nodes represent software modules/components
-- Labels: "AuthModule", "UserService", "PaymentGateway", etc.
-- Position in a logical dependency layout
-- Edge labels: "uses", "implements", "depends on", "provides"
+- Component: style="shape=component;align=left;spacingLeft=36;rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;"
+- Interface: style="ellipse;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" (small ~40x40)
+- Package: style="shape=folder;fontStyle=1;spacingTop=10;tabWidth=40;tabHeight=14;tabPosition=left;html=1;fillColor=#f5f5f5;strokeColor=#666666;"
+- Edges: style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;" with labels like "uses", "implements"
 
 GENERAL RULES:
-- Position nodes in a readable layout (spread them out, avoid overlaps, minimum 150px apart)
-- Use meaningful labels and descriptions
-- Create logical connections between nodes
-- Generate 5-10 nodes and appropriate edges for a comprehensive diagram
-- ONLY output the JSON, no other text`;
+- Generate 5-15 cells (not counting root cells 0 and 1) for a comprehensive diagram
+- Use fillColor, strokeColor, fontColor for visual distinction
+- All vertex cells must have vertex="1" parent="1"
+- All edge cells must have edge="1" parent="1" source="X" target="Y"
+- Geometry: vertex cells need <mxGeometry x="X" y="Y" width="W" height="H" as="geometry"/>
+- Geometry: edge cells need <mxGeometry relative="1" as="geometry"/>
+- Space nodes well apart (minimum 150px) to avoid overlaps
+- ONLY output the XML, no other text, no markdown code fences`;
 
 class DiagramService {
   async create(teamId: string, userId: string, data: { title: string; type: string; description?: string; projectId?: string }) {
@@ -127,26 +136,32 @@ class DiagramService {
       { role: 'system', content: DIAGRAM_PROMPT },
       {
         role: 'user',
-        content: `Generate a ${diagramType} diagram for the following:\n\n${description}\n\nOutput only valid JSON.`,
+        content: `Generate a ${diagramType} diagram for the following:\n\n${description}\n\nOutput only valid draw.io XML. No markdown, no code fences, just the raw XML starting with <mxGraphModel>.`,
       },
     ];
 
     const result = await aiService.chat(userId, provider, model, messages, { temperature: 0.3 });
 
-    // Parse JSON from response
-    let diagramData: any;
-    try {
-      const jsonMatch = result.content.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
-        diagramData = JSON.parse(jsonMatch[0]);
+    // Extract draw.io XML from response
+    let xml: string;
+    const xmlMatch = result.content.match(/<mxGraphModel[\s\S]*<\/mxGraphModel>/);
+    if (xmlMatch) {
+      xml = xmlMatch[0];
+    } else {
+      // Try to strip markdown code fences
+      const stripped = result.content
+        .replace(/```xml\s*/gi, '')
+        .replace(/```\s*/g, '')
+        .trim();
+      const retryMatch = stripped.match(/<mxGraphModel[\s\S]*<\/mxGraphModel>/);
+      if (retryMatch) {
+        xml = retryMatch[0];
       } else {
-        diagramData = JSON.parse(result.content);
+        throw new AppError(422, 'AI_PARSE_ERROR', 'AI did not return valid draw.io XML');
       }
-    } catch {
-      diagramData = { nodes: [], edges: [], error: 'Failed to parse AI response' };
     }
 
-    return diagramData;
+    return { xml };
   }
 
   async generateAndSave(
@@ -160,11 +175,6 @@ class DiagramService {
     projectId?: string
   ) {
     const diagramData = await this.generateWithAI(userId, provider || '', model || '', description || '', diagramType || 'FLOWCHART');
-
-    // If AI failed to parse, throw instead of saving empty diagram
-    if (diagramData.error) {
-      throw new AppError(422, 'AI_PARSE_ERROR', diagramData.error);
-    }
 
     return prisma.diagram.create({
       data: {

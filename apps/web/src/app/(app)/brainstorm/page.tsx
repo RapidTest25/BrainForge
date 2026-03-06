@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
@@ -10,6 +10,7 @@ import {
 import { toast } from 'sonner';
 import { useTeamStore } from '@/stores/team-store';
 import { useProjectStore } from '@/stores/project-store';
+import { useProjectSocket } from '@/hooks/use-project-socket';
 import { api } from '@/lib/api';
 import { cn } from '@/lib/utils';
 
@@ -24,9 +25,20 @@ export default function BrainstormPage() {
   const router = useRouter();
   const { activeTeam } = useTeamStore();
   const activeProject = useProjectStore((s) => s.activeProject);
+  const { on: onProjectEvent } = useProjectSocket(activeProject?.id);
   const teamId = activeTeam?.id;
   const queryClient = useQueryClient();
   const [creatingMode, setCreatingMode] = useState<string | null>(null);
+
+  // Listen for real-time brainstorm changes from other team members
+  useEffect(() => {
+    const unsub = onProjectEvent('entity:changed', (data: any) => {
+      if (data.type === 'brainstorm') {
+        queryClient.invalidateQueries({ queryKey: ['brainstorm-sessions', teamId] });
+      }
+    });
+    return unsub;
+  }, [onProjectEvent, teamId, queryClient]);
 
   const { data: sessions } = useQuery({
     queryKey: ['brainstorm-sessions', teamId, activeProject?.id],

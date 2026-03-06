@@ -4,6 +4,7 @@ import { createSessionSchema, sendMessageSchema } from '@brainforge/validators';
 import { authGuard } from '../../middleware/auth.middleware.js';
 import { teamGuard } from '../../middleware/team.middleware.js';
 import { prisma } from '../../lib/prisma.js';
+import { emitBrainstormChat } from '../../socket.js';
 import path from 'path';
 import fs from 'fs';
 import { randomUUID } from 'crypto';
@@ -40,6 +41,8 @@ export async function brainstormRoutes(app: FastifyInstance) {
     const { sessionId } = request.params as { sessionId: string };
     const body = sendMessageSchema.parse(request.body);
     const result = await brainstormService.sendMessage(sessionId, request.user.id, body.content);
+    // Broadcast to all clients in the session room
+    emitBrainstormChat(sessionId, 'chat:message', result);
     return reply.send({ success: true, data: result });
   });
 
@@ -48,13 +51,19 @@ export async function brainstormRoutes(app: FastifyInstance) {
     const { messageId } = request.params as { messageId: string };
     const { content } = request.body as { content: string };
     const msg = await brainstormService.editMessage(messageId, request.user.id, content);
+    // Broadcast edit to all clients in the session room
+    emitBrainstormChat(msg.sessionId, 'chat:edit', msg);
     return reply.send({ success: true, data: msg });
   });
 
   // DELETE /api/teams/:teamId/brainstorm/messages/:messageId — delete message
   app.delete('/:teamId/brainstorm/messages/:messageId', { preHandler: [teamGuard()] }, async (request, reply) => {
     const { messageId } = request.params as { messageId: string };
+    // Look up the message to get sessionId before deleting
+    const msg = await prisma.brainstormMessage.findUnique({ where: { id: messageId }, select: { sessionId: true } });
     await brainstormService.deleteMessage(messageId, request.user.id);
+    // Broadcast delete to all clients in the session room
+    if (msg) emitBrainstormChat(msg.sessionId, 'chat:delete', { messageId });
     return reply.send({ success: true, data: { message: 'Message deleted' } });
   });
 
@@ -142,6 +151,9 @@ export async function brainstormRoutes(app: FastifyInstance) {
       },
       include: { user: { select: { id: true, name: true, avatarUrl: true } } },
     });
+
+    // Broadcast file message to all clients in the session room
+    emitBrainstormChat(sessionId, 'chat:message', message);
 
     return reply.send({ success: true, data: message });
   });

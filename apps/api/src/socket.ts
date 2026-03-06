@@ -133,3 +133,11 @@ export function setupSocket(httpServer: HttpServer) {
 export function getIO() {
   return io;
 }
+
+/**
+ * Emit a brainstorm chat event to all clients in a session room (server-side push).
+ */
+export function emitBrainstormChat(sessionId: string, event: string, data: any) {
+  if (!io) return;
+  io.of('/brainstorm').to(sessionId).emit(event, data);
+}

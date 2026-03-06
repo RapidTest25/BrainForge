@@ -109,8 +109,56 @@ export default function BrainstormSessionPage() {
       setElements([]);
       setCurrentElement(null);
     }));
+
+    // Real-time chat: new message
+    unsubs.push(socketOn('chat:message', (newMsg: any) => {
+      queryClient.setQueryData(['brainstorm-session', sessionId], (old: any) => {
+        if (!old?.data?.messages) return old;
+        // Avoid duplicates (sender already sees their own message via mutation)
+        const exists = old.data.messages.some((m: any) => m.id === newMsg.id);
+        if (exists) return old;
+        return {
+          ...old,
+          data: {
+            ...old.data,
+            messages: [...old.data.messages, newMsg],
+          },
+        };
+      });
+    }));
+
+    // Real-time chat: message edited
+    unsubs.push(socketOn('chat:edit', (editedMsg: any) => {
+      queryClient.setQueryData(['brainstorm-session', sessionId], (old: any) => {
+        if (!old?.data?.messages) return old;
+        return {
+          ...old,
+          data: {
+            ...old.data,
+            messages: old.data.messages.map((m: any) =>
+              m.id === editedMsg.id ? { ...m, content: editedMsg.content, isEdited: true } : m
+            ),
+          },
+        };
+      });
+    }));
+
+    // Real-time chat: message deleted
+    unsubs.push(socketOn('chat:delete', (data: { messageId: string }) => {
+      queryClient.setQueryData(['brainstorm-session', sessionId], (old: any) => {
+        if (!old?.data?.messages) return old;
+        return {
+          ...old,
+          data: {
+            ...old.data,
+            messages: old.data.messages.filter((m: any) => m.id !== data.messageId),
+          },
+        };
+      });
+    }));
+
     return () => unsubs.forEach(fn => fn());
-  }, [sessionId, socketOn]);
+  }, [sessionId, socketOn, queryClient]);
 
   // ===== QUERIES =====
   const { data: session, refetch: refetchSession } = useQuery({
@@ -159,21 +207,44 @@ export default function BrainstormSessionPage() {
 
   const sendMutation = useMutation({
     mutationFn: async (data: { content: string }) => {
-      return api.post(`/teams/${teamId}/brainstorm/${sessionId}/messages`, data);
+      return api.post<{ data: any }>(`/teams/${teamId}/brainstorm/${sessionId}/messages`, data);
     },
-    onSuccess: () => {
-      refetchSession();
+    onSuccess: (res: any) => {
+      // Add the message to cache immediately (socket broadcast dedup prevents doubles)
+      const newMsg = res.data;
+      queryClient.setQueryData(['brainstorm-session', sessionId], (old: any) => {
+        if (!old?.data?.messages) return old;
+        const exists = old.data.messages.some((m: any) => m.id === newMsg.id);
+        if (exists) return old;
+        return {
+          ...old,
+          data: { ...old.data, messages: [...old.data.messages, newMsg] },
+        };
+      });
     },
   });
 
   const editMutation = useMutation({
     mutationFn: async ({ messageId, content }: { messageId: string; content: string }) => {
-      return api.patch(`/teams/${teamId}/brainstorm/messages/${messageId}`, { content });
+      return api.patch<{ data: any }>(`/teams/${teamId}/brainstorm/messages/${messageId}`, { content });
     },
-    onSuccess: () => {
+    onSuccess: (res: any) => {
       setEditingMessageId(null);
       setEditingContent('');
-      refetchSession();
+      // Update cache inline (socket broadcast also delivers this for other clients)
+      const edited = res.data;
+      queryClient.setQueryData(['brainstorm-session', sessionId], (old: any) => {
+        if (!old?.data?.messages) return old;
+        return {
+          ...old,
+          data: {
+            ...old.data,
+            messages: old.data.messages.map((m: any) =>
+              m.id === edited.id ? { ...m, content: edited.content, isEdited: true } : m
+            ),
+          },
+        };
+      });
     },
   });
 
@@ -181,8 +252,18 @@ export default function BrainstormSessionPage() {
     mutationFn: async (messageId: string) => {
       return api.delete(`/teams/${teamId}/brainstorm/messages/${messageId}`);
     },
-    onSuccess: () => {
-      refetchSession();
+    onSuccess: (_res: any, messageId: string) => {
+      // Remove from cache (socket broadcast also delivers this for other clients)
+      queryClient.setQueryData(['brainstorm-session', sessionId], (old: any) => {
+        if (!old?.data?.messages) return old;
+        return {
+          ...old,
+          data: {
+            ...old.data,
+            messages: old.data.messages.filter((m: any) => m.id !== messageId),
+          },
+        };
+      });
       toast.success('Message deleted');
     },
   });

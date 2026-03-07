@@ -131,6 +131,8 @@ model User {
   aiChats            AiChat[]
   projects           Project[]
   projectMemberships ProjectMember[]
+  notulenConfigs     NotulenConfig[]
+  notulenEntries     NotulenEntry[]
 }
 
 // ==========================================
@@ -160,6 +162,8 @@ model Team {
   notifications      Notification[]
   aiChats            AiChat[]
   projects           Project[]
+  notulenConfigs     NotulenConfig[]
+  notulenEntries     NotulenEntry[]
 }
 
 model TeamMember {
@@ -233,8 +237,8 @@ model Project {
   diagrams           Diagram[]
   goals              Goal[]
   aiChats            AiChat[]
+  notulenEntries     NotulenEntry[]
 }
-
 model ProjectMember {
   id        String   @id @default(cuid())
   projectId String
@@ -627,6 +631,47 @@ model AIUsageLog {
   createdAt        DateTime @default(now())
 
   user User @relation(fields: [userId], references: [id])
+}
+
+// ==========================================
+// NOTULEN (AI Daily Summary)
+// ==========================================
+
+model NotulenConfig {
+  id        String   @id @default(cuid())
+  teamId    String
+  userId    String
+  isActive  Boolean  @default(false)
+  provider  String?
+  model     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  team Team @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([teamId, userId])
+}
+
+model NotulenEntry {
+  id             String   @id @default(cuid())
+  teamId         String
+  projectId      String?
+  createdBy      String
+  title          String
+  summary        String   @db.Text
+  conclusions    String?  @db.Text
+  recommendations String? @db.Text
+  activityData   Json?
+  provider       String?
+  model          String?
+  date           DateTime @default(now())
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  team    Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  project Project? @relation(fields: [projectId], references: [id])
+  creator User     @relation(fields: [createdBy], references: [id])
 }
 
 // ==========================================

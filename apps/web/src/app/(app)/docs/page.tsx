@@ -4,7 +4,7 @@ import { useState } from 'react';
 import {
   BookOpen, CheckSquare, MessageSquare, GitBranch, Zap, Calendar, FileText,
   Settings, Users, Key, Target, Bell, ChevronRight, Search, ExternalLink,
-  LayoutDashboard, FolderKanban, Bot, Sparkles,
+  LayoutDashboard, FolderKanban, Bot, Sparkles, ScrollText,
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
@@ -223,6 +223,34 @@ const SECTIONS = [
       {
         title: 'AI-Powered Goals',
         body: 'Use AI Generate to automatically create a set of goals based on your project description. AI will suggest relevant objectives, milestones, and key results.',
+      },
+    ],
+  },
+  {
+    id: 'notulen',
+    icon: ScrollText,
+    title: 'Notulen (AI Summary)',
+    color: '#06b6d4',
+    content: [
+      {
+        title: 'Overview',
+        body: 'Notulen is an AI-powered daily summary feature that automatically analyzes your team\'s activity from the last 24 hours and generates comprehensive meeting notes. It covers tasks, notes, brainstorm sessions, goals, and diagrams — providing a clear picture of progress, conclusions, and recommendations.',
+      },
+      {
+        title: 'Manual Generation',
+        body: 'Click "Generate Summary" on the Notulen page to create an on-demand AI summary. Select your preferred AI provider and model, and optionally add custom context (e.g., "Focus on frontend tasks" or "Highlight blockers"). The AI will analyze all recent activity and produce a structured report.',
+      },
+      {
+        title: 'Auto-Summary (Daily at 12:00 PM)',
+        body: 'Enable auto-summary from the Notulen page or Settings → AI Notulen. When active, BrainForge will automatically generate a daily summary at 12:00 PM and send you a notification. This uses your configured AI provider and model, consuming credits from your API key.',
+      },
+      {
+        title: 'Summary Structure',
+        body: 'Each Notulen entry includes:\n\n• **Summary** — Comprehensive overview of all activities in the last 24 hours\n• **Conclusions** — Key takeaways, patterns, and areas needing attention\n• **Recommendations** — Actionable next steps with priorities\n• **Activity Stats** — Breakdown of tasks, notes, brainstorms, goals, and diagrams analyzed',
+      },
+      {
+        title: 'Configuration',
+        body: 'Go to Settings → AI Notulen to configure the auto-summary feature. You can toggle it on/off, select the AI provider and model, and the settings are per-user per-team. When off, no AI credits are consumed.',
       },
     ],
   },

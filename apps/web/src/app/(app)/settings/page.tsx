@@ -1,12 +1,17 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { useMutation } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
-  User, Lock, Camera, Loader2, CheckCircle2, Mail, Shield, Sparkles, Link2, Unlink
+  User, Lock, Camera, Loader2, CheckCircle2, Mail, Shield, Sparkles, Link2, Unlink,
+  ScrollText, Power, PowerOff, ChevronDown, Bell, Clock, Brain,
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from '@/components/ui/select';
 import { useAuthStore } from '@/stores/auth-store';
+import { useTeamStore } from '@/stores/team-store';
 import { api } from '@/lib/api';
 import { cn } from '@/lib/utils';
 import { useGoogleLogin } from '@react-oauth/google';
@@ -14,6 +19,9 @@ import { toast } from 'sonner';
 
 export default function SettingsPage() {
   const { user, updateUser } = useAuthStore();
+  const { activeTeam } = useTeamStore();
+  const teamId = activeTeam?.id;
+  const queryClient = useQueryClient();
   const [name, setName] = useState(user?.name || '');
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
@@ -37,6 +45,38 @@ export default function SettingsPage() {
 
   const isGoogleLinked = !!user?.googleId;
   const hasPassword = user?.hasPassword !== false;
+
+  // ── Notulen Config ──
+  const PROVIDERS = ['OPENROUTER', 'OPENAI', 'CLAUDE', 'GEMINI', 'GROQ', 'COPILOT'];
+  const [notulenModelSearch, setNotulenModelSearch] = useState('');
+  const [notulenModelOpen, setNotulenModelOpen] = useState(false);
+
+  const { data: notulenConfigRes } = useQuery({
+    queryKey: ['notulen-config', teamId],
+    queryFn: () => api.get<{ data: any }>(`/teams/${teamId}/notulen/config`),
+    enabled: !!teamId,
+  });
+
+  const { data: models } = useQuery({
+    queryKey: ['ai-models'],
+    queryFn: () => api.get<{ data: Record<string, any[]> }>('/ai/models'),
+    staleTime: 5 * 60_000,
+  });
+
+  const notulenConfig = notulenConfigRes?.data;
+  const notulenProvider = notulenConfig?.provider || '';
+  const notulenModel = notulenConfig?.model || '';
+  const notulenProviderModels = models?.data?.[notulenProvider] || [];
+
+  const notulenMutation = useMutation({
+    mutationFn: (data: { isActive?: boolean; provider?: string; model?: string }) =>
+      api.patch(`/teams/${teamId}/notulen/config`, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['notulen-config', teamId] });
+      toast.success('Notulen settings updated');
+    },
+    onError: (e: any) => toast.error(e.message || 'Failed to update'),
+  });
 
   const linkGoogleMutation = useMutation({
     mutationFn: (data: { credential: string; userInfo: any }) =>
@@ -458,6 +498,125 @@ export default function SettingsPage() {
             </button>
           )}
         </div>
+      </div>
+
+      {/* AI Notulen (Daily Summary) */}
+      <div className="bg-card border border-border rounded-2xl p-6 space-y-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
+            <div className="h-7 w-7 rounded-lg flex items-center justify-center bg-cyan-50 dark:bg-cyan-500/10">
+              <ScrollText className="h-3.5 w-3.5 text-cyan-500" />
+            </div>
+            AI Notulen (Daily Summary)
+          </div>
+          <button
+            onClick={() => notulenMutation.mutate({ isActive: !notulenConfig?.isActive })}
+            disabled={notulenMutation.isPending}
+            className={cn(
+              'relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50',
+              notulenConfig?.isActive ? 'bg-cyan-500' : 'bg-muted'
+            )}
+          >
+            <span className={cn(
+              'pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-lg ring-0 transition-transform',
+              notulenConfig?.isActive ? 'translate-x-5.5' : 'translate-x-0.5'
+            )} />
+          </button>
+        </div>
+
+        <p className="text-[13px] text-muted-foreground leading-relaxed">
+          When enabled, AI will automatically generate a daily summary of your team&apos;s activity at <strong>12:00 PM</strong> every day. 
+          You&apos;ll receive a notification when the summary is ready. This uses your configured AI provider and model.
+        </p>
+
+        {notulenConfig?.isActive && (
+          <div className="space-y-4 pt-2 border-t border-border">
+            <div className="flex items-center gap-2 text-[11px] font-medium text-cyan-600 dark:text-cyan-400">
+              <Bell className="h-3 w-3" />
+              Daily notification at 12:00 PM
+              <div className="h-3 w-px bg-border mx-1" />
+              <Clock className="h-3 w-3" />
+              Analyzes last 24h of activity
+            </div>
+
+            {/* Provider */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <label className="text-[12px] font-semibold text-muted-foreground uppercase tracking-wider">Provider</label>
+                <Select
+                  value={notulenProvider}
+                  onValueChange={(v) => notulenMutation.mutate({ provider: v, model: '' })}
+                >
+                  <SelectTrigger className="h-10 border-border rounded-xl">
+                    <SelectValue placeholder="Select provider" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {PROVIDERS.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Model */}
+              <div className="space-y-1.5">
+                <label className="text-[12px] font-semibold text-muted-foreground uppercase tracking-wider">Model</label>
+                <div className="relative">
+                  <button
+                    onClick={() => setNotulenModelOpen(!notulenModelOpen)}
+                    className="w-full h-10 px-3 text-left text-sm border border-border rounded-xl bg-background flex items-center justify-between hover:border-cyan-500/50 transition-colors"
+                  >
+                    <span className={cn('truncate text-[13px]', notulenModel ? 'text-foreground' : 'text-muted-foreground')}>
+                      {notulenModel || 'Select model...'}
+                    </span>
+                    <ChevronDown className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                  </button>
+                  {notulenModelOpen && (
+                    <div className="absolute z-50 mt-1 w-full bg-card border border-border rounded-xl shadow-xl overflow-hidden">
+                      <div className="p-2 border-b border-border">
+                        <Input
+                          placeholder="Search models..."
+                          value={notulenModelSearch}
+                          onChange={(e) => setNotulenModelSearch(e.target.value)}
+                          className="h-8 text-[13px] border-border"
+                          autoFocus
+                        />
+                      </div>
+                      <div className="max-h-48 overflow-y-auto p-1">
+                        {notulenProviderModels
+                          .filter((m: any) => {
+                            const id = typeof m === 'string' ? m : m.id || m.name || '';
+                            return id.toLowerCase().includes(notulenModelSearch.toLowerCase());
+                          })
+                          .slice(0, 30)
+                          .map((m: any) => {
+                            const id = typeof m === 'string' ? m : m.id || m.name || '';
+                            return (
+                              <button
+                                key={id}
+                                onClick={() => {
+                                  notulenMutation.mutate({ model: id });
+                                  setNotulenModelOpen(false);
+                                  setNotulenModelSearch('');
+                                }}
+                                className={cn(
+                                  'w-full text-left px-3 py-2 text-[13px] rounded-lg transition-colors',
+                                  notulenModel === id ? 'bg-cyan-500/10 text-cyan-600 font-medium' : 'hover:bg-muted text-foreground'
+                                )}
+                              >
+                                {id}
+                              </button>
+                            );
+                          })}
+                        {notulenProviderModels.length === 0 && (
+                          <p className="text-[12px] text-muted-foreground p-3 text-center">No models. Add API key in BYOK settings.</p>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* About */}

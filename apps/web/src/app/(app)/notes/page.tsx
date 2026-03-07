@@ -121,7 +121,7 @@ export default function NotesPage() {
   const searchParams = useSearchParams();
   const teamId = activeTeam?.id;
   const queryClient = useQueryClient();
-  useProjectSocket();
+  useProjectSocket(activeProject?.id);
 
   const [selectedNote, setSelectedNote] = useState<any>(null);
   const [viewMode, setViewMode] = useState<'edit' | 'preview' | 'split'>('edit');

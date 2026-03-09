@@ -5,7 +5,8 @@ import { useSearchParams } from 'next/navigation';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   Plus, Zap, Target, AlertTriangle, Calendar, CheckCircle2, Clock, ListChecks,
-  ArrowRight, ArrowLeft, Trash2, Search, ChevronDown,
+  ArrowRight, ArrowLeft, Trash2, Search, ChevronDown, Edit2, BarChart3,
+  Users, Play, Archive, CircleDot, Circle,
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -34,6 +35,7 @@ export default function SprintsPage() {
 
   const [showCreate, setShowCreate] = useState(false);
   const [showGenerate, setShowGenerate] = useState(false);
+  const [showEdit, setShowEdit] = useState(false);
   const [selectedSprint, setSelectedSprint] = useState<any>(null);
   const [activeTab, setActiveTab] = useState('tasks');
   const [deleteConfirm, setDeleteConfirm] = useState<{ id: string; title: string } | null>(null);
@@ -47,6 +49,8 @@ export default function SprintsPage() {
   });
   const [sprintModelSearch, setSprintModelSearch] = useState('');
   const [sprintModelOpen, setSprintModelOpen] = useState(false);
+
+  const [editForm, setEditForm] = useState({ title: '', goal: '', deadline: '', teamSize: 3 });
 
   useEffect(() => {
     if (searchParams.get('new') === 'true') setShowCreate(true);
@@ -100,7 +104,36 @@ export default function SprintsPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['sprints', teamId] });
       queryClient.invalidateQueries({ queryKey: ['tasks', teamId] });
+      queryClient.invalidateQueries({ queryKey: ['sprint-tasks'] });
+      toast.success('Tasks created from sprint plan');
     },
+  });
+
+  const editMutation = useMutation({
+    mutationFn: (data: any) => api.patch(`/teams/${teamId}/sprints/${selectedSprint?.id}`, data),
+    onSuccess: (res: any) => {
+      queryClient.invalidateQueries({ queryKey: ['sprints', teamId] });
+      setSelectedSprint(res.data);
+      setShowEdit(false);
+      toast.success('Sprint updated');
+    },
+  });
+
+  const statusMutation = useMutation({
+    mutationFn: ({ sprintId, status }: { sprintId: string; status: string }) =>
+      api.patch(`/teams/${teamId}/sprints/${sprintId}`, { status }),
+    onSuccess: (res: any) => {
+      queryClient.invalidateQueries({ queryKey: ['sprints', teamId] });
+      setSelectedSprint(res.data);
+      toast.success('Sprint status updated');
+    },
+  });
+
+  // Fetch real tasks linked to this sprint
+  const { data: sprintTasks } = useQuery({
+    queryKey: ['sprint-tasks', teamId, selectedSprint?.id],
+    queryFn: () => api.get<{ data: any[] }>(`/teams/${teamId}/tasks?sprintId=${selectedSprint?.id}`),
+    enabled: !!teamId && !!selectedSprint?.id && selectedSprint?.status !== 'DRAFT',
   });
 
   const providerModels = models?.data?.[genForm.provider] || [];
@@ -147,6 +180,33 @@ export default function SprintsPage() {
     { key: 'daily', label: 'Daily Plan', icon: Calendar },
   ];
 
+  // Progress calculation from real DB tasks (once converted)
+  const realTasks = sprintTasks?.data || [];
+  const totalRealTasks = realTasks.length;
+  const doneTasks = realTasks.filter((t: any) => t.status === 'DONE').length;
+  const inProgressTasks = realTasks.filter((t: any) => t.status === 'IN_PROGRESS' || t.status === 'IN_REVIEW').length;
+  const progressPercent = totalRealTasks > 0 ? Math.round((doneTasks / totalRealTasks) * 100) : 0;
+
+  const getNextStatus = (current: string) => {
+    switch (current) {
+      case 'DRAFT': return { label: 'Start Sprint', next: 'ACTIVE', icon: Play };
+      case 'ACTIVE': return { label: 'Complete Sprint', next: 'COMPLETED', icon: CheckCircle2 };
+      case 'COMPLETED': return { label: 'Archive Sprint', next: 'ARCHIVED', icon: Archive };
+      default: return null;
+    }
+  };
+
+  const handleEditSprint = () => {
+    if (!selectedSprint) return;
+    setEditForm({
+      title: selectedSprint.title || '',
+      goal: selectedSprint.goal || '',
+      deadline: selectedSprint.deadline ? new Date(selectedSprint.deadline).toISOString().split('T')[0] : '',
+      teamSize: selectedSprint.teamSize || 3,
+    });
+    setShowEdit(true);
+  };
+
   // ─── Sprint Detail View ───
   if (selectedSprint) {
     const plan = selectedSprint.data || selectedSprint.plan || selectedSprint;
@@ -170,12 +230,36 @@ export default function SprintsPage() {
               <p className="text-sm text-muted-foreground mt-1 line-clamp-2">{selectedSprint.goal}</p>
             )}
           </div>
-          <div className="flex items-center gap-2 shrink-0">
+          <div className="flex items-center gap-2 shrink-0 flex-wrap">
+            {/* Edit button */}
+            {selectedSprint.id && (
+              <button
+                onClick={handleEditSprint}
+                className="flex items-center gap-1 px-2.5 py-1.5 text-sm text-muted-foreground rounded-lg border border-border hover:bg-accent transition-colors"
+              >
+                <Edit2 className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline">Edit</span>
+              </button>
+            )}
+            {/* Status transition button */}
+            {selectedSprint.id && getNextStatus(selectedSprint.status) && (() => {
+              const ns = getNextStatus(selectedSprint.status)!;
+              return (
+                <button
+                  onClick={() => statusMutation.mutate({ sprintId: selectedSprint.id, status: ns.next })}
+                  disabled={statusMutation.isPending}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-[#7b68ee] text-white text-sm rounded-lg hover:bg-[#6c5ce7] disabled:opacity-50 transition-colors"
+                >
+                  <ns.icon className="h-3.5 w-3.5" />
+                  <span className="hidden sm:inline">{ns.label}</span>
+                </button>
+              );
+            })()}
             {selectedSprint.id && selectedSprint.status === 'DRAFT' && (
               <button
                 onClick={() => convertMutation.mutate(selectedSprint.id)}
                 disabled={convertMutation.isPending}
-                className="flex items-center gap-1.5 px-3 py-1.5 bg-[#7b68ee] text-white text-sm rounded-lg hover:bg-[#6c5ce7] disabled:opacity-50 transition-colors"
+                className="flex items-center gap-1.5 px-3 py-1.5 border border-[#7b68ee] text-[#7b68ee] text-sm rounded-lg hover:bg-[#7b68ee]/10 disabled:opacity-50 transition-colors"
               >
                 <ArrowRight className="h-3.5 w-3.5" />
                 <span className="hidden sm:inline">Convert to Tasks</span>
@@ -193,22 +277,50 @@ export default function SprintsPage() {
           </div>
         </div>
 
-        {/* Info bar */}
-        <div className="flex flex-wrap gap-3 text-xs text-muted-foreground">
-          {selectedSprint.deadline && (
-            <span className="flex items-center gap-1 px-2.5 py-1 bg-card border border-border rounded-lg">
-              <Calendar className="h-3 w-3" /> {new Date(selectedSprint.deadline).toLocaleDateString()}
-            </span>
-          )}
-          {selectedSprint.teamSize && (
-            <span className="px-2.5 py-1 bg-card border border-border rounded-lg">
-              Team: {selectedSprint.teamSize}
-            </span>
-          )}
-          {plan.tasks?.length > 0 && (
-            <span className="px-2.5 py-1 bg-card border border-border rounded-lg">
-              {plan.tasks.length} tasks
-            </span>
+        {/* Info bar + Progress */}
+        <div className="flex flex-col gap-3">
+          <div className="flex flex-wrap gap-3 text-xs text-muted-foreground">
+            {selectedSprint.deadline && (
+              <span className="flex items-center gap-1 px-2.5 py-1 bg-card border border-border rounded-lg">
+                <Calendar className="h-3 w-3" /> {new Date(selectedSprint.deadline).toLocaleDateString()}
+              </span>
+            )}
+            {selectedSprint.teamSize && (
+              <span className="flex items-center gap-1 px-2.5 py-1 bg-card border border-border rounded-lg">
+                <Users className="h-3 w-3" /> Team: {selectedSprint.teamSize}
+              </span>
+            )}
+            {plan.tasks?.length > 0 && (
+              <span className="flex items-center gap-1 px-2.5 py-1 bg-card border border-border rounded-lg">
+                <ListChecks className="h-3 w-3" /> {plan.tasks.length} planned tasks
+              </span>
+            )}
+            {totalRealTasks > 0 && (
+              <span className="flex items-center gap-1 px-2.5 py-1 bg-card border border-border rounded-lg">
+                <BarChart3 className="h-3 w-3" /> {doneTasks}/{totalRealTasks} completed
+              </span>
+            )}
+          </div>
+
+          {/* Progress bar — show when sprint is active or completed */}
+          {totalRealTasks > 0 && (
+            <div className="bg-card border border-border rounded-xl p-3">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-xs font-medium text-muted-foreground">Sprint Progress</span>
+                <span className="text-xs font-semibold text-[#7b68ee]">{progressPercent}%</span>
+              </div>
+              <div className="h-2.5 bg-muted rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-gradient-to-r from-[#7b68ee] to-[#6c5ce7] rounded-full transition-all duration-500"
+                  style={{ width: `${progressPercent}%` }}
+                />
+              </div>
+              <div className="flex gap-4 mt-2 text-[11px] text-muted-foreground">
+                <span className="flex items-center gap-1"><Circle className="h-2.5 w-2.5 text-gray-400" /> To Do: {totalRealTasks - doneTasks - inProgressTasks}</span>
+                <span className="flex items-center gap-1"><CircleDot className="h-2.5 w-2.5 text-blue-500" /> In Progress: {inProgressTasks}</span>
+                <span className="flex items-center gap-1"><CheckCircle2 className="h-2.5 w-2.5 text-green-500" /> Done: {doneTasks}</span>
+              </div>
+            </div>
           )}
         </div>
 
@@ -234,7 +346,63 @@ export default function SprintsPage() {
         {/* Tab content */}
         {activeTab === 'tasks' && (
           <div className="space-y-2">
-            {(plan.tasks || []).map((task: any, i: number) => (
+            {/* Show real DB tasks if sprint has been converted */}
+            {totalRealTasks > 0 ? (
+              <>
+                {realTasks.map((task: any) => {
+                  const statusColors: Record<string, string> = {
+                    TODO: 'bg-gray-500/10 text-gray-500',
+                    IN_PROGRESS: 'bg-blue-500/10 text-blue-500',
+                    IN_REVIEW: 'bg-amber-500/10 text-amber-500',
+                    DONE: 'bg-green-500/10 text-green-500',
+                    CANCELLED: 'bg-red-500/10 text-red-500',
+                  };
+                  return (
+                    <div key={task.id} className="bg-card border border-border rounded-xl p-3 sm:p-4">
+                      <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-2">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <CheckCircle2 className={cn('h-4 w-4 shrink-0', task.status === 'DONE' ? 'text-green-500' : 'text-muted-foreground/60')} />
+                            <h3 className={cn('font-medium text-sm', task.status === 'DONE' ? 'text-muted-foreground line-through' : 'text-foreground')}>{task.title}</h3>
+                          </div>
+                          {task.description && (
+                            <p className="text-sm text-muted-foreground mt-1 ml-6 line-clamp-2">{task.description}</p>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2 ml-6 sm:ml-0 shrink-0 flex-wrap">
+                          <span className={cn('text-[11px] px-2 py-0.5 rounded font-medium', statusColors[task.status] || 'bg-muted text-muted-foreground')}>
+                            {task.status?.replace('_', ' ')}
+                          </span>
+                          <span className={cn(
+                            'text-[11px] px-2 py-0.5 rounded font-medium',
+                            task.priority === 'URGENT' || task.priority === 'HIGH' ? 'bg-red-500/10 text-red-600' :
+                            task.priority === 'MEDIUM' ? 'bg-amber-500/10 text-amber-600' : 'bg-muted text-muted-foreground'
+                          )}>
+                            {task.priority}
+                          </span>
+                          {task.assignees?.length > 0 && (
+                            <div className="flex -space-x-1">
+                              {task.assignees.slice(0, 3).map((a: any) => (
+                                <div
+                                  key={a.user?.id}
+                                  className="h-5 w-5 rounded-full bg-[#7b68ee] text-white text-[9px] font-bold flex items-center justify-center border border-card"
+                                  title={a.user?.name}
+                                >
+                                  {a.user?.name?.charAt(0)?.toUpperCase() || '?'}
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </>
+            ) : (
+              // Show plan tasks (before conversion)
+              <>
+                {(plan.tasks || []).map((task: any, i: number) => (
               <div key={i} className="bg-card border border-border rounded-xl p-3 sm:p-4">
                 <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-2">
                   <div className="flex-1 min-w-0">
@@ -268,6 +436,8 @@ export default function SprintsPage() {
             ))}
             {(!plan.tasks || plan.tasks.length === 0) && (
               <p className="text-center text-muted-foreground text-sm py-8">No tasks in this sprint plan</p>
+            )}
+              </>
             )}
           </div>
         )}
@@ -344,6 +514,82 @@ export default function SprintsPage() {
             )}
           </div>
         )}
+
+        {/* Edit Sprint Dialog */}
+        <Dialog open={showEdit} onOpenChange={setShowEdit}>
+          <DialogContent className="bg-card sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle className="text-foreground flex items-center gap-2">
+                <Edit2 className="h-4 w-4 text-[#7b68ee]" /> Edit Sprint
+              </DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div className="space-y-1.5">
+                <label className="text-[13px] font-medium text-muted-foreground">Title</label>
+                <Input
+                  value={editForm.title}
+                  onChange={(e) => setEditForm({ ...editForm, title: e.target.value })}
+                  className="border-border focus:border-[#7b68ee]"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-[13px] font-medium text-muted-foreground">Goal</label>
+                <Textarea
+                  value={editForm.goal}
+                  onChange={(e) => setEditForm({ ...editForm, goal: e.target.value })}
+                  rows={3}
+                  className="border-border focus:border-[#7b68ee]"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <label className="text-[13px] font-medium text-muted-foreground">Deadline</label>
+                  <Input
+                    type="date"
+                    value={editForm.deadline}
+                    onChange={(e) => setEditForm({ ...editForm, deadline: e.target.value })}
+                    className="border-border focus:border-[#7b68ee]"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-[13px] font-medium text-muted-foreground">Team Size</label>
+                  <Input
+                    type="number" min={1} max={20}
+                    value={editForm.teamSize}
+                    onChange={(e) => setEditForm({ ...editForm, teamSize: parseInt(e.target.value) || 1 })}
+                    className="border-border focus:border-[#7b68ee]"
+                  />
+                </div>
+              </div>
+            </div>
+            <DialogFooter>
+              <button onClick={() => setShowEdit(false)} className="px-4 py-2 text-sm font-medium text-muted-foreground hover:text-foreground/80 rounded-lg hover:bg-accent transition-colors">
+                Cancel
+              </button>
+              <button
+                onClick={() => editMutation.mutate({
+                  title: editForm.title,
+                  goal: editForm.goal,
+                  deadline: editForm.deadline ? new Date(editForm.deadline).toISOString() : undefined,
+                  teamSize: editForm.teamSize,
+                })}
+                disabled={!editForm.title || editMutation.isPending}
+                className="px-5 py-2 bg-[#7b68ee] text-white text-sm font-medium rounded-lg hover:bg-[#6c5ce7] disabled:opacity-50 transition-colors"
+              >
+                {editMutation.isPending ? 'Saving...' : 'Save Changes'}
+              </button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        <DeleteConfirmDialog
+          open={!!deleteConfirm}
+          onClose={() => setDeleteConfirm(null)}
+          onConfirm={() => { if (deleteConfirm) { deleteMutation.mutate(deleteConfirm.id); setDeleteConfirm(null); setSelectedSprint(null); } }}
+          title="Delete Sprint"
+          itemLabel={deleteConfirm?.title || ''}
+          isPending={deleteMutation.isPending}
+        />
       </div>
     );
   }
@@ -401,7 +647,10 @@ export default function SprintsPage() {
                 </span>
               )}
               {sprint.teamSize && (
-                <span>{sprint.teamSize} members</span>
+                <span className="flex items-center gap-1"><Users className="h-3 w-3" />{sprint.teamSize}</span>
+              )}
+              {sprint.data?.tasks?.length > 0 && (
+                <span className="flex items-center gap-1"><ListChecks className="h-3 w-3" />{sprint.data.tasks.length} tasks</span>
               )}
               <span className="ml-auto">{new Date(sprint.createdAt).toLocaleDateString()}</span>
             </div>

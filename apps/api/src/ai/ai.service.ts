@@ -65,7 +65,8 @@ class AIService {
 
   /**
    * Same as getAllModels but fetches OpenRouter models dynamically from their API.
-   * Uses 10-minute caching to avoid hammering the API.
+   * Also fetches Copilot models dynamically from GitHub Models catalog.
+   * Uses 10-minute caching to avoid hammering the APIs.
    */
   async getAllModelsWithDynamic(): Promise<Record<string, ModelDef[]>> {
     const result: Record<string, ModelDef[]> = {};
@@ -73,6 +74,18 @@ class AIService {
       if (name === 'OPENROUTER' && 'fetchAllModels' in provider) {
         try {
           result[name] = await (provider as any).fetchAllModels();
+        } catch {
+          result[name] = provider.listModels();
+        }
+      } else if (name === 'COPILOT' && 'fetchModels' in provider) {
+        // Try dynamic fetch for Copilot using any active key
+        try {
+          const key = await aiKeyService.getAnyActiveKey('COPILOT');
+          if (key) {
+            result[name] = await (provider as any).fetchModels(key);
+          } else {
+            result[name] = provider.listModels();
+          }
         } catch {
           result[name] = provider.listModels();
         }

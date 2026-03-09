@@ -81,8 +81,13 @@ class BrainstormService {
     if (!msg) throw new NotFoundError('Message not found');
     if (msg.userId !== userId) throw new Error('You can only delete your own messages');
 
-    await prisma.brainstormMessage.delete({ where: { id: messageId } });
-    return { success: true };
+    // Soft delete: replace content with deletion marker (WhatsApp style)
+    const updated = await prisma.brainstormMessage.update({
+      where: { id: messageId },
+      data: { content: '___MESSAGE_DELETED___' },
+      include: { user: { select: USER_SELECT } },
+    });
+    return updated;
   }
 
   async pinMessage(messageId: string) {

@@ -134,8 +134,8 @@ export function AIGenerateDialog({ open, onOpenChange }: AIGenerateDialogProps) 
   const queryClient = useQueryClient();
   const [prompt, setPrompt] = useState('');
   const [selectedTypes, setSelectedTypes] = useState<string[]>(['tasks']);
-  const [provider, setProvider] = useState('GEMINI');
-  const [model, setModel] = useState('gemini-2.5-flash');
+  const [provider, setProvider] = useState('COPILOT');
+  const [model, setModel] = useState('gpt-4o');
   const [modelFilter, setModelFilter] = useState('');
   const [result, setResult] = useState<any>(null);
 

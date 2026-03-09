@@ -116,6 +116,15 @@ class AIKeyService {
     }
     return { totalRequests: logs.length, totalTokens, totalCost, byProvider, recentLogs: logs.slice(0, 50) };
   }
+
+  /** Get any active decrypted key for a provider (not user-specific, for model catalog fetching). Returns null if none found. */
+  async getAnyActiveKey(provider: string): Promise<string | null> {
+    const key = await prisma.userAIKey.findFirst({
+      where: { provider: provider as any, isActive: true },
+    });
+    if (!key) return null;
+    return decrypt(key.encryptedKey);
+  }
 }
 
 export const aiKeyService = new AIKeyService();

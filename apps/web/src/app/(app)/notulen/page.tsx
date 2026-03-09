@@ -154,8 +154,8 @@ export default function NotulenPage() {
   const [search, setSearch] = useState('');
   const [selectedEntry, setSelectedEntry] = useState<any>(null);
   const [showGenerate, setShowGenerate] = useState(false);
-  const [genProvider, setGenProvider] = useState('OPENROUTER');
-  const [genModel, setGenModel] = useState('');
+  const [genProvider, setGenProvider] = useState('COPILOT');
+  const [genModel, setGenModel] = useState('gpt-4o');
   const [genModelSearch, setGenModelSearch] = useState('');
   const [genModelOpen, setGenModelOpen] = useState(false);
   const [customPrompt, setCustomPrompt] = useState('');
@@ -190,9 +190,34 @@ export default function NotulenPage() {
     staleTime: 5 * 60_000,
   });
 
+  const { data: keysData } = useQuery({
+    queryKey: ['ai-keys'],
+    queryFn: () => api.get<{ data: any[] }>('/ai/keys'),
+  });
+
   const providerModels = models?.data?.[genProvider] || [];
   const config = configRes?.data;
   const entries = entriesRes?.data || [];
+
+  // Auto-select first connected provider + model
+  const connectedProviders = new Set((keysData?.data || []).filter((k: any) => k.isActive).map((k: any) => k.provider.toUpperCase()));
+  useEffect(() => {
+    if (models?.data && connectedProviders.size > 0 && !connectedProviders.has(genProvider)) {
+      const first = ['COPILOT', 'OPENAI', 'GEMINI', 'CLAUDE', 'OPENROUTER', 'GROQ'].find(p => connectedProviders.has(p))
+        || Array.from(connectedProviders)[0];
+      if (first) {
+        setGenProvider(first);
+        const firstModel = models.data[first]?.[0];
+        if (firstModel) setGenModel(firstModel.id);
+      }
+    }
+  }, [models, keysData]);
+
+  useEffect(() => {
+    if (providerModels?.length && !providerModels.find((m: any) => m.id === genModel)) {
+      setGenModel(providerModels[0].id);
+    }
+  }, [genProvider, models]);
 
   // ── Mutations ──
   const toggleMutation = useMutation({

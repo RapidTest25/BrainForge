@@ -9,7 +9,7 @@ import {
   Circle, Square, Type, Minus, Eraser, Download,
   ArrowRight, Diamond, RotateCcw,
   Users, FileText, Check, X, Paperclip, Image as ImageIcon, File as FileIcon,
-  MoreVertical, Edit2, Brain,
+  MoreVertical, Edit2, Brain, ChevronDown, Search, Ban,
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -80,6 +80,12 @@ export default function BrainstormSessionPage() {
   // AI typing indicator
   const [aiTyping, setAiTyping] = useState(false);
   const aiTypingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // AI Model picker for @ai
+  const [showAiPicker, setShowAiPicker] = useState(false);
+  const [aiProvider, setAiProvider] = useState('');
+  const [aiModel, setAiModel] = useState('');
+  const [aiModelSearch, setAiModelSearch] = useState('');
 
   // Title editing
   const [editingTitle, setEditingTitle] = useState(false);
@@ -180,15 +186,17 @@ export default function BrainstormSessionPage() {
       });
     }));
 
-    // Real-time chat: message deleted
-    unsubs.push(socketOn('chat:delete', (data: { messageId: string }) => {
+    // Real-time chat: message deleted (soft delete — WhatsApp style)
+    unsubs.push(socketOn('chat:delete', (data: { messageId: string; message?: any }) => {
       queryClient.setQueryData(['brainstorm-session', sessionId], (old: any) => {
         if (!old?.data?.messages) return old;
         return {
           ...old,
           data: {
             ...old.data,
-            messages: old.data.messages.filter((m: any) => m.id !== data.messageId),
+            messages: old.data.messages.map((m: any) =>
+              m.id === data.messageId ? { ...m, content: '___MESSAGE_DELETED___' } : m
+            ),
           },
         };
       });
@@ -218,6 +226,32 @@ export default function BrainstormSessionPage() {
     queryFn: () => api.get<{ data: Record<string, any[]> }>('/ai/models'),
     staleTime: 5 * 60_000,
   });
+
+  // User's AI keys for provider selection
+  const { data: aiKeysRes } = useQuery({
+    queryKey: ['ai-keys'],
+    queryFn: () => api.get<{ data: any[] }>('/ai/keys'),
+    staleTime: 5 * 60_000,
+  });
+
+  // Get user's active providers from their AI keys
+  const userActiveProviders = (aiKeysRes?.data || [])
+    .filter((k: any) => k.isActive)
+    .map((k: any) => k.provider);
+
+  // Initialize AI provider/model from user's keys
+  useEffect(() => {
+    if (userActiveProviders.length > 0 && !aiProvider) {
+      const providerPriority = ['OPENROUTER', 'OPENAI', 'CLAUDE', 'GEMINI', 'GROQ', 'COPILOT'];
+      const firstProvider = providerPriority.find(p => userActiveProviders.includes(p)) || userActiveProviders[0];
+      setAiProvider(firstProvider);
+      const models = aiModelsRes?.data?.[firstProvider] || [];
+      if (models.length > 0) {
+        const preferred = models.find((m: any) => /gpt-4|claude-3|gemini-2|llama-3\.3/i.test(m.id || ''));
+        setAiModel(preferred?.id || models[0]?.id || models[0] || '');
+      }
+    }
+  }, [userActiveProviders.length, aiModelsRes?.data]);
 
   const teamMembers = teamMembersRes?.data || [];
 
@@ -320,14 +354,16 @@ export default function BrainstormSessionPage() {
       return api.delete(`/teams/${teamId}/brainstorm/messages/${messageId}`);
     },
     onSuccess: (_res: any, messageId: string) => {
-      // Remove from cache (socket broadcast also delivers this for other clients)
+      // Soft delete: mark message as deleted in cache (WhatsApp style)
       queryClient.setQueryData(['brainstorm-session', sessionId], (old: any) => {
         if (!old?.data?.messages) return old;
         return {
           ...old,
           data: {
             ...old.data,
-            messages: old.data.messages.filter((m: any) => m.id !== messageId),
+            messages: old.data.messages.map((m: any) =>
+              m.id === messageId ? { ...m, content: '___MESSAGE_DELETED___' } : m
+            ),
           },
         };
       });
@@ -341,27 +377,18 @@ export default function BrainstormSessionPage() {
 
   const handleSend = () => {
     if (!message.trim()) return;
-    // Check if @ai is mentioned — include a default provider/model
+    // Check if @ai is mentioned
     const hasAiMention = /@ai\b/i.test(message);
     const payload: any = { content: message };
     if (hasAiMention) {
-      // Pick first available provider from user's keys, or default
-      const allModels = aiModelsRes?.data || {};
-      const providerPriority = ['OPENROUTER', 'OPENAI', 'CLAUDE', 'GEMINI', 'GROQ', 'COPILOT'];
-      let aiProvider = 'OPENROUTER';
-      let aiModel = '';
-      for (const p of providerPriority) {
-        if (allModels[p]?.length > 0) {
-          aiProvider = p;
-          const models = allModels[p];
-          // Pick a capable model
-          const preferred = models.find((m: any) => {
-            const id = typeof m === 'string' ? m : m.id || '';
-            return /gpt-4|claude-3|gemini-2|llama-3\.3/i.test(id);
-          });
-          aiModel = preferred ? (typeof preferred === 'string' ? preferred : preferred.id) : (typeof models[0] === 'string' ? models[0] : models[0].id);
-          break;
-        }
+      // Use the selected provider/model from the AI picker
+      if (!aiProvider || !aiModel) {
+        toast.error('Pilih AI provider dan model terlebih dahulu. Buka Settings > AI Keys untuk menambahkan API key.');
+        return;
+      }
+      if (!userActiveProviders.includes(aiProvider)) {
+        toast.error(`Kamu belum memiliki API key aktif untuk ${aiProvider}. Buka Settings > AI Keys.`);
+        return;
       }
       payload.provider = aiProvider;
       payload.model = aiModel;
@@ -369,6 +396,7 @@ export default function BrainstormSessionPage() {
     sendMutation.mutate(payload);
     setMessage('');
     setMentionQuery(null);
+    setShowAiPicker(false);
     // Optimistically show AI typing indicator for client who sent the message
     if (hasAiMention) {
       setAiTyping(true);
@@ -411,6 +439,10 @@ export default function BrainstormSessionPage() {
     const after = message.slice((textareaRef.current?.selectionStart || mentionStart + (mentionQuery?.length || 0) + 1));
     setMessage(before + mentionText + ' ' + after);
     setMentionQuery(null);
+    // Show AI model picker when AI is mentioned
+    if (candidate.isAI) {
+      setShowAiPicker(true);
+    }
     textareaRef.current?.focus();
   };
 
@@ -441,19 +473,29 @@ export default function BrainstormSessionPage() {
   };
 
   const renderMessageContent = (content: string, isOwn: boolean, isAI: boolean) => {
-    const mentionRegex = /@(\w+(?:\s\w+)*?)(?=\s|$|[.,!?;:])/g;
+    // Check if message was deleted
+    if (content === '___MESSAGE_DELETED___') {
+      return (
+        <span className="italic text-muted-foreground/70 flex items-center gap-1.5">
+          <Ban className="h-3 w-3" />
+          Pesan ini telah dihapus
+        </span>
+      );
+    }
+
+    const mentionRegex = /@(\w+)/g;
     const parts: React.ReactNode[] = [];
     let lastIndex = 0;
     let match;
     while ((match = mentionRegex.exec(content)) !== null) {
       if (match.index > lastIndex) {
-        parts.push(content.slice(lastIndex, match.index));
+        parts.push(<span key={`text-${lastIndex}`}>{content.slice(lastIndex, match.index)}</span>);
       }
       const mentionName = match[1];
       const isAIMention = /^ai$/i.test(mentionName);
       parts.push(
         <span
-          key={match.index}
+          key={`mention-${match.index}`}
           className={cn(
             'inline-flex items-center px-1.5 py-0.5 rounded-md text-xs font-semibold mx-0.5',
             isAIMention
@@ -470,7 +512,7 @@ export default function BrainstormSessionPage() {
       lastIndex = match.index + match[0].length;
     }
     if (lastIndex < content.length) {
-      parts.push(content.slice(lastIndex));
+      parts.push(<span key={`text-${lastIndex}`}>{content.slice(lastIndex)}</span>);
     }
     return parts.length > 0 ? parts : content;
   };
@@ -791,6 +833,7 @@ export default function BrainstormSessionPage() {
             {session?.data?.messages?.map((msg: any) => {
               const isOwn = msg.userId === user?.id;
               const isAI = msg.role === 'ASSISTANT';
+              const isDeleted = msg.content === '___MESSAGE_DELETED___';
               const senderName = msg.user?.name || (isAI ? 'AI Assistant' : 'Unknown');
               const senderInitial = isAI ? '' : senderName.charAt(0).toUpperCase();
               const isEditing = editingMessageId === msg.id;
@@ -799,10 +842,13 @@ export default function BrainstormSessionPage() {
                 <div key={msg.id} className={cn('flex gap-3 max-w-[85%]', isOwn ? 'ml-auto flex-row-reverse' : '')}>
                   <div className={cn(
                     'h-7 w-7 rounded-full flex items-center justify-center shrink-0 mt-1 text-[10px] font-bold text-white',
+                    isDeleted ? 'bg-muted' :
                     isAI ? 'bg-gradient-to-br from-[#7b68ee] to-[#a855f7]' :
                     isOwn ? 'bg-gradient-to-br from-[#7b68ee] to-[#6c5ce7]' : 'bg-gradient-to-br from-gray-400 to-gray-500'
                   )}>
-                    {isAI ? (
+                    {isDeleted ? (
+                      <Ban className="h-3 w-3 text-muted-foreground" />
+                    ) : isAI ? (
                       <Brain className="h-3.5 w-3.5 text-white" />
                     ) : msg.user?.avatarUrl ? (
                       <img src={msg.user.avatarUrl} alt={senderName} className="h-7 w-7 rounded-full object-cover" />
@@ -810,14 +856,17 @@ export default function BrainstormSessionPage() {
                   </div>
                   <div className={cn(
                     'rounded-2xl px-4 py-3 group relative',
+                    isDeleted ? 'bg-muted/50 border border-border/50' :
                     isAI ? 'bg-gradient-to-r from-[#7b68ee]/10 to-[#a855f7]/10 text-foreground border border-[#7b68ee]/20' :
                     isOwn ? 'bg-gradient-to-r from-[#7b68ee] to-[#6c5ce7] text-white' : 'bg-muted text-foreground border border-border'
                   )}>
                     {/* Sender name */}
-                    <p className={cn('text-[11px] font-semibold mb-1', isAI ? 'text-[#7b68ee]' : isOwn ? 'text-white/80' : 'text-muted-foreground')}>
-                      {isAI && <Brain className="h-3 w-3 inline mr-1 -mt-0.5" />}
-                      {senderName}
-                    </p>
+                    {!isDeleted && (
+                      <p className={cn('text-[11px] font-semibold mb-1', isAI ? 'text-[#7b68ee]' : isOwn ? 'text-white/80' : 'text-muted-foreground')}>
+                        {isAI && <Brain className="h-3 w-3 inline mr-1 -mt-0.5" />}
+                        {senderName}
+                      </p>
+                    )}
 
                     {/* Message content or edit input */}
                     {isEditing ? (
@@ -899,7 +948,7 @@ export default function BrainstormSessionPage() {
                     )}
 
                     {/* Timestamp + edited badge */}
-                    {!isEditing && (
+                    {!isEditing && !isDeleted && (
                       <div className="flex items-center gap-2 mt-2">
                         <span className={cn('text-[10px]', isOwn ? 'text-white/60' : 'text-muted-foreground')}>
                           {new Date(msg.createdAt).toLocaleTimeString()}
@@ -912,8 +961,8 @@ export default function BrainstormSessionPage() {
                       </div>
                     )}
 
-                    {/* Edit/Delete actions — only for own messages */}
-                    {isOwn && !isEditing && (
+                    {/* Edit/Delete actions — only for own messages, not deleted */}
+                    {isOwn && !isEditing && !isDeleted && (
                       <div className="absolute top-2 opacity-0 group-hover:opacity-100 transition-opacity" style={{ [isOwn ? 'left' : 'right']: '-2rem' }}>
                         <div className="flex flex-col gap-0.5">
                           <button
@@ -989,6 +1038,103 @@ export default function BrainstormSessionPage() {
               {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Paperclip className="h-4 w-4" />}
             </button>
             <div className="flex-1 relative">
+              {/* AI Model Picker Panel */}
+              {showAiPicker && (
+                <div className="absolute bottom-full mb-1 left-0 w-80 bg-card border border-border rounded-xl shadow-xl z-50 overflow-hidden">
+                  <div className="flex items-center justify-between px-3 py-2 border-b border-border bg-gradient-to-r from-[#7b68ee]/5 to-[#a855f7]/5">
+                    <div className="flex items-center gap-1.5">
+                      <Brain className="h-3.5 w-3.5 text-[#7b68ee]" />
+                      <span className="text-xs font-semibold text-[#7b68ee]">AI Model</span>
+                    </div>
+                    <button onClick={() => setShowAiPicker(false)} className="h-5 w-5 flex items-center justify-center rounded hover:bg-muted text-muted-foreground">
+                      <X className="h-3 w-3" />
+                    </button>
+                  </div>
+                  {userActiveProviders.length === 0 ? (
+                    <div className="p-4 text-center">
+                      <p className="text-xs text-muted-foreground mb-2">Belum ada API key yang aktif.</p>
+                      <p className="text-[11px] text-muted-foreground">Buka <span className="font-semibold text-[#7b68ee]">Settings → AI Keys</span> untuk menambahkan.</p>
+                    </div>
+                  ) : (
+                    <div className="p-2 space-y-2">
+                      {/* Provider Selector */}
+                      <div className="flex gap-1 flex-wrap">
+                        {userActiveProviders.map((provider: string) => (
+                          <button
+                            key={provider}
+                            onClick={() => {
+                              setAiProvider(provider);
+                              const models = aiModelsRes?.data?.[provider] || [];
+                              if (models.length > 0) {
+                                setAiModel(models[0]?.id || models[0] || '');
+                              }
+                              setAiModelSearch('');
+                            }}
+                            className={cn(
+                              'px-2 py-1 text-[11px] rounded-lg font-medium transition-colors',
+                              aiProvider === provider
+                                ? 'bg-[#7b68ee] text-white'
+                                : 'bg-muted text-muted-foreground hover:text-foreground hover:bg-accent'
+                            )}
+                          >
+                            {provider}
+                          </button>
+                        ))}
+                      </div>
+                      {/* Model Search & List */}
+                      {(() => {
+                        const models = aiModelsRes?.data?.[aiProvider] || [];
+                        const filtered = aiModelSearch
+                          ? models.filter((m: any) => (m.name || m.id || m).toLowerCase().includes(aiModelSearch.toLowerCase()))
+                          : models;
+                        return (
+                          <>
+                            {models.length > 5 && (
+                              <div className="relative">
+                                <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground" />
+                                <input
+                                  placeholder="Cari model..."
+                                  value={aiModelSearch}
+                                  onChange={(e) => setAiModelSearch(e.target.value)}
+                                  className="w-full h-7 pl-7 pr-2 text-[11px] bg-muted border-0 rounded-lg outline-none text-foreground placeholder:text-muted-foreground"
+                                />
+                              </div>
+                            )}
+                            <div className="max-h-[160px] overflow-y-auto space-y-0.5">
+                              {filtered.slice(0, 30).map((m: any) => {
+                                const modelId = typeof m === 'string' ? m : m.id;
+                                const modelName = typeof m === 'string' ? m : m.name || m.id;
+                                const isFree = typeof m !== 'string' && m.costPer1kInput === 0 && m.costPer1kOutput === 0;
+                                return (
+                                  <button
+                                    key={modelId}
+                                    onClick={() => { setAiModel(modelId); }}
+                                    className={cn(
+                                      'w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-left transition-colors',
+                                      aiModel === modelId ? 'bg-[#7b68ee]/10 text-[#7b68ee]' : 'hover:bg-muted text-foreground'
+                                    )}
+                                  >
+                                    <div className="flex-1 min-w-0">
+                                      <div className="text-[11px] font-medium truncate">
+                                        {modelName}
+                                        {isFree && <span className="ml-1 text-[9px] px-1 py-0.5 rounded bg-green-500/10 text-green-500 font-bold">FREE</span>}
+                                      </div>
+                                    </div>
+                                    {aiModel === modelId && <Check className="h-3 w-3 shrink-0 text-[#7b68ee]" />}
+                                  </button>
+                                );
+                              })}
+                              {filtered.length === 0 && (
+                                <p className="text-center text-[11px] text-muted-foreground py-3">Tidak ada model ditemukan</p>
+                              )}
+                            </div>
+                          </>
+                        );
+                      })()}
+                    </div>
+                  )}
+                </div>
+              )}
               {/* @mention autocomplete dropdown */}
               {mentionQuery !== null && filteredMentions.length > 0 && (
                 <div className="absolute bottom-full mb-1 left-0 w-64 bg-card border border-border rounded-xl shadow-xl z-50 overflow-hidden">
@@ -1036,6 +1182,17 @@ export default function BrainstormSessionPage() {
                 className="min-h-11 max-h-32 resize-none border-border focus:border-[#7b68ee] rounded-xl pr-12"
                 rows={1}
               />
+              {/* AI model indicator — show when @ai detected in message */}
+              {/@ai\b/i.test(message) && aiProvider && aiModel && (
+                <button
+                  onClick={() => setShowAiPicker(!showAiPicker)}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-[#7b68ee]/10 text-[#7b68ee] text-[10px] font-medium hover:bg-[#7b68ee]/20 transition-colors"
+                  title="Change AI model"
+                >
+                  <Brain className="h-3 w-3" />
+                  <span className="truncate max-w-[60px]">{aiModel.split('/').pop()}</span>
+                </button>
+              )}
             </div>
             <button
               onClick={handleSend}

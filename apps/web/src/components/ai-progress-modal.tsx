@@ -235,7 +235,7 @@ export function AIGenerateProgressModal({
                 {isGenerating && (
                   <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold"
                     style={{ background: `${accentColor}15`, color: accentColor }}>
-                    {Math.round(displayProgress)}%
+                    {elapsed < 5 ? 'Starting…' : elapsed < 15 ? 'Processing…' : elapsed < 45 ? 'Working…' : 'Almost there…'}
                   </div>
                 )}
               </div>

@@ -506,7 +506,7 @@ export default function DiagramsPage() {
     const steps: AIStep[] = [
       { label: 'Preparing request', status: 'done' },
       { label: 'Connecting to AI', status: 'done' },
-      { label: 'Generating diagram XML', status: 'active', hint: 'AI is designing the layout — this may take 30-90s' },
+      { label: 'Generating diagram XML', status: 'active', hint: 'AI is designing the layout…' },
       { label: 'Saving to project', status: 'pending' },
     ];
     setAiSteps([...steps]);
@@ -557,7 +557,7 @@ export default function DiagramsPage() {
   }, [onProjectEvent, teamId, queryClient]);
 
   const [newDiagram, setNewDiagram] = useState({ title: '', type: 'FLOWCHART', description: '' });
-  const [aiForm, setAiForm] = useState({ title: '', type: 'FLOWCHART', description: '', provider: 'OPENROUTER', model: 'google/gemini-2.5-flash-preview-05-20' });
+  const [aiForm, setAiForm] = useState({ title: '', type: 'FLOWCHART', description: '', provider: 'COPILOT', model: 'gpt-4o' });
   const [search, setSearch] = useState('');
   const [modelSearch, setModelSearch] = useState('');
   const [modelDropOpen, setModelDropOpen] = useState(false);
@@ -572,6 +572,31 @@ export default function DiagramsPage() {
     queryKey: ['ai-models'],
     queryFn: () => api.get<{ data: Record<string, any[]> }>('/ai/models'),
   });
+
+  const { data: keysData } = useQuery({
+    queryKey: ['ai-keys'],
+    queryFn: () => api.get<{ data: any[] }>('/ai/keys'),
+  });
+
+  // Auto-select first connected provider + model
+  const connectedProviders = new Set((keysData?.data || []).filter((k: any) => k.isActive).map((k: any) => k.provider.toUpperCase()));
+  useEffect(() => {
+    if (modelsData?.data && connectedProviders.size > 0 && !connectedProviders.has(aiForm.provider)) {
+      const first = ['COPILOT', 'OPENAI', 'GEMINI', 'CLAUDE', 'OPENROUTER', 'GROQ'].find(p => connectedProviders.has(p))
+        || Array.from(connectedProviders)[0];
+      if (first) {
+        const firstModel = modelsData.data[first]?.[0];
+        setAiForm(f => ({ ...f, provider: first, model: firstModel?.id || 'gpt-4o' }));
+      }
+    }
+  }, [modelsData, keysData]);
+
+  useEffect(() => {
+    const providerModels = modelsData?.data?.[aiForm.provider];
+    if (providerModels?.length && !providerModels.find((m: any) => m.id === aiForm.model)) {
+      setAiForm(f => ({ ...f, model: providerModels[0].id }));
+    }
+  }, [aiForm.provider, modelsData]);
 
   const createMutation = useMutation({
     mutationFn: (data: any) => api.post(`/teams/${teamId}/diagrams`, { ...data, projectId: activeProject?.id }),
@@ -640,7 +665,7 @@ export default function DiagramsPage() {
       // Step 2 done
       await new Promise(r => setTimeout(r, 500));
       steps[1] = { label: 'Connecting to AI', status: 'done' };
-      steps[2] = { label: 'Generating diagram XML', status: 'active', hint: 'AI is designing the layout — this may take 30-90s' };
+      steps[2] = { label: 'Generating diagram XML', status: 'active', hint: 'AI is designing the layout…' };
       setAiSteps([...steps]);
 
       // Step 3 — actual API call (the long one)

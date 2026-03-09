@@ -94,14 +94,12 @@ export async function brainstormRoutes(app: FastifyInstance) {
     return reply.send({ success: true, data: msg });
   });
 
-  // DELETE /api/teams/:teamId/brainstorm/messages/:messageId — delete message
+  // DELETE /api/teams/:teamId/brainstorm/messages/:messageId — delete message (soft delete, WhatsApp style)
   app.delete('/:teamId/brainstorm/messages/:messageId', { preHandler: [teamGuard()] }, async (request, reply) => {
     const { messageId } = request.params as { messageId: string };
-    // Look up the message to get sessionId before deleting
-    const msg = await prisma.brainstormMessage.findUnique({ where: { id: messageId }, select: { sessionId: true } });
-    await brainstormService.deleteMessage(messageId, request.user.id);
-    // Broadcast delete to all clients in the session room
-    if (msg) emitBrainstormChat(msg.sessionId, 'chat:delete', { messageId });
+    const result = await brainstormService.deleteMessage(messageId, request.user.id);
+    // Broadcast soft delete to all clients — send updated message with deleted content
+    emitBrainstormChat(result.sessionId, 'chat:delete', { messageId, message: result });
     return reply.send({ success: true, data: { message: 'Message deleted' } });
   });
 

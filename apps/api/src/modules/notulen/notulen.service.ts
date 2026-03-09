@@ -102,8 +102,10 @@ class NotulenService {
           ...(options.projectId ? { projectId: options.projectId } : {}),
           updatedAt: { gte: since },
         },
-        select: { title: true, mode: true, updatedAt: true },
-        include: {
+        select: {
+          title: true,
+          mode: true,
+          updatedAt: true,
           messages: {
             select: { content: true, role: true },
             take: 5,

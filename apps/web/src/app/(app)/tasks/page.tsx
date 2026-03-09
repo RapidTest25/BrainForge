@@ -5,7 +5,8 @@ import { useSearchParams } from 'next/navigation';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   List, LayoutGrid, Plus, Search, MoreHorizontal, Calendar as CalendarIcon,
-  Trash2, ArrowUpCircle, ArrowRightCircle, CheckCircle2, X, Loader2, GripVertical
+  Trash2, ArrowUpCircle, ArrowRightCircle, CheckCircle2, X, Loader2, GripVertical,
+  MessageSquare, Clock, Tag, Filter,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { DragDropContext, Droppable, Draggable, type DropResult } from '@hello-pangea/dnd';
@@ -56,8 +57,9 @@ export default function TasksPage() {
   const [search, setSearch] = useState('');
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [selectedTask, setSelectedTask] = useState<any>(null);
-  const [newTask, setNewTask] = useState({ title: '', description: '', priority: 'MEDIUM', status: 'TODO' });
+  const [newTask, setNewTask] = useState<any>({ title: '', description: '', priority: 'MEDIUM', status: 'TODO', dueDate: '', estimation: '' });
   const [deleteConfirm, setDeleteConfirm] = useState<{ id: string; title: string } | null>(null);
+  const [priorityFilter, setPriorityFilter] = useState<string | null>(null);
   const searchParams = useSearchParams();
 
   useEffect(() => {
@@ -76,11 +78,18 @@ export default function TasksPage() {
   });
 
   const createMutation = useMutation({
-    mutationFn: (data: any) => api.post(`/teams/${teamId}/tasks`, { ...data, projectId: activeProject?.id }),
+    mutationFn: (data: any) => {
+      const payload: any = { ...data, projectId: activeProject?.id };
+      if (payload.dueDate) payload.dueDate = new Date(payload.dueDate).toISOString();
+      else delete payload.dueDate;
+      if (payload.estimation) payload.estimation = parseInt(payload.estimation);
+      else delete payload.estimation;
+      return api.post(`/teams/${teamId}/tasks`, payload);
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['tasks', teamId] });
       setShowCreateDialog(false);
-      setNewTask({ title: '', description: '', priority: 'MEDIUM', status: 'TODO' });
+      setNewTask({ title: '', description: '', priority: 'MEDIUM', status: 'TODO', dueDate: '', estimation: '' });
       emitEntityChange('task', 'create');
     },
   });
@@ -110,7 +119,17 @@ export default function TasksPage() {
     },
   });
 
-  const taskList = tasks?.data || [];
+  const taskList = (tasks?.data || []).filter(
+    (t: any) => !priorityFilter || t.priority === priorityFilter
+  );
+
+  // Task statistics
+  const allTasks = tasks?.data || [];
+  const totalTasks = allTasks.length;
+  const todoCount = allTasks.filter((t: any) => t.status === 'TODO').length;
+  const inProgressCount = allTasks.filter((t: any) => t.status === 'IN_PROGRESS' || t.status === 'IN_REVIEW').length;
+  const doneCount = allTasks.filter((t: any) => t.status === 'DONE').length;
+  const overdueCount = allTasks.filter((t: any) => t.dueDate && new Date(t.dueDate) < new Date() && t.status !== 'DONE' && t.status !== 'CANCELLED').length;
 
   // Sync selectedTask with latest data
   useEffect(() => {
@@ -209,6 +228,49 @@ export default function TasksPage() {
           </Button>
         </div>
       </div>
+
+      {/* Stats Bar */}
+      {totalTasks > 0 && (
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-xs text-muted-foreground font-medium px-2.5 py-1 bg-card border border-border rounded-lg">
+            {totalTasks} total
+          </span>
+          <span className="text-xs text-muted-foreground font-medium px-2.5 py-1 bg-card border border-border rounded-lg">
+            {todoCount} to do
+          </span>
+          <span className="text-xs text-blue-500 font-medium px-2.5 py-1 bg-blue-500/5 border border-blue-500/20 rounded-lg">
+            {inProgressCount} in progress
+          </span>
+          <span className="text-xs text-green-500 font-medium px-2.5 py-1 bg-green-500/5 border border-green-500/20 rounded-lg">
+            {doneCount} done
+          </span>
+          {overdueCount > 0 && (
+            <span className="text-xs text-red-500 font-medium px-2.5 py-1 bg-red-500/5 border border-red-500/20 rounded-lg">
+              {overdueCount} overdue
+            </span>
+          )}
+
+          <div className="ml-auto flex items-center gap-1">
+            <Filter className="h-3 w-3 text-muted-foreground" />
+            <button
+              onClick={() => setPriorityFilter(null)}
+              className={cn('text-[11px] px-2 py-0.5 rounded-lg transition-colors', !priorityFilter ? 'bg-[#7b68ee]/10 text-[#7b68ee] font-medium' : 'text-muted-foreground hover:bg-muted')}
+            >
+              All
+            </button>
+            {PRIORITY_OPTIONS.map(p => (
+              <button
+                key={p.value}
+                onClick={() => setPriorityFilter(priorityFilter === p.value ? null : p.value)}
+                className={cn('text-[11px] px-2 py-0.5 rounded-lg transition-colors', priorityFilter === p.value ? 'font-medium' : 'text-muted-foreground hover:bg-muted')}
+                style={priorityFilter === p.value ? { color: p.color, backgroundColor: `${p.color}15` } : undefined}
+              >
+                {p.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Board View */}
       {view === 'board' && (
@@ -328,7 +390,7 @@ export default function TasksPage() {
                               {task.description && (
                                 <p className="text-xs text-muted-foreground line-clamp-2 mb-2 pl-5">{task.description}</p>
                               )}
-                              <div className="flex items-center gap-1.5 pl-5">
+                              <div className="flex items-center gap-1.5 pl-5 flex-wrap">
                                 <span
                                   className="text-[10px] font-medium px-1.5 py-0.5 rounded"
                                   style={{
@@ -341,11 +403,56 @@ export default function TasksPage() {
                                 {task.dueDate && (
                                   <span className={cn(
                                     'text-[10px] px-1.5 py-0.5 rounded flex items-center gap-0.5',
-                                    new Date(task.dueDate) < new Date() ? 'text-red-500 bg-red-500/10' : 'text-muted-foreground bg-muted'
+                                    new Date(task.dueDate) < new Date() && task.status !== 'DONE' ? 'text-red-500 bg-red-500/10' : 'text-muted-foreground bg-muted'
                                   )}>
                                     <CalendarIcon className="h-2.5 w-2.5" />
                                     {new Date(task.dueDate).toLocaleDateString()}
                                   </span>
+                                )}
+                                {task.estimation && (
+                                  <span className="text-[10px] px-1.5 py-0.5 rounded text-muted-foreground bg-muted flex items-center gap-0.5">
+                                    <Clock className="h-2.5 w-2.5" />
+                                    {task.estimation}h
+                                  </span>
+                                )}
+                                {task._count?.comments > 0 && (
+                                  <span className="text-[10px] px-1.5 py-0.5 rounded text-muted-foreground bg-muted flex items-center gap-0.5">
+                                    <MessageSquare className="h-2.5 w-2.5" />
+                                    {task._count.comments}
+                                  </span>
+                                )}
+                                {/* Labels */}
+                                {task.labels?.length > 0 && task.labels.slice(0, 2).map((tl: any) => (
+                                  <span
+                                    key={tl.label?.id}
+                                    className="text-[9px] px-1.5 py-0.5 rounded font-medium"
+                                    style={{ color: tl.label?.color, backgroundColor: `${tl.label?.color}15` }}
+                                  >
+                                    {tl.label?.name}
+                                  </span>
+                                ))}
+                                {/* Assignees */}
+                                {task.assignees?.length > 0 && (
+                                  <div className="flex -space-x-1 ml-auto">
+                                    {task.assignees.slice(0, 3).map((a: any) => (
+                                      <div
+                                        key={a.user?.id}
+                                        className="h-5 w-5 rounded-full bg-[#7b68ee] text-white text-[8px] font-bold flex items-center justify-center border-2 border-card"
+                                        title={a.user?.name}
+                                      >
+                                        {a.user?.avatarUrl ? (
+                                          <img src={a.user.avatarUrl} alt="" className="h-full w-full rounded-full object-cover" />
+                                        ) : (
+                                          a.user?.name?.charAt(0)?.toUpperCase() || '?'
+                                        )}
+                                      </div>
+                                    ))}
+                                    {task.assignees.length > 3 && (
+                                      <div className="h-5 w-5 rounded-full bg-muted text-muted-foreground text-[8px] font-bold flex items-center justify-center border-2 border-card">
+                                        +{task.assignees.length - 3}
+                                      </div>
+                                    )}
+                                  </div>
                                 )}
                               </div>
                             </div>
@@ -375,11 +482,12 @@ export default function TasksPage() {
       {/* List View */}
       {view === 'list' && (
         <div className="bg-card border border-border rounded-xl overflow-hidden">
-          <div className="grid-cols-[1fr_110px_90px_110px_40px] gap-2 px-4 py-2 bg-muted border-b border-border text-[11px] font-semibold text-muted-foreground uppercase tracking-wider hidden md:grid">
+          <div className="grid-cols-[1fr_110px_90px_110px_80px_40px] gap-2 px-4 py-2 bg-muted border-b border-border text-[11px] font-semibold text-muted-foreground uppercase tracking-wider hidden md:grid">
             <span>Task</span>
             <span>Status</span>
             <span>Priority</span>
             <span>Due Date</span>
+            <span>Assignees</span>
             <span></span>
           </div>
           {taskList.length === 0 ? (
@@ -393,12 +501,28 @@ export default function TasksPage() {
                   key={task.id}
                   onClick={(e) => handleTaskClick(task, e)}
                   className={cn(
-                    'grid grid-cols-1 md:grid-cols-[1fr_110px_90px_110px_40px] gap-2 px-4 py-2.5 border-b border-border/50 hover:bg-muted/50 transition-colors items-center cursor-pointer',
+                    'grid grid-cols-1 md:grid-cols-[1fr_110px_90px_110px_80px_40px] gap-2 px-4 py-2.5 border-b border-border/50 hover:bg-muted/50 transition-colors items-center cursor-pointer',
                     selectedTask?.id === task.id && 'bg-[#7b68ee]/5 border-l-2 border-l-[#7b68ee]'
                   )}
                 >
                   <div>
-                    <p className="text-sm text-foreground">{task.title}</p>
+                    <div className="flex items-center gap-2">
+                      <p className="text-sm text-foreground">{task.title}</p>
+                      {task._count?.comments > 0 && (
+                        <span className="flex items-center gap-0.5 text-[10px] text-muted-foreground">
+                          <MessageSquare className="h-2.5 w-2.5" />{task._count.comments}
+                        </span>
+                      )}
+                      {task.labels?.length > 0 && task.labels.slice(0, 2).map((tl: any) => (
+                        <span
+                          key={tl.label?.id}
+                          className="text-[9px] px-1 py-0.5 rounded font-medium"
+                          style={{ color: tl.label?.color, backgroundColor: `${tl.label?.color}15` }}
+                        >
+                          {tl.label?.name}
+                        </span>
+                      ))}
+                    </div>
                     {task.description && (
                       <p className="text-xs text-muted-foreground truncate max-w-sm">{task.description}</p>
                     )}
@@ -430,6 +554,27 @@ export default function TasksPage() {
                   <span className="text-xs text-muted-foreground">
                     {task.dueDate ? new Date(task.dueDate).toLocaleDateString() : '-'}
                   </span>
+                  {/* Assignees */}
+                  <div className="flex -space-x-1">
+                    {task.assignees?.slice(0, 3).map((a: any) => (
+                      <div
+                        key={a.user?.id}
+                        className="h-5 w-5 rounded-full bg-[#7b68ee] text-white text-[8px] font-bold flex items-center justify-center border-2 border-card"
+                        title={a.user?.name}
+                      >
+                        {a.user?.avatarUrl ? (
+                          <img src={a.user.avatarUrl} alt="" className="h-full w-full rounded-full object-cover" />
+                        ) : (
+                          a.user?.name?.charAt(0)?.toUpperCase() || '?'
+                        )}
+                      </div>
+                    ))}
+                    {(task.assignees?.length || 0) > 3 && (
+                      <div className="h-5 w-5 rounded-full bg-muted text-muted-foreground text-[8px] font-bold flex items-center justify-center border-2 border-card">
+                        +{task.assignees.length - 3}
+                      </div>
+                    )}
+                  </div>
                   <div onClick={(e) => e.stopPropagation()}>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>

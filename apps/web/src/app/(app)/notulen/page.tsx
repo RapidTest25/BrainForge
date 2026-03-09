@@ -7,7 +7,8 @@ import {
   ChevronRight, ArrowLeft, Trash2, MoreVertical, Eye,
   Brain, Lightbulb, ListChecks, CalendarDays, FileText,
   Target, GitBranch, MessageSquare, ChevronDown, RefreshCw,
-  Power, PowerOff, Settings2, BookOpen,
+  Power, PowerOff, Settings2, BookOpen, Copy, Check, Hash,
+  Timer, Layers, TrendingUp, AlertTriangle,
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -107,6 +108,39 @@ function MarkdownContent({ content }: { content: string }) {
       className="prose prose-sm dark:prose-invert max-w-none text-foreground leading-relaxed"
       dangerouslySetInnerHTML={{ __html: renderMarkdown(content) }}
     />
+  );
+}
+
+function DetailSection({ label, icon: Icon, color, content }: { label: string; icon: any; color: string; content: string }) {
+  const [copied, setCopied] = useState(false);
+
+  function handleCopy() {
+    navigator.clipboard.writeText(content || '');
+    setCopied(true);
+    toast.success('Copied to clipboard');
+    setTimeout(() => setCopied(false), 2000);
+  }
+
+  if (!content) return null;
+
+  return (
+    <div className="bg-card border border-border rounded-2xl p-6 group/section">
+      <div className="flex items-center gap-2 mb-4">
+        <div className="h-7 w-7 rounded-lg flex items-center justify-center" style={{ background: `${color}15` }}>
+          <Icon className="h-3.5 w-3.5" style={{ color }} />
+        </div>
+        <h2 className="text-sm font-semibold text-foreground">{label}</h2>
+        <div className="flex-1" />
+        <button
+          onClick={handleCopy}
+          className="opacity-0 group-hover/section:opacity-100 flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-medium text-muted-foreground hover:text-foreground hover:bg-muted transition-all"
+        >
+          {copied ? <Check className="h-3 w-3 text-green-500" /> : <Copy className="h-3 w-3" />}
+          {copied ? 'Copied' : 'Copy'}
+        </button>
+      </div>
+      <MarkdownContent content={content} />
+    </div>
   );
 }
 
@@ -370,6 +404,18 @@ export default function NotulenPage() {
     const counts = getActivityCounts(selectedEntry);
     const totalActivity = counts.tasks + counts.notes + counts.brainstorms + counts.goals + counts.diagrams;
 
+    // Tab sections for detail view
+    const sections = [
+      { key: 'summary', label: 'Summary', icon: BookOpen, color: ACCENT, content: selectedEntry.summary },
+      ...(selectedEntry.conclusions ? [{ key: 'conclusions', label: 'Conclusions', icon: Lightbulb, color: '#f59e0b', content: selectedEntry.conclusions }] : []),
+      ...(selectedEntry.recommendations ? [{ key: 'recommendations', label: 'Recommendations', icon: ListChecks, color: '#22c55e', content: selectedEntry.recommendations }] : []),
+    ];
+
+    // Word count and reading time
+    const allContent = [selectedEntry.summary, selectedEntry.conclusions, selectedEntry.recommendations].filter(Boolean).join(' ');
+    const wordCount = allContent.split(/\s+/).filter(Boolean).length;
+    const readingTime = Math.max(1, Math.ceil(wordCount / 200));
+
     return (
       <div className="max-w-4xl mx-auto space-y-5 px-1">
         {/* Back button + header */}
@@ -424,6 +470,8 @@ export default function NotulenPage() {
                     </span>
                   )}
                   <span className="text-[11px] text-muted-foreground">{selectedEntry.provider}/{selectedEntry.model}</span>
+                  <span className="text-[11px] text-muted-foreground flex items-center gap-1"><Hash className="h-3 w-3" /> {wordCount} words</span>
+                  <span className="text-[11px] text-muted-foreground flex items-center gap-1"><Timer className="h-3 w-3" /> {readingTime} min read</span>
                 </div>
               </div>
             </div>
@@ -461,40 +509,23 @@ export default function NotulenPage() {
           </div>
         </div>
 
-        {/* Summary */}
-        <div className="bg-card border border-border rounded-2xl p-6">
-          <div className="flex items-center gap-2 mb-4">
-            <div className="h-7 w-7 rounded-lg bg-cyan-500/10 flex items-center justify-center">
-              <BookOpen className="h-3.5 w-3.5 text-cyan-500" />
-            </div>
-            <h2 className="text-sm font-semibold text-foreground">Summary</h2>
-          </div>
-          <MarkdownContent content={selectedEntry.summary || 'No summary available.'} />
-        </div>
+        {/* Section tabs + content */}
+        {sections.map((section) => (
+          <DetailSection
+            key={section.key}
+            label={section.label}
+            icon={section.icon}
+            color={section.color}
+            content={section.content}
+          />
+        ))}
 
-        {/* Conclusions */}
-        {selectedEntry.conclusions && (
-          <div className="bg-card border border-border rounded-2xl p-6">
-            <div className="flex items-center gap-2 mb-4">
-              <div className="h-7 w-7 rounded-lg bg-amber-500/10 flex items-center justify-center">
-                <Lightbulb className="h-3.5 w-3.5 text-amber-500" />
-              </div>
-              <h2 className="text-sm font-semibold text-foreground">Conclusions</h2>
-            </div>
-            <MarkdownContent content={selectedEntry.conclusions} />
-          </div>
-        )}
-
-        {/* Recommendations */}
-        {selectedEntry.recommendations && (
-          <div className="bg-card border border-border rounded-2xl p-6">
-            <div className="flex items-center gap-2 mb-4">
-              <div className="h-7 w-7 rounded-lg bg-green-500/10 flex items-center justify-center">
-                <ListChecks className="h-3.5 w-3.5 text-green-500" />
-              </div>
-              <h2 className="text-sm font-semibold text-foreground">Recommendations</h2>
-            </div>
-            <MarkdownContent content={selectedEntry.recommendations} />
+        {/* No content fallback */}
+        {!selectedEntry.summary && !selectedEntry.conclusions && !selectedEntry.recommendations && (
+          <div className="bg-card border border-border rounded-2xl p-8 flex flex-col items-center text-center">
+            <AlertTriangle className="h-8 w-8 text-amber-500 mb-3" />
+            <h3 className="text-sm font-semibold text-foreground mb-1">No content available</h3>
+            <p className="text-xs text-muted-foreground">This summary entry appears to be empty.</p>
           </div>
         )}
 
@@ -597,8 +628,38 @@ export default function NotulenPage() {
           </p>
         </div>
       ) : (
-        <div className="grid gap-3">
-          {filtered.map((entry: any) => {
+        <div className="space-y-6">
+          {(() => {
+            // Group entries by date period
+            const now = new Date();
+            const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+            const yesterday = new Date(today.getTime() - 86400000);
+            const weekAgo = new Date(today.getTime() - 7 * 86400000);
+
+            const groups: { label: string; entries: any[] }[] = [
+              { label: 'Today', entries: [] },
+              { label: 'Yesterday', entries: [] },
+              { label: 'This Week', entries: [] },
+              { label: 'Earlier', entries: [] },
+            ];
+
+            for (const entry of filtered) {
+              const d = new Date(entry.createdAt);
+              if (d >= today) groups[0].entries.push(entry);
+              else if (d >= yesterday) groups[1].entries.push(entry);
+              else if (d >= weekAgo) groups[2].entries.push(entry);
+              else groups[3].entries.push(entry);
+            }
+
+            return groups.filter(g => g.entries.length > 0).map((group) => (
+              <div key={group.label}>
+                <div className="flex items-center gap-2 mb-3">
+                  <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">{group.label}</span>
+                  <div className="flex-1 h-px bg-border" />
+                  <span className="text-[11px] text-muted-foreground/60">{group.entries.length}</span>
+                </div>
+                <div className="grid gap-3">
+                  {group.entries.map((entry: any) => {
             const counts = getActivityCounts(entry);
             const totalActivity = counts.tasks + counts.notes + counts.brainstorms + counts.goals + counts.diagrams;
             return (
@@ -640,7 +701,11 @@ export default function NotulenPage() {
                 </div>
               </button>
             );
-          })}
+                  })}
+                </div>
+              </div>
+            ));
+          })()}
         </div>
       )}
 

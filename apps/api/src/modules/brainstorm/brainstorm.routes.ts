@@ -4,7 +4,7 @@ import { createSessionSchema, sendMessageSchema } from '@brainforge/validators';
 import { authGuard } from '../../middleware/auth.middleware.js';
 import { teamGuard } from '../../middleware/team.middleware.js';
 import { prisma } from '../../lib/prisma.js';
-import { emitBrainstormChat } from '../../socket.js';
+import { emitBrainstormChat, emitBrainstormAITyping } from '../../socket.js';
 import path from 'path';
 import fs from 'fs';
 import { randomUUID } from 'crypto';
@@ -29,6 +29,14 @@ export async function brainstormRoutes(app: FastifyInstance) {
     return reply.status(201).send({ success: true, data: session });
   });
 
+  // GET /api/teams/:teamId/brainstorm/members — get team members for @mention autocomplete
+  // NOTE: Must be defined BEFORE /:teamId/brainstorm/:sessionId routes to avoid route collision
+  app.get('/:teamId/brainstorm/members', { preHandler: [teamGuard()] }, async (request, reply) => {
+    const { teamId } = request.params as { teamId: string };
+    const members = await brainstormService.getTeamMembers(teamId);
+    return reply.send({ success: true, data: members });
+  });
+
   // GET /api/teams/:teamId/brainstorm/:sessionId
   app.get('/:teamId/brainstorm/:sessionId', { preHandler: [teamGuard()] }, async (request, reply) => {
     const { sessionId } = request.params as { sessionId: string };
@@ -38,11 +46,41 @@ export async function brainstormRoutes(app: FastifyInstance) {
 
   // POST /api/teams/:teamId/brainstorm/:sessionId/messages
   app.post('/:teamId/brainstorm/:sessionId/messages', { preHandler: [teamGuard()] }, async (request, reply) => {
-    const { sessionId } = request.params as { sessionId: string };
+    const { teamId, sessionId } = request.params as { teamId: string; sessionId: string };
     const body = sendMessageSchema.parse(request.body);
     const result = await brainstormService.sendMessage(sessionId, request.user.id, body.content);
     // Broadcast to all clients in the session room
     emitBrainstormChat(sessionId, 'chat:message', result);
+
+    // Check if message mentions @ai — trigger AI response asynchronously
+    if (/@ai\b/i.test(body.content)) {
+      const { provider, model } = request.body as { provider?: string; model?: string };
+      if (provider && model) {
+        // Notify all clients that AI is thinking
+        emitBrainstormAITyping(sessionId, true);
+
+        // Fire-and-forget: generate AI reply in the background
+        brainstormService.generateAIResponse(sessionId, request.user.id, provider, model, body.content)
+          .then((aiMsg) => {
+            emitBrainstormAITyping(sessionId, false);
+            if (aiMsg && aiMsg.content) {
+              emitBrainstormChat(sessionId, 'chat:message', aiMsg);
+            }
+          })
+          .catch((err) => {
+            emitBrainstormAITyping(sessionId, false);
+            // Send error as a system-like AI message
+            const errorContent = `Maaf, AI tidak dapat merespons saat ini. Error: ${err.message || 'Unknown error'}`;
+            prisma.brainstormMessage.create({
+              data: { sessionId, userId: null, role: 'ASSISTANT', content: errorContent },
+              include: { user: { select: { id: true, name: true, avatarUrl: true } } },
+            }).then(errMsg => {
+              emitBrainstormChat(sessionId, 'chat:message', errMsg);
+            }).catch(() => {});
+          });
+      }
+    }
+
     return reply.send({ success: true, data: result });
   });
 

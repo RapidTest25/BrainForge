@@ -1,5 +1,7 @@
 import { prisma } from '../../lib/prisma.js';
 import { NotFoundError } from '../../lib/errors.js';
+import { aiService } from '../../ai/ai.service.js';
+import type { ChatMsg } from '../../ai/providers/base.js';
 
 const USER_SELECT = { id: true, name: true, avatarUrl: true };
 
@@ -139,6 +141,104 @@ class BrainstormService {
       where: { id: sessionId },
       data: updateData,
     });
+  }
+
+  /**
+   * Generate an AI response when @ai is mentioned in brainstorm chat.
+   * Gathers session context + recent messages, then uses the AI to reply.
+   */
+  async generateAIResponse(
+    sessionId: string,
+    userId: string,
+    provider: string,
+    model: string,
+    triggerMessage: string
+  ) {
+    const session = await prisma.brainstormSession.findUnique({
+      where: { id: sessionId },
+      include: {
+        messages: {
+          orderBy: { createdAt: 'desc' },
+          take: 20,
+          include: { user: { select: USER_SELECT } },
+        },
+      },
+    });
+    if (!session) throw new NotFoundError('Brainstorm session not found');
+
+    // Build conversation context from recent messages (oldest first)
+    const recentMessages = [...session.messages].reverse();
+    const conversationContext = recentMessages
+      .map(m => {
+        const name = m.user?.name || (m.role === 'ASSISTANT' ? 'AI' : 'User');
+        return `${name}: ${m.content}`;
+      })
+      .join('\n');
+
+    const modeInstructions: Record<string, string> = {
+      BRAINSTORM: 'You are a creative brainstorming partner. Generate innovative ideas, build on existing suggestions, and help expand concepts. Be enthusiastic and encouraging.',
+      DEBATE: 'You are a thoughtful debate participant. Present well-reasoned arguments, consider counterpoints, and help analyze different perspectives. Be respectful but challenging.',
+      ANALYSIS: 'You are an analytical assistant. Provide data-driven insights, identify patterns, and offer structured analysis. Be precise and evidence-based.',
+      FREEFORM: 'You are a helpful discussion participant. Adapt your response style to match the conversation context. Be collaborative and insightful.',
+    };
+
+    const systemPrompt = `${modeInstructions[session.mode] || modeInstructions.FREEFORM}
+
+You are participating in a team brainstorm session titled "${session.title}".
+${session.context ? `Session context: ${session.context}` : ''}
+Mode: ${session.mode}
+
+Guidelines:
+- Respond naturally as a team member, not as a generic chatbot
+- Keep responses focused and concise (2-4 paragraphs max)
+- Use the conversation context to give relevant, contextual responses
+- If asked a question, answer it directly
+- If asked for ideas, provide 3-5 concrete suggestions
+- Format with markdown for readability (bullet points, bold, etc.)
+- Reply in the same language as the user's message`;
+
+    const messages: ChatMsg[] = [
+      { role: 'system', content: systemPrompt },
+      {
+        role: 'user',
+        content: `Here is the recent conversation:\n\n${conversationContext}\n\nRespond to the latest message. The user tagged you with @ai.`,
+      },
+    ];
+
+    const result = await aiService.chat(userId, provider, model, messages, { temperature: 0.7 });
+
+    const responseContent = (result.content || '').trim();
+    if (!responseContent) {
+      console.error('[BrainstormAI] AI returned empty content. Provider:', provider, 'Model:', model);
+      throw new Error('AI returned empty response. Please check your API key and model configuration.');
+    }
+
+    // Save AI message to database
+    const aiMessage = await prisma.brainstormMessage.create({
+      data: {
+        sessionId,
+        userId: null,
+        role: 'ASSISTANT',
+        content: responseContent,
+      },
+      include: { user: { select: USER_SELECT } },
+    });
+
+    // Update session timestamp
+    await prisma.brainstormSession.update({ where: { id: sessionId }, data: { updatedAt: new Date() } });
+
+    return aiMessage;
+  }
+
+  /**
+   * Get team members for @mention autocomplete
+   */
+  async getTeamMembers(teamId: string) {
+    const memberships = await prisma.teamMember.findMany({
+      where: { teamId },
+      include: { user: { select: { id: true, name: true, avatarUrl: true, email: true } } },
+    });
+    return memberships.map(m => m.user);
   }
 }
 

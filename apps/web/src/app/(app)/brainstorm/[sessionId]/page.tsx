@@ -71,6 +71,16 @@ export default function BrainstormSessionPage() {
   const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
   const [editingContent, setEditingContent] = useState('');
 
+  // @mention state
+  const [mentionQuery, setMentionQuery] = useState<string | null>(null);
+  const [mentionIndex, setMentionIndex] = useState(0);
+  const [mentionStart, setMentionStart] = useState(0);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  // AI typing indicator
+  const [aiTyping, setAiTyping] = useState(false);
+  const aiTypingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   // Title editing
   const [editingTitle, setEditingTitle] = useState(false);
   const [titleDraft, setTitleDraft] = useState('');
@@ -112,6 +122,14 @@ export default function BrainstormSessionPage() {
 
     // Real-time chat: new message
     unsubs.push(socketOn('chat:message', (newMsg: any) => {
+      // If we receive an AI message, hide typing indicator
+      if (newMsg.role === 'ASSISTANT') {
+        setAiTyping(false);
+        if (aiTypingTimeoutRef.current) {
+          clearTimeout(aiTypingTimeoutRef.current);
+          aiTypingTimeoutRef.current = null;
+        }
+      }
       queryClient.setQueryData(['brainstorm-session', sessionId], (old: any) => {
         if (!old?.data?.messages) return old;
         // Avoid duplicates (sender already sees their own message via mutation)
@@ -125,6 +143,25 @@ export default function BrainstormSessionPage() {
           },
         };
       });
+    }));
+
+    // AI typing indicator from server
+    unsubs.push(socketOn('ai:typing', (data: { isTyping: boolean }) => {
+      setAiTyping(data.isTyping);
+      // Auto-clear typing indicator after 60s safety net
+      if (data.isTyping) {
+        if (aiTypingTimeoutRef.current) clearTimeout(aiTypingTimeoutRef.current);
+        aiTypingTimeoutRef.current = setTimeout(() => {
+          setAiTyping(false);
+          // Refetch to get any missed messages
+          queryClient.invalidateQueries({ queryKey: ['brainstorm-session', sessionId] });
+        }, 60000);
+      } else {
+        if (aiTypingTimeoutRef.current) {
+          clearTimeout(aiTypingTimeoutRef.current);
+          aiTypingTimeoutRef.current = null;
+        }
+      }
     }));
 
     // Real-time chat: message edited
@@ -166,6 +203,36 @@ export default function BrainstormSessionPage() {
     queryFn: () => api.get<{ data: any }>(`/teams/${teamId}/brainstorm/${sessionId}`),
     enabled: !!sessionId && !!teamId,
   });
+
+  // Team members for @mention autocomplete
+  const { data: teamMembersRes } = useQuery({
+    queryKey: ['brainstorm-members', teamId],
+    queryFn: () => api.get<{ data: any[] }>(`/teams/${teamId}/brainstorm/members`),
+    enabled: !!teamId,
+    staleTime: 5 * 60_000,
+  });
+
+  // AI models for @ai
+  const { data: aiModelsRes } = useQuery({
+    queryKey: ['ai-models'],
+    queryFn: () => api.get<{ data: Record<string, any[]> }>('/ai/models'),
+    staleTime: 5 * 60_000,
+  });
+
+  const teamMembers = teamMembersRes?.data || [];
+
+  // Mention candidates: AI + team members
+  const mentionCandidates = [
+    { id: '__ai__', name: 'AI Assistant', avatarUrl: null, isAI: true },
+    ...teamMembers.map((m: any) => ({ ...m, isAI: false })),
+  ];
+
+  const filteredMentions = mentionQuery !== null
+    ? mentionCandidates.filter((c) =>
+        c.name.toLowerCase().includes(mentionQuery.toLowerCase()) ||
+        (c.isAI && 'ai'.includes(mentionQuery.toLowerCase()))
+      )
+    : [];
 
   // ===== LOAD SAVED DATA =====
   useEffect(() => {
@@ -270,12 +337,142 @@ export default function BrainstormSessionPage() {
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [session?.data?.messages]);
+  }, [session?.data?.messages, aiTyping]);
 
   const handleSend = () => {
     if (!message.trim()) return;
-    sendMutation.mutate({ content: message });
+    // Check if @ai is mentioned — include a default provider/model
+    const hasAiMention = /@ai\b/i.test(message);
+    const payload: any = { content: message };
+    if (hasAiMention) {
+      // Pick first available provider from user's keys, or default
+      const allModels = aiModelsRes?.data || {};
+      const providerPriority = ['OPENROUTER', 'OPENAI', 'CLAUDE', 'GEMINI', 'GROQ', 'COPILOT'];
+      let aiProvider = 'OPENROUTER';
+      let aiModel = '';
+      for (const p of providerPriority) {
+        if (allModels[p]?.length > 0) {
+          aiProvider = p;
+          const models = allModels[p];
+          // Pick a capable model
+          const preferred = models.find((m: any) => {
+            const id = typeof m === 'string' ? m : m.id || '';
+            return /gpt-4|claude-3|gemini-2|llama-3\.3/i.test(id);
+          });
+          aiModel = preferred ? (typeof preferred === 'string' ? preferred : preferred.id) : (typeof models[0] === 'string' ? models[0] : models[0].id);
+          break;
+        }
+      }
+      payload.provider = aiProvider;
+      payload.model = aiModel;
+    }
+    sendMutation.mutate(payload);
     setMessage('');
+    setMentionQuery(null);
+    // Optimistically show AI typing indicator for client who sent the message
+    if (hasAiMention) {
+      setAiTyping(true);
+      // Safety fallback: refetch session after 30s if AI hasn't responded
+      if (aiTypingTimeoutRef.current) clearTimeout(aiTypingTimeoutRef.current);
+      aiTypingTimeoutRef.current = setTimeout(() => {
+        setAiTyping(false);
+        queryClient.invalidateQueries({ queryKey: ['brainstorm-session', sessionId] });
+      }, 30000);
+    }
+  };
+
+  // @mention helpers
+  const handleMessageChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const val = e.target.value;
+    setMessage(val);
+
+    const cursorPos = e.target.selectionStart || 0;
+    // Find the last @ before cursor
+    const textBeforeCursor = val.slice(0, cursorPos);
+    const lastAtIndex = textBeforeCursor.lastIndexOf('@');
+
+    if (lastAtIndex >= 0) {
+      const charBefore = lastAtIndex > 0 ? textBeforeCursor[lastAtIndex - 1] : ' ';
+      const textAfterAt = textBeforeCursor.slice(lastAtIndex + 1);
+      // Only trigger if @ is at start or preceded by whitespace, and no space in query
+      if ((charBefore === ' ' || charBefore === '\n' || lastAtIndex === 0) && !/\s/.test(textAfterAt)) {
+        setMentionQuery(textAfterAt);
+        setMentionStart(lastAtIndex);
+        setMentionIndex(0);
+        return;
+      }
+    }
+    setMentionQuery(null);
+  };
+
+  const insertMention = (candidate: { id: string; name: string; isAI: boolean }) => {
+    const mentionText = candidate.isAI ? '@ai' : `@${candidate.name}`;
+    const before = message.slice(0, mentionStart);
+    const after = message.slice((textareaRef.current?.selectionStart || mentionStart + (mentionQuery?.length || 0) + 1));
+    setMessage(before + mentionText + ' ' + after);
+    setMentionQuery(null);
+    textareaRef.current?.focus();
+  };
+
+  const handleMentionKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (mentionQuery !== null && filteredMentions.length > 0) {
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        setMentionIndex((prev) => Math.min(prev + 1, filteredMentions.length - 1));
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        setMentionIndex((prev) => Math.max(prev - 1, 0));
+      } else if (e.key === 'Tab' || e.key === 'Enter') {
+        if (mentionQuery !== null && filteredMentions.length > 0) {
+          e.preventDefault();
+          insertMention(filteredMentions[mentionIndex]);
+          return;
+        }
+      } else if (e.key === 'Escape') {
+        e.preventDefault();
+        setMentionQuery(null);
+        return;
+      }
+    }
+    if (e.key === 'Enter' && !e.shiftKey && mentionQuery === null) {
+      e.preventDefault();
+      handleSend();
+    }
+  };
+
+  const renderMessageContent = (content: string, isOwn: boolean, isAI: boolean) => {
+    const mentionRegex = /@(\w+(?:\s\w+)*?)(?=\s|$|[.,!?;:])/g;
+    const parts: React.ReactNode[] = [];
+    let lastIndex = 0;
+    let match;
+    while ((match = mentionRegex.exec(content)) !== null) {
+      if (match.index > lastIndex) {
+        parts.push(content.slice(lastIndex, match.index));
+      }
+      const mentionName = match[1];
+      const isAIMention = /^ai$/i.test(mentionName);
+      parts.push(
+        <span
+          key={match.index}
+          className={cn(
+            'inline-flex items-center px-1.5 py-0.5 rounded-md text-xs font-semibold mx-0.5',
+            isAIMention
+              ? 'bg-[#7b68ee]/20 text-[#7b68ee] border border-[#7b68ee]/30'
+              : isOwn
+                ? 'bg-white/20 text-white border border-white/30'
+                : 'bg-[#7b68ee]/10 text-[#7b68ee] border border-[#7b68ee]/20'
+          )}
+        >
+          {isAIMention && <Brain className="h-3 w-3 mr-0.5" />}
+          @{mentionName}
+        </span>
+      );
+      lastIndex = match.index + match[0].length;
+    }
+    if (lastIndex < content.length) {
+      parts.push(content.slice(lastIndex));
+    }
+    return parts.length > 0 ? parts : content;
   };
 
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -593,20 +790,32 @@ export default function BrainstormSessionPage() {
           <div className="flex-1 overflow-y-auto py-4 space-y-3">
             {session?.data?.messages?.map((msg: any) => {
               const isOwn = msg.userId === user?.id;
-              const senderName = msg.user?.name || (msg.role === 'ASSISTANT' ? 'AI' : 'Unknown');
-              const senderInitial = senderName.charAt(0).toUpperCase();
+              const isAI = msg.role === 'ASSISTANT';
+              const senderName = msg.user?.name || (isAI ? 'AI Assistant' : 'Unknown');
+              const senderInitial = isAI ? '' : senderName.charAt(0).toUpperCase();
               const isEditing = editingMessageId === msg.id;
 
               return (
                 <div key={msg.id} className={cn('flex gap-3 max-w-[85%]', isOwn ? 'ml-auto flex-row-reverse' : '')}>
-                  <div className={cn('h-7 w-7 rounded-full flex items-center justify-center shrink-0 mt-1 text-[10px] font-bold text-white', isOwn ? 'bg-gradient-to-br from-[#7b68ee] to-[#6c5ce7]' : 'bg-gradient-to-br from-gray-400 to-gray-500')}>
-                    {msg.user?.avatarUrl ? (
+                  <div className={cn(
+                    'h-7 w-7 rounded-full flex items-center justify-center shrink-0 mt-1 text-[10px] font-bold text-white',
+                    isAI ? 'bg-gradient-to-br from-[#7b68ee] to-[#a855f7]' :
+                    isOwn ? 'bg-gradient-to-br from-[#7b68ee] to-[#6c5ce7]' : 'bg-gradient-to-br from-gray-400 to-gray-500'
+                  )}>
+                    {isAI ? (
+                      <Brain className="h-3.5 w-3.5 text-white" />
+                    ) : msg.user?.avatarUrl ? (
                       <img src={msg.user.avatarUrl} alt={senderName} className="h-7 w-7 rounded-full object-cover" />
                     ) : senderInitial}
                   </div>
-                  <div className={cn('rounded-2xl px-4 py-3 group relative', isOwn ? 'bg-gradient-to-r from-[#7b68ee] to-[#6c5ce7] text-white' : 'bg-muted text-foreground border border-border')}>
+                  <div className={cn(
+                    'rounded-2xl px-4 py-3 group relative',
+                    isAI ? 'bg-gradient-to-r from-[#7b68ee]/10 to-[#a855f7]/10 text-foreground border border-[#7b68ee]/20' :
+                    isOwn ? 'bg-gradient-to-r from-[#7b68ee] to-[#6c5ce7] text-white' : 'bg-muted text-foreground border border-border'
+                  )}>
                     {/* Sender name */}
-                    <p className={cn('text-[11px] font-semibold mb-1', isOwn ? 'text-white/80' : 'text-muted-foreground')}>
+                    <p className={cn('text-[11px] font-semibold mb-1', isAI ? 'text-[#7b68ee]' : isOwn ? 'text-white/80' : 'text-muted-foreground')}>
+                      {isAI && <Brain className="h-3 w-3 inline mr-1 -mt-0.5" />}
                       {senderName}
                     </p>
 
@@ -636,7 +845,7 @@ export default function BrainstormSessionPage() {
                       </div>
                     ) : (
                       <>
-                        {msg.content && <p className="text-sm whitespace-pre-wrap leading-relaxed">{msg.content}</p>}
+                        {msg.content && <p className="text-sm whitespace-pre-wrap leading-relaxed">{renderMessageContent(msg.content, isOwn, isAI)}</p>}
                         {msg.fileUrl && (() => {
                           const baseUrl = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api').replace(/\/api$/, '');
                           const fullUrl = msg.fileUrl.startsWith('http') ? msg.fileUrl : `${baseUrl}${msg.fileUrl}`;
@@ -739,6 +948,28 @@ export default function BrainstormSessionPage() {
                 <p className="text-xs text-muted-foreground max-w-xs">Share ideas and discuss with your team</p>
               </div>
             )}
+            {/* AI Typing Indicator */}
+            {aiTyping && (
+              <div className="flex gap-3 max-w-[85%] animate-in fade-in slide-in-from-bottom-2 duration-300">
+                <div className="h-7 w-7 rounded-full flex items-center justify-center shrink-0 mt-1 bg-gradient-to-br from-[#7b68ee] to-[#a855f7] animate-pulse">
+                  <Brain className="h-3.5 w-3.5 text-white" />
+                </div>
+                <div className="rounded-2xl px-4 py-3 bg-gradient-to-r from-[#7b68ee]/10 to-[#a855f7]/10 border border-[#7b68ee]/20">
+                  <p className="text-[11px] font-semibold mb-2 text-[#7b68ee]">
+                    <Brain className="h-3 w-3 inline mr-1 -mt-0.5" />
+                    AI Assistant
+                  </p>
+                  <div className="flex items-center gap-2">
+                    <div className="flex gap-1">
+                      <span className="h-2 w-2 rounded-full bg-[#7b68ee] animate-bounce" style={{ animationDelay: '0ms' }} />
+                      <span className="h-2 w-2 rounded-full bg-[#7b68ee] animate-bounce" style={{ animationDelay: '150ms' }} />
+                      <span className="h-2 w-2 rounded-full bg-[#7b68ee] animate-bounce" style={{ animationDelay: '300ms' }} />
+                    </div>
+                    <span className="text-xs text-[#7b68ee]/70 font-medium">Sedang berpikir...</span>
+                  </div>
+                </div>
+              </div>
+            )}
             <div ref={messagesEndRef} />
           </div>
           <div className="flex gap-2 pt-3 border-t border-border">
@@ -758,13 +989,50 @@ export default function BrainstormSessionPage() {
               {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Paperclip className="h-4 w-4" />}
             </button>
             <div className="flex-1 relative">
+              {/* @mention autocomplete dropdown */}
+              {mentionQuery !== null && filteredMentions.length > 0 && (
+                <div className="absolute bottom-full mb-1 left-0 w-64 bg-card border border-border rounded-xl shadow-xl z-50 overflow-hidden">
+                  <div className="px-3 py-1.5 border-b border-border">
+                    <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Mention</span>
+                  </div>
+                  <div className="max-h-48 overflow-y-auto py-1">
+                    {filteredMentions.map((c, i) => (
+                      <button
+                        key={c.id}
+                        onClick={() => insertMention(c)}
+                        className={cn(
+                          'w-full flex items-center gap-2.5 px-3 py-2 text-sm transition-colors',
+                          i === mentionIndex ? 'bg-[#7b68ee]/10 text-[#7b68ee]' : 'hover:bg-muted text-foreground'
+                        )}
+                      >
+                        {c.isAI ? (
+                          <div className="h-7 w-7 rounded-full bg-gradient-to-br from-[#7b68ee] to-[#6c5ce7] flex items-center justify-center shrink-0">
+                            <Brain className="h-3.5 w-3.5 text-white" />
+                          </div>
+                        ) : (
+                          <div className="h-7 w-7 rounded-full bg-muted flex items-center justify-center shrink-0 overflow-hidden">
+                            {c.avatarUrl ? (
+                              <img src={c.avatarUrl} alt="" className="h-full w-full object-cover" />
+                            ) : (
+                              <span className="text-xs font-semibold text-muted-foreground">{c.name?.charAt(0)?.toUpperCase()}</span>
+                            )}
+                          </div>
+                        )}
+                        <div className="text-left min-w-0">
+                          <div className="text-[13px] font-medium truncate">{c.isAI ? 'AI Assistant' : c.name}</div>
+                          <div className="text-[10px] text-muted-foreground">{c.isAI ? 'Ask AI a question' : c.email || ''}</div>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
               <Textarea
-                placeholder="Type your message... (Shift+Enter for new line)"
+                ref={textareaRef}
+                placeholder="Type your message... Use @ai to ask AI, @name to mention"
                 value={message}
-                onChange={(e) => setMessage(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); }
-                }}
+                onChange={handleMessageChange}
+                onKeyDown={handleMentionKeyDown}
                 className="min-h-11 max-h-32 resize-none border-border focus:border-[#7b68ee] rounded-xl pr-12"
                 rows={1}
               />

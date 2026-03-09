@@ -141,3 +141,11 @@ export function emitBrainstormChat(sessionId: string, event: string, data: any) 
   if (!io) return;
   io.of('/brainstorm').to(sessionId).emit(event, data);
 }
+
+/**
+ * Emit AI typing status to all clients in a session room.
+ */
+export function emitBrainstormAITyping(sessionId: string, isTyping: boolean) {
+  if (!io) return;
+  io.of('/brainstorm').to(sessionId).emit('ai:typing', { isTyping });
+}

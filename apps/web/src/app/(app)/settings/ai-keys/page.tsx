@@ -5,7 +5,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   Plus, Key, Trash2, CheckCircle2, BarChart3,
   Loader2, Zap, Shield, Sparkles, ExternalLink, RefreshCw, XCircle,
-  Cpu, DollarSign, Activity, Search, Check
+  Cpu, DollarSign, Activity, Search, Check, Lock, ArrowRight, Info
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import {
@@ -23,47 +23,53 @@ import { DeleteConfirmDialog } from '@/components/shared/delete-confirm-dialog';
 const PROVIDERS = [
   {
     value: 'OPENROUTER', label: 'OpenRouter', color: '#6366f1', bg: '#6366f115',
-    icon: '🟣', desc: '10 free models + GPT, Claude, Gemini — one key for all',
+    icon: '🟣', desc: 'One API key for 100+ models — GPT, Claude, Gemini, Llama, and more',
     website: 'https://openrouter.ai/settings/keys',
     keyPrefix: 'sk-or-',
-    features: ['10 free models', 'One API key', '100+ models', 'GPT & Claude & Gemini'],
+    features: ['Free models available', 'All providers in one', '100+ models', 'Pay per token'],
     recommended: true,
+    guide: 'Sign up at openrouter.ai → Settings → Keys → Create Key',
   },
   {
     value: 'COPILOT', label: 'GitHub Copilot', color: '#6e40c9', bg: '#6e40c915',
-    icon: '⚫', desc: 'GPT-5, Claude Opus 4.6, Gemini 3.1, Grok — free with GitHub',
+    icon: '⚫', desc: 'Free AI models with your GitHub account — GPT-4o, Claude, Gemini, Llama & more',
     website: 'https://github.com/settings/tokens?type=beta',
     keyPrefix: 'github_pat_',
-    features: ['25+ free models', 'GPT, Claude, Gemini, Grok', 'GitHub integration'],
+    features: ['25+ free models', 'GPT & Claude & Gemini', 'No billing required', 'GitHub integration'],
     recommended: true,
+    guide: 'GitHub → Settings → Developer settings → Fine-grained tokens → enable Models (read & write)',
   },
   {
     value: 'GEMINI', label: 'Google Gemini', color: '#4285f4', bg: '#4285f415',
-    icon: '🔵', desc: 'Gemini 2.5 Pro & Flash — free tier available',
+    icon: '🔵', desc: 'Google Gemini 2.5 Pro & Flash — generous free tier with 1M context',
     website: 'https://aistudio.google.com/apikey',
     keyPrefix: 'AI',
-    features: ['1M context', 'Free tier', 'Multimodal'],
+    features: ['1M context', 'Free tier', 'Multimodal', 'Fast'],
+    guide: 'Go to aistudio.google.com → Get API Key → Create',
   },
   {
     value: 'GROQ', label: 'Groq', color: '#f55036', bg: '#f5503615',
-    icon: '🔴', desc: 'Llama 4, DeepSeek R1 — ultra-fast inference',
+    icon: '🔴', desc: 'Ultra-fast inference for Llama, DeepSeek, Mixtral — free tier included',
     website: 'https://console.groq.com/keys',
     keyPrefix: 'gsk_',
-    features: ['Fastest inference', 'Free tier', 'Open models'],
+    features: ['Fastest inference', 'Free tier', 'Open models', 'Low latency'],
+    guide: 'console.groq.com → API Keys → Create API Key',
   },
   {
     value: 'OPENAI', label: 'OpenAI', color: '#10a37f', bg: '#10a37f15',
-    icon: '🟢', desc: 'GPT-4.1, O3, O4 Mini — industry leader',
+    icon: '🟢', desc: 'GPT-4.1, O3, O4-Mini — industry leading models with function calling',
     website: 'https://platform.openai.com/api-keys',
     keyPrefix: 'sk-',
-    features: ['Function calling', 'Vision', 'Reasoning'],
+    features: ['Function calling', 'Vision', 'Reasoning', 'Code'],
+    guide: 'platform.openai.com → API Keys → Create new secret key',
   },
   {
     value: 'CLAUDE', label: 'Anthropic', color: '#d4a574', bg: '#d4a57415',
-    icon: '🟠', desc: 'Claude Opus 4 & Sonnet 4 — highest quality',
+    icon: '🟠', desc: 'Claude Opus 4 & Sonnet 4 — 200K context, best for writing & analysis',
     website: 'https://console.anthropic.com/settings/keys',
     keyPrefix: 'sk-ant-',
-    features: ['200K context', 'Best for writing', 'Coding'],
+    features: ['200K context', 'Best for writing', 'Coding', 'Analysis'],
+    guide: 'console.anthropic.com → Settings → API Keys → Create Key',
   },
 ];
 
@@ -195,33 +201,73 @@ export default function AIKeysPage() {
 
   return (
     <div className="space-y-6 max-w-5xl mx-auto">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-xl font-bold text-foreground flex items-center gap-2">
-            <div className="h-8 w-8 rounded-xl bg-linear-to-br from-[#7b68ee]/20 to-[#6c5ce7]/10 flex items-center justify-center">
-              <Sparkles className="h-4 w-4 text-[#7b68ee]" />
+      {/* Hero Header */}
+      <div className="relative overflow-hidden rounded-2xl bg-linear-to-br from-[#7b68ee]/10 via-[#6c5ce7]/5 to-transparent border border-[#7b68ee]/20 p-6">
+        <div className="absolute top-0 right-0 w-64 h-64 bg-linear-to-bl from-[#7b68ee]/8 to-transparent rounded-full -translate-y-1/2 translate-x-1/4" />
+        <div className="relative flex items-start justify-between gap-4">
+          <div className="flex-1">
+            <div className="flex items-center gap-3 mb-2">
+              <div className="h-10 w-10 rounded-xl bg-linear-to-br from-[#7b68ee] to-[#6c5ce7] flex items-center justify-center shadow-lg shadow-[#7b68ee]/25">
+                <Key className="h-5 w-5 text-white" />
+              </div>
+              <div>
+                <h1 className="text-xl font-bold text-foreground">BYOK — Bring Your Own Key</h1>
+                <p className="text-sm text-muted-foreground">Connect AI providers to power brainstorming, sprint planning, diagrams, and more.</p>
+              </div>
             </div>
-            BYOK
-          </h1>
-          <p className="text-sm text-muted-foreground mt-0.5">Bring Your Own Key — connect AI providers, manage API keys, and browse available models.</p>
-        </div>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => setShowModels(true)}
-            className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-muted-foreground bg-card border border-border rounded-xl hover:bg-muted transition-colors"
-          >
-            <Cpu className="h-3.5 w-3.5" />
-            {totalModels} Models
-          </button>
-          <button
-            onClick={() => { setNewKey({ provider: '', apiKey: '', label: '' }); setValidationResult(null); setShowAdd(true); }}
-            className="flex items-center gap-1.5 px-4 py-2 bg-linear-to-r from-[#7b68ee] to-[#6c5ce7] text-white text-sm font-medium rounded-xl hover:shadow-lg hover:shadow-[#7b68ee]/25 transition-all"
-          >
-            <Plus className="h-3.5 w-3.5" /> Connect Provider
-          </button>
+            <div className="flex items-center gap-4 mt-4">
+              <div className="flex items-center gap-1.5 text-xs text-muted-foreground bg-background/60 px-3 py-1.5 rounded-full border border-border/50">
+                <Lock className="h-3 w-3 text-green-500" />
+                <span>AES-256-GCM encrypted</span>
+              </div>
+              <div className="flex items-center gap-1.5 text-xs text-muted-foreground bg-background/60 px-3 py-1.5 rounded-full border border-border/50">
+                <Shield className="h-3 w-3 text-blue-500" />
+                <span>Keys never leave your server</span>
+              </div>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              onClick={() => setShowModels(true)}
+              className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-muted-foreground bg-background border border-border rounded-xl hover:bg-muted transition-colors"
+            >
+              <Cpu className="h-3.5 w-3.5" />
+              {totalModels} Models
+            </button>
+            <button
+              onClick={() => { setNewKey({ provider: '', apiKey: '', label: '' }); setValidationResult(null); setShowAdd(true); }}
+              className="flex items-center gap-1.5 px-4 py-2 bg-linear-to-r from-[#7b68ee] to-[#6c5ce7] text-white text-sm font-medium rounded-xl hover:shadow-lg hover:shadow-[#7b68ee]/25 transition-all"
+            >
+              <Plus className="h-3.5 w-3.5" /> Connect Provider
+            </button>
+          </div>
         </div>
       </div>
+
+      {/* Getting Started (only when no providers connected) */}
+      {connectedProviders.size === 0 && (
+        <div className="rounded-2xl border border-dashed border-[#7b68ee]/30 bg-[#7b68ee]/5 p-5">
+          <h3 className="text-sm font-semibold text-foreground flex items-center gap-2 mb-3">
+            <Info className="h-4 w-4 text-[#7b68ee]" />
+            Quick Start — Connect your first AI provider
+          </h3>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            {[
+              { step: '1', title: 'Choose a provider', desc: 'OpenRouter or GitHub Copilot recommended for free access' },
+              { step: '2', title: 'Get your API key', desc: 'Click the provider card below to get started with setup' },
+              { step: '3', title: 'Test & connect', desc: 'Paste your key, test the connection, then save' },
+            ].map(s => (
+              <div key={s.step} className="flex items-start gap-3 p-3 rounded-xl bg-background border border-border/50">
+                <div className="h-7 w-7 rounded-full bg-[#7b68ee] text-white text-xs font-bold flex items-center justify-center shrink-0">{s.step}</div>
+                <div>
+                  <p className="text-sm font-medium text-foreground">{s.title}</p>
+                  <p className="text-[11px] text-muted-foreground mt-0.5">{s.desc}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Usage Stats Bar */}
       <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
@@ -360,7 +406,13 @@ export default function AIKeysPage() {
                     </div>
                   </div>
                 ) : (
-                  <div className="mt-3">
+                  <div className="mt-3 space-y-2">
+                    {(provider as any).guide && (
+                      <div className="flex items-start gap-2 px-2.5 py-2 rounded-xl bg-muted/30 text-[11px] text-muted-foreground">
+                        <Info className="h-3 w-3 mt-0.5 shrink-0" />
+                        <span>{(provider as any).guide}</span>
+                      </div>
+                    )}
                     <button
                       onClick={() => openAddForProvider(provider.value)}
                       className="w-full flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-medium rounded-xl border-2 border-dashed border-border text-muted-foreground hover:border-[#7b68ee] hover:text-[#7b68ee] hover:bg-[#7b68ee]/5 transition-all"

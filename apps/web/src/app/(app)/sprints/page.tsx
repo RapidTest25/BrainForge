@@ -23,6 +23,9 @@ import { api } from '@/lib/api';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { DeleteConfirmDialog } from '@/components/shared/delete-confirm-dialog';
+import {
+  AIGenerateProgressModal, type AIStep,
+} from '@/components/ai-progress-modal';
 
 const PROVIDERS = ['OPENROUTER', 'OPENAI', 'CLAUDE', 'GEMINI', 'GROQ', 'COPILOT'];
 
@@ -52,6 +55,14 @@ export default function SprintsPage() {
 
   const [editForm, setEditForm] = useState({ title: '', goal: '', deadline: '', teamSize: 3 });
 
+  // AI progress modal state
+  const [aiProgressOpen, setAiProgressOpen] = useState(false);
+  const [aiSteps, setAiSteps] = useState<AIStep[]>([]);
+  const [aiError, setAiError] = useState<string | null>(null);
+  const [aiResultId, setAiResultId] = useState<string | null>(null);
+  const [aiStartedAt, setAiStartedAt] = useState<number | null>(null);
+  const [aiItemTitle, setAiItemTitle] = useState('');
+
   useEffect(() => {
     if (searchParams.get('new') === 'true') setShowCreate(true);
   }, [searchParams]);
@@ -79,12 +90,6 @@ export default function SprintsPage() {
 
   const generateMutation = useMutation({
     mutationFn: (data: any) => api.post(`/teams/${teamId}/sprints/ai-generate`, { ...data, projectId: activeProject?.id }),
-    onSuccess: (data: any) => {
-      queryClient.invalidateQueries({ queryKey: ['sprints', teamId] });
-      setShowGenerate(false);
-      setGenForm({ title: '', goal: '', deadline: '', teamSize: 3, provider: 'OPENROUTER', model: 'google/gemini-2.5-flash-preview-05-20' });
-      setSelectedSprint(data.data);
-    },
   });
 
   const deleteMutation = useMutation({
@@ -152,15 +157,66 @@ export default function SprintsPage() {
     });
   };
 
-  const handleGenerate = () => {
-    generateMutation.mutate({
-      title: genForm.title || genForm.goal.slice(0, 100),
-      goal: genForm.goal,
-      deadline: formatDeadline(genForm.deadline),
-      teamSize: genForm.teamSize,
-      provider: genForm.provider,
-      model: genForm.model,
-    });
+  const handleGenerate = async () => {
+    const initSteps: AIStep[] = [
+      { label: 'Preparing request', status: 'active' },
+      { label: 'Connecting to AI', status: 'pending' },
+      { label: 'Generating sprint plan', status: 'pending' },
+      { label: 'Saving to project', status: 'pending' },
+    ];
+    setAiSteps(initSteps);
+    setAiError(null);
+    setAiResultId(null);
+    setAiItemTitle(genForm.title || genForm.goal.slice(0, 60));
+    setAiStartedAt(Date.now());
+    setShowGenerate(false);
+    setAiProgressOpen(true);
+
+    const updateStep = (idx: number, status: AIStep['status'], hint?: string) => {
+      setAiSteps(prev => prev.map((s, i) => {
+        if (i === idx) return { ...s, status, hint };
+        if (i === idx + 1 && status === 'done' && s.status === 'pending') return { ...s, status: 'active' };
+        return s;
+      }));
+    };
+
+    const setStepError = (idx: number, msg: string) => {
+      setAiSteps(prev => prev.map((s, i) => i === idx ? { ...s, status: 'error', hint: msg } : s));
+    };
+
+    try {
+      // Step 1: Preparing request
+      await new Promise(r => setTimeout(r, 600));
+      updateStep(0, 'done');
+
+      // Step 2: Connecting to AI
+      await new Promise(r => setTimeout(r, 800));
+      updateStep(1, 'done');
+
+      // Step 3: Generating sprint plan (actual API call)
+      const result: any = await generateMutation.mutateAsync({
+        title: genForm.title || genForm.goal.slice(0, 100),
+        goal: genForm.goal,
+        deadline: formatDeadline(genForm.deadline),
+        teamSize: genForm.teamSize,
+        provider: genForm.provider,
+        model: genForm.model,
+      });
+      updateStep(2, 'done');
+
+      // Step 4: Saving to project
+      await new Promise(r => setTimeout(r, 500));
+      updateStep(3, 'done');
+
+      queryClient.invalidateQueries({ queryKey: ['sprints', teamId] });
+      setAiResultId(result?.data?.id || 'done');
+      setSelectedSprint(result?.data);
+      setGenForm({ title: '', goal: '', deadline: '', teamSize: 3, provider: 'OPENROUTER', model: 'google/gemini-2.5-flash-preview-05-20' });
+      toast.success('Sprint plan generated!');
+    } catch (err: any) {
+      setStepError(2, err.message || 'Generation failed');
+      setAiError(err.message || 'Failed to generate sprint plan');
+    }
   };
 
   const getStatusStyle = (status: string) => {
@@ -876,34 +932,35 @@ export default function SprintsPage() {
             </button>
             <button
               onClick={handleGenerate}
-              disabled={!genForm.goal || !genForm.deadline || generateMutation.isPending}
+              disabled={!genForm.goal || !genForm.deadline}
               className="px-5 py-2 bg-[#7b68ee] text-white text-sm font-medium rounded-lg hover:bg-[#6c5ce7] disabled:opacity-50 transition-colors flex items-center gap-1.5"
             >
-              {generateMutation.isPending ? <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Generating...</> : 'Generate Plan'}
+              Generate Plan
             </button>
           </DialogFooter>
-
-          {/* Progress overlay while generating */}
-          {generateMutation.isPending && (
-            <div className="absolute inset-0 bg-card/80 backdrop-blur-sm flex flex-col items-center justify-center rounded-lg z-10">
-              <div className="relative">
-                <div className="h-16 w-16 rounded-2xl bg-[#7b68ee]/10 flex items-center justify-center mb-4">
-                  <Loader2 className="h-8 w-8 text-[#7b68ee] animate-spin" />
-                </div>
-              </div>
-              <h3 className="text-sm font-semibold text-foreground mb-1">Generating Sprint Plan...</h3>
-              <p className="text-xs text-muted-foreground text-center max-w-[250px]">
-                AI is creating tasks, milestones, risks, and daily schedules for your sprint.
-              </p>
-              <div className="flex items-center gap-1.5 mt-4">
-                <div className="h-1.5 w-1.5 rounded-full bg-[#7b68ee] animate-bounce [animation-delay:0ms]" />
-                <div className="h-1.5 w-1.5 rounded-full bg-[#7b68ee] animate-bounce [animation-delay:150ms]" />
-                <div className="h-1.5 w-1.5 rounded-full bg-[#7b68ee] animate-bounce [animation-delay:300ms]" />
-              </div>
-            </div>
-          )}
         </DialogContent>
       </Dialog>
+
+      {/* AI Progress Modal */}
+      <AIGenerateProgressModal
+        open={aiProgressOpen}
+        steps={aiSteps}
+        error={aiError}
+        resultId={aiResultId}
+        onClose={() => { setAiProgressOpen(false); setAiSteps([]); setAiError(null); }}
+        onMinimize={() => setAiProgressOpen(false)}
+        onOpenResult={() => { setAiProgressOpen(false); }}
+        onRetry={handleGenerate}
+        startedAt={aiStartedAt}
+        itemTitle={aiItemTitle}
+        generatingTitle="Generating Sprint Plan"
+        doneTitle="Sprint Plan Ready!"
+        failedTitle="Generation Failed"
+        generatingSubtitle="AI is creating tasks, milestones, risks, and daily schedules for your sprint."
+        doneSubtitle="Your AI-generated sprint plan has been created and saved successfully."
+        openResultLabel="View Sprint"
+        accentColor="#7b68ee"
+      />
 
       <DeleteConfirmDialog
         open={!!deleteConfirm}

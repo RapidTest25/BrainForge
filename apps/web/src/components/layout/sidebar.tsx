@@ -274,7 +274,7 @@ export function Sidebar({ collapsed, onToggle, mobile, onMobileClose }: SidebarP
           className="shrink-0 hover:shadow-md transition-shadow rounded-lg"
           title={collapsed ? 'Expand sidebar (Ctrl+B)' : 'Collapse sidebar (Ctrl+B)'}
         >
-          <BrainForgeLogo size={28} />
+          <BrainForgeLogo size={32} />
         </button>
         {isExpanded && (
           <>

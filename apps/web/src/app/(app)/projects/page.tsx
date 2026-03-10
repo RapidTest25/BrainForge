@@ -77,10 +77,16 @@ export default function ProjectsPage() {
   const createMutation = useMutation({
     mutationFn: (data: { name: string; description?: string; color: string; icon: string }) =>
       api.post<Project>(`/teams/${teamId}/projects`, data),
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['projects', teamId] });
       resetForm();
       setShowCreate(false);
+      toast.success('Project created successfully');
+      // Auto-set as active project
+      if (data?.data) setActiveProject(data.data);
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || 'Failed to create project');
     },
   });
 
@@ -91,6 +97,10 @@ export default function ProjectsPage() {
       queryClient.invalidateQueries({ queryKey: ['projects', teamId] });
       setEditProject(null);
       resetForm();
+      toast.success('Project updated');
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || 'Failed to update project');
     },
   });
 
@@ -100,6 +110,10 @@ export default function ProjectsPage() {
       queryClient.invalidateQueries({ queryKey: ['projects', teamId] });
       if (activeProject?.id === id) setActiveProject(null);
       setDeleteConfirm(null);
+      toast.success('Project deleted');
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || 'Failed to delete project');
     },
   });
 
@@ -120,6 +134,10 @@ export default function ProjectsPage() {
 
   function handleCreate() {
     if (!name.trim()) return;
+    if (!teamId) {
+      toast.error('Please select a team first');
+      return;
+    }
     createMutation.mutate({ name: name.trim(), description: description.trim() || undefined, color, icon });
   }
 
@@ -613,6 +631,7 @@ function ProjectForm({
       </div>
 
       <Button
+        type="button"
         onClick={onSubmit}
         disabled={!name.trim() || loading}
         className="w-full bg-[#7b68ee] hover:bg-[#6c5ce7] text-white"

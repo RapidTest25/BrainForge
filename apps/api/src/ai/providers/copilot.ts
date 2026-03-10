@@ -79,7 +79,7 @@ export class CopilotProvider implements AIProviderInterface {
 
   /**
    * Verified models known to work on GitHub Models (models.inference.ai.azure.com).
-   * NOTE: Claude (Anthropic) models are NOT available on GitHub Models — use the CLAUDE provider for those.
+   * Includes OpenAI, Meta Llama, Mistral, and Anthropic Claude models available through GitHub Models.
    */
   private getStaticModels(): ModelDef[] {
     return [
@@ -88,6 +88,11 @@ export class CopilotProvider implements AIProviderInterface {
       { id: 'gpt-4o-mini', name: 'GPT-4o Mini', contextWindow: 128000, costPer1kInput: 0, costPer1kOutput: 0, description: 'Fast & efficient — free via GitHub Copilot' },
       { id: 'o3-mini', name: 'O3 Mini (Reasoning)', contextWindow: 200000, costPer1kInput: 0, costPer1kOutput: 0, description: 'Reasoning model — free via GitHub Copilot' },
       { id: 'o4-mini', name: 'O4 Mini (Reasoning)', contextWindow: 200000, costPer1kInput: 0, costPer1kOutput: 0, description: 'Latest reasoning model — free via GitHub Copilot' },
+
+      // Anthropic Claude — available on GitHub Models
+      { id: 'claude-sonnet-4-20250514', name: 'Claude Sonnet 4', contextWindow: 200000, costPer1kInput: 0, costPer1kOutput: 0, description: 'Anthropic Claude Sonnet 4 — free via GitHub Copilot' },
+      { id: 'claude-3.5-sonnet', name: 'Claude 3.5 Sonnet', contextWindow: 200000, costPer1kInput: 0, costPer1kOutput: 0, description: 'Anthropic — fast & capable, free via GitHub' },
+      { id: 'claude-3.5-haiku', name: 'Claude 3.5 Haiku', contextWindow: 200000, costPer1kInput: 0, costPer1kOutput: 0, description: 'Anthropic — fast & lightweight, free via GitHub' },
 
       // Meta Llama — verified in catalog
       { id: 'Meta-Llama-3.1-405B-Instruct', name: 'Llama 3.1 405B', contextWindow: 128000, costPer1kInput: 0, costPer1kOutput: 0, description: 'Meta — largest open model, free via GitHub' },

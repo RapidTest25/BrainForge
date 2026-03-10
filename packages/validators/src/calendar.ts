@@ -36,6 +36,8 @@ export const createEventSchema = z.object({
   endDate: flexibleDatetime.optional(),
   allDay: z.boolean().default(false),
   color: z.string().regex(/^#[0-9a-fA-F]{6}$/).optional(),
+  location: z.string().max(500).optional(),
+  meetingLink: z.string().max(1000).optional(),
 });
 
 export const updateEventSchema = z.object({
@@ -45,6 +47,8 @@ export const updateEventSchema = z.object({
   endDate: flexibleDatetime.nullable().optional(),
   allDay: z.boolean().optional(),
   color: z.string().regex(/^#[0-9a-fA-F]{6}$/).nullable().optional(),
+  location: z.string().max(500).nullable().optional(),
+  meetingLink: z.string().max(1000).nullable().optional(),
 });
 
 export type CreateEventInput = z.infer<typeof createEventSchema>;

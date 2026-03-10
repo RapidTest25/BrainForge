@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { flushSync } from 'react-dom';
 import { useSearchParams } from 'next/navigation';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
@@ -159,19 +160,25 @@ export default function TasksPage() {
     if (destination.droppableId === source.droppableId && destination.index === source.index) return;
     // If moved to a different column, update the task's status
     if (destination.droppableId !== source.droppableId) {
-      // Optimistic update
-      queryClient.setQueryData(['tasks', teamId, activeProject?.id, search], (old: any) => {
-        if (!old?.data) return old;
-        return {
-          ...old,
-          data: old.data.map((t: any) =>
-            t.id === draggableId ? { ...t, status: destination.droppableId } : t
-          ),
-        };
+      // Optimistic update with flushSync to prevent snap-back animation
+      flushSync(() => {
+        queryClient.setQueryData(['tasks', teamId, activeProject?.id, search], (old: any) => {
+          if (!old?.data) return old;
+          return {
+            ...old,
+            data: old.data.map((t: any) =>
+              t.id === draggableId ? { ...t, status: destination.droppableId } : t
+            ),
+          };
+        });
       });
       updateMutation.mutate(
         { taskId: draggableId, data: { status: destination.droppableId } },
         {
+          onSuccess: () => {
+            // Don't invalidate — optimistic update already applied
+            emitEntityChange('task', 'update');
+          },
           onError: () => {
             // Revert on error
             queryClient.invalidateQueries({ queryKey: ['tasks', teamId] });
@@ -291,7 +298,7 @@ export default function TasksPage() {
                       ref={provided.innerRef}
                       {...provided.droppableProps}
                       className={cn(
-                        'flex-1 overflow-y-auto p-2 space-y-1.5 transition-all duration-200 min-h-[60px]',
+                        'flex-1 overflow-y-auto p-2 space-y-1.5 transition-colors duration-200 min-h-[60px]',
                         snapshot.isDraggingOver && 'bg-[#7b68ee]/5 ring-2 ring-inset ring-[#7b68ee]/20'
                       )}
                     >
@@ -306,16 +313,13 @@ export default function TasksPage() {
                               className={cn(
                                 'bg-card rounded-lg border p-3 group relative cursor-grab active:cursor-grabbing',
                                 snapshot.isDragging
-                                  ? 'shadow-2xl border-[#7b68ee] ring-2 ring-[#7b68ee]/30 scale-[1.02] z-50'
-                                  : 'hover:shadow-md transition-all duration-150',
+                                  ? 'shadow-2xl border-[#7b68ee] ring-2 ring-[#7b68ee]/30 z-50'
+                                  : 'hover:shadow-md transition-shadow duration-150',
                                 selectedTask?.id === task.id && !snapshot.isDragging
                                   ? 'border-[#7b68ee] ring-1 ring-[#7b68ee]/20 shadow-sm'
                                   : !snapshot.isDragging && 'border-border hover:border-border/80'
                               )}
-                              style={{
-                                ...provided.draggableProps.style,
-                                ...(snapshot.isDragging ? { rotate: '1.5deg' } : {}),
-                              }}
+                              style={provided.draggableProps.style}
                             >
                               <div className="flex items-start justify-between mb-1">
                                 <div className="flex items-start gap-1.5 flex-1 min-w-0">

@@ -188,23 +188,6 @@ export default function DashboardPage() {
               )}
             </div>
           </div>
-
-          {/* Progress section in hero */}
-          {totalTasks > 0 && (
-            <div className="mt-6 bg-white/10 backdrop-blur-sm rounded-xl p-4 border border-white/10">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-sm font-medium text-white/90">Project Progress</span>
-                <span className="text-2xl font-bold text-white">{completionPct}%</span>
-              </div>
-              <div className="flex h-2 rounded-full overflow-hidden bg-white/20">
-                <div className="bg-white rounded-full transition-all duration-500" style={{ width: completionPct + '%' }} />
-              </div>
-              <div className="flex items-center gap-4 mt-2.5">
-                <span className="text-xs text-white/60">{doneCount} of {totalTasks} tasks completed</span>
-                {inProgressCount > 0 && <span className="text-xs text-white/60">· {inProgressCount} in progress</span>}
-              </div>
-            </div>
-          )}
         </div>
       </div>
 

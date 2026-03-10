@@ -4,13 +4,16 @@ import { useState, useRef, useEffect, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   Plus, ChevronLeft, ChevronRight, Calendar as CalendarIcon,
-  Clock, Trash2, Loader2, Bell, AlignLeft,
+  Clock, Trash2, Loader2, Bell, AlignLeft, MapPin, Link2,
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from '@/components/ui/dialog';
+import {
+  Sheet, SheetContent,
+} from '@/components/ui/sheet';
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
@@ -81,11 +84,13 @@ export default function CalendarPage() {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [showCreate, setShowCreate] = useState(false);
   const [showDetail, setShowDetail] = useState<any>(null);
+  const [selectedDay, setSelectedDay] = useState<string | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<{ id: string; title: string } | null>(null);
 
   const [newEvent, setNewEvent] = useState({
     title: '', type: 'MEETING', startDate: '', startTime: '09:00',
     endDate: '', endTime: '10:00', description: '', allDay: false,
+    location: '', meetingLink: '',
   });
 
   const year = currentDate.getFullYear();
@@ -137,7 +142,7 @@ export default function CalendarPage() {
   });
 
   function resetNewEvent() {
-    setNewEvent({ title: '', type: 'MEETING', startDate: '', startTime: '09:00', endDate: '', endTime: '10:00', description: '', allDay: false });
+    setNewEvent({ title: '', type: 'MEETING', startDate: '', startTime: '09:00', endDate: '', endTime: '10:00', description: '', allDay: false, location: '', meetingLink: '' });
   }
 
   function navigate(dir: number) {
@@ -173,9 +178,21 @@ export default function CalendarPage() {
       allDay: !time,
       description: '',
       type: 'MEETING',
+      location: '',
+      meetingLink: '',
     });
     setShowCreate(true);
   }
+
+  function handleDayClick(dateStr: string) {
+    setSelectedDay(dateStr);
+  }
+
+  const selectedDayEvents = useMemo(() => {
+    if (!selectedDay) return [];
+    const d = new Date(selectedDay + 'T00:00:00');
+    return events.filter(e => isSameDay(new Date(e.startDate), d));
+  }, [events, selectedDay]);
 
   function handleCreate() {
     const base: any = {
@@ -184,6 +201,8 @@ export default function CalendarPage() {
       description: newEvent.description || undefined,
       allDay: newEvent.allDay,
       color: getEventColor(newEvent.type),
+      location: newEvent.location || undefined,
+      meetingLink: newEvent.meetingLink || undefined,
     };
     if (newEvent.allDay) {
       base.startDate = newEvent.startDate;
@@ -246,10 +265,93 @@ export default function CalendarPage() {
 
       {/* Calendar body */}
       <div className="flex-1 min-h-0 overflow-hidden">
-        {view === 'month' && <MonthView currentDate={currentDate} events={events} onDateClick={openCreateForDate} onEventClick={setShowDetail} />}
+        {view === 'month' && <MonthView currentDate={currentDate} events={events} onDateClick={handleDayClick} onEventClick={setShowDetail} />}
         {view === 'week' && <WeekView currentDate={currentDate} events={events} onSlotClick={openCreateForDate} onEventClick={setShowDetail} />}
         {view === 'day' && <DayView currentDate={currentDate} events={events} onSlotClick={openCreateForDate} onEventClick={setShowDetail} />}
       </div>
+
+      {/* Day Events Dialog */}
+      <Dialog open={!!selectedDay} onOpenChange={v => { if (!v) setSelectedDay(null); }}>
+        <DialogContent className="bg-card max-w-md p-0 overflow-hidden">
+          {selectedDay && (() => {
+            const dayDate = new Date(selectedDay + 'T00:00:00');
+            const dayLabel = dayDate.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
+            return (
+              <>
+                <div className="px-5 pt-5 pb-3 border-b border-border">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h3 className="text-base font-semibold text-foreground">{dayLabel}</h3>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        {selectedDayEvents.length} event{selectedDayEvents.length !== 1 ? 's' : ''}
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => { setSelectedDay(null); openCreateForDate(selectedDay); }}
+                      className="flex items-center gap-1.5 px-3 py-1.5 bg-[#7b68ee] text-white text-xs font-medium rounded-lg hover:bg-[#6c5ce7] transition-colors"
+                    >
+                      <Plus className="h-3 w-3" /> Add Event
+                    </button>
+                  </div>
+                </div>
+                <div className="px-5 py-3 space-y-2 max-h-[60vh] overflow-y-auto">
+                  {selectedDayEvents.length === 0 ? (
+                    <div className="text-center py-8">
+                      <CalendarIcon className="h-8 w-8 mx-auto text-muted-foreground/30 mb-2" />
+                      <p className="text-sm text-muted-foreground">No events on this day</p>
+                      <button
+                        onClick={() => { setSelectedDay(null); openCreateForDate(selectedDay); }}
+                        className="text-xs text-[#7b68ee] mt-2 hover:underline"
+                      >
+                        Create one
+                      </button>
+                    </div>
+                  ) : (
+                    selectedDayEvents.map(e => {
+                      const color = getEventColor(e.type, e.color);
+                      const start = new Date(e.startDate);
+                      const end = e.endDate ? new Date(e.endDate) : null;
+                      const typeInfo = EVENT_TYPES.find(t => t.value === e.type) || EVENT_TYPES[4];
+                      return (
+                        <button
+                          key={e.id}
+                          onClick={() => { setSelectedDay(null); setShowDetail(e); }}
+                          className="w-full text-left bg-card border border-border rounded-xl p-3 hover:shadow-sm hover:border-[#7b68ee]/20 transition-all group"
+                        >
+                          <div className="flex items-start gap-3">
+                            <div className="w-1 self-stretch rounded-full shrink-0" style={{ backgroundColor: color }} />
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2">
+                                <h4 className="text-sm font-medium text-foreground truncate">{e.title}</h4>
+                                <span className="text-[9px] font-medium px-1.5 py-0.5 rounded-full shrink-0" style={{ color, backgroundColor: `${color}15` }}>
+                                  {typeInfo.label}
+                                </span>
+                              </div>
+                              <div className="flex items-center gap-2 mt-1 text-xs text-muted-foreground">
+                                {e.allDay ? (
+                                  <span>All day</span>
+                                ) : (
+                                  <span>{formatTime(start)}{end ? ` – ${formatTime(end)}` : ''}</span>
+                                )}
+                                {e.location && (
+                                  <span className="flex items-center gap-0.5 truncate"><MapPin className="h-3 w-3" />{e.location}</span>
+                                )}
+                              </div>
+                              {e.description && (
+                                <p className="text-xs text-muted-foreground/70 mt-1 line-clamp-1">{e.description}</p>
+                              )}
+                            </div>
+                          </div>
+                        </button>
+                      );
+                    })
+                  )}
+                </div>
+              </>
+            );
+          })()}
+        </DialogContent>
+      </Dialog>
 
       {/* Create Event Dialog */}
       <Dialog open={showCreate} onOpenChange={setShowCreate}>
@@ -327,6 +429,26 @@ export default function CalendarPage() {
                 rows={2}
               />
             </div>
+
+            <div className="flex items-center gap-3">
+              <MapPin className="h-4 w-4 text-muted-foreground shrink-0" />
+              <Input
+                value={newEvent.location}
+                onChange={e => setNewEvent({ ...newEvent, location: e.target.value })}
+                placeholder="Add location / address"
+                className="border-border/60 text-sm h-8"
+              />
+            </div>
+
+            <div className="flex items-center gap-3">
+              <Link2 className="h-4 w-4 text-muted-foreground shrink-0" />
+              <Input
+                value={newEvent.meetingLink}
+                onChange={e => setNewEvent({ ...newEvent, meetingLink: e.target.value })}
+                placeholder="Add meeting link (Zoom, Google Meet, etc.)"
+                className="border-border/60 text-sm h-8"
+              />
+            </div>
           </div>
           <DialogFooter>
             <button onClick={() => setShowCreate(false)} className="px-4 py-2 text-sm text-muted-foreground hover:text-foreground rounded-lg hover:bg-accent transition-colors">Cancel</button>
@@ -342,9 +464,9 @@ export default function CalendarPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Event Detail Dialog */}
-      <Dialog open={!!showDetail} onOpenChange={v => { if (!v) setShowDetail(null); }}>
-        <DialogContent className="bg-card max-w-sm p-0 overflow-hidden">
+      {/* Event Detail Sheet */}
+      <Sheet open={!!showDetail} onOpenChange={v => { if (!v) setShowDetail(null); }}>
+        <SheetContent side="right" className="w-full sm:w-[400px] md:w-[440px] p-0 border-l border-border overflow-y-auto">
           {showDetail && (() => {
             const eventColor = getEventColor(showDetail.type, showDetail.color);
             const typeInfo = EVENT_TYPES.find(t => t.value === showDetail.type) || EVENT_TYPES[4];
@@ -354,34 +476,57 @@ export default function CalendarPage() {
             return (
               <>
                 <div className="h-2" style={{ backgroundColor: eventColor }} />
-                <div className="p-5 space-y-4">
-                  <div>
-                    <h3 className="text-lg font-semibold text-foreground">{showDetail.title}</h3>
-                    <span className="text-[10px] font-medium px-2 py-0.5 rounded-full mt-1 inline-block" style={{ color: eventColor, backgroundColor: `${eventColor}15` }}>
-                      {typeInfo.label}
-                    </span>
-                  </div>
+                <div className="px-6 pt-6 pb-4">
+                  <h2 className="text-lg font-semibold text-foreground leading-snug pr-8">{showDetail.title}</h2>
+                  <span className="text-[11px] font-semibold px-2.5 py-1 rounded-full mt-2 inline-flex items-center gap-1" style={{ color: eventColor, backgroundColor: `${eventColor}15` }}>
+                    {typeInfo.label}
+                  </span>
+                </div>
 
+                <div className="px-6 pb-4 space-y-4">
                   <div className="flex items-center gap-3 text-sm text-muted-foreground">
                     <Clock className="h-4 w-4 shrink-0" />
                     <div>
-                      <p>{start.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}</p>
+                      <p className="text-foreground">{start.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}</p>
                       {!showDetail.allDay && (
-                        <p className="text-xs">{formatTime(start)}{end ? ` – ${formatTime(end)}` : ''}</p>
+                        <p className="text-xs text-muted-foreground">{formatTime(start)}{end ? ` – ${formatTime(end)}` : ''}</p>
                       )}
-                      {showDetail.allDay && <p className="text-xs">All day</p>}
+                      {showDetail.allDay && <p className="text-xs text-muted-foreground">All day</p>}
                     </div>
                   </div>
 
                   {showDetail.description && (
+                    <div className="space-y-1.5">
+                      <label className="text-[12px] font-medium text-muted-foreground">Description</label>
+                      <div className="text-sm text-foreground leading-relaxed whitespace-pre-wrap bg-muted/50 rounded-lg p-3 border border-border/50">
+                        {showDetail.description}
+                      </div>
+                    </div>
+                  )}
+
+                  {showDetail.location && (
                     <div className="flex items-start gap-3 text-sm">
-                      <AlignLeft className="h-4 w-4 text-muted-foreground shrink-0 mt-0.5" />
-                      <p className="text-foreground leading-relaxed">{showDetail.description}</p>
+                      <MapPin className="h-4 w-4 text-muted-foreground shrink-0 mt-0.5" />
+                      <p className="text-foreground">{showDetail.location}</p>
+                    </div>
+                  )}
+
+                  {showDetail.meetingLink && (
+                    <div className="flex items-start gap-3 text-sm">
+                      <Link2 className="h-4 w-4 text-muted-foreground shrink-0 mt-0.5" />
+                      <a
+                        href={showDetail.meetingLink}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-[#7b68ee] hover:underline break-all"
+                      >
+                        {showDetail.meetingLink}
+                      </a>
                     </div>
                   )}
 
                   {!isVirtualEvent && (
-                    <div className="flex justify-end pt-2 border-t border-border">
+                    <div className="flex justify-end pt-3 border-t border-border/50">
                       <button
                         onClick={() => setDeleteConfirm({ id: showDetail.id, title: showDetail.title })}
                         className="flex items-center gap-1.5 text-xs text-red-500 hover:bg-red-500/10 px-3 py-1.5 rounded-lg transition-colors"
@@ -394,8 +539,8 @@ export default function CalendarPage() {
               </>
             );
           })()}
-        </DialogContent>
-      </Dialog>
+        </SheetContent>
+      </Sheet>
 
       {/* Delete Confirm */}
       <Dialog open={!!deleteConfirm} onOpenChange={v => { if (!v) setDeleteConfirm(null); }}>

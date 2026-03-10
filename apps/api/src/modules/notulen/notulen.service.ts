@@ -136,25 +136,94 @@ class NotulenService {
 
     const activityData = { tasks, notes, brainstorms, goals, diagrams };
 
-    // Build summary prompt
+    // Build summary prompt with rich data
     const activitySummary = [
-      tasks.length > 0 ? `TASKS (${tasks.length}):\n${tasks.map(t => `- [${t.status}] ${t.title} (${t.priority})`).join('\n')}` : '',
-      notes.length > 0 ? `NOTES (${notes.length}):\n${notes.map(n => `- ${n.title}`).join('\n')}` : '',
-      brainstorms.length > 0 ? `BRAINSTORM SESSIONS (${brainstorms.length}):\n${brainstorms.map(b => `- ${b.title} (${b.mode})`).join('\n')}` : '',
-      goals.length > 0 ? `GOALS (${goals.length}):\n${goals.map(g => `- [${g.status}] ${g.title} - ${g.progress}%`).join('\n')}` : '',
+      tasks.length > 0 ? `TASKS (${tasks.length}):\n${tasks.map(t => {
+        let line = `- [${t.status}] ${t.title} (${t.priority})`;
+        if (t.description) line += `\n  Description: ${t.description.slice(0, 200)}`;
+        return line;
+      }).join('\n')}` : '',
+      notes.length > 0 ? `NOTES (${notes.length}):\n${notes.map(n => {
+        let line = `- ${n.title}`;
+        if (n.content) {
+          const plain = n.content.replace(/<[^>]+>/g, '').slice(0, 200);
+          if (plain.trim()) line += `\n  Content: ${plain}`;
+        }
+        return line;
+      }).join('\n')}` : '',
+      brainstorms.length > 0 ? `BRAINSTORM SESSIONS (${brainstorms.length}):\n${brainstorms.map(b => {
+        let line = `- ${b.title} (${b.mode})`;
+        if (b.messages && b.messages.length > 0) {
+          line += '\n  Recent discussion:';
+          b.messages.slice(0, 3).forEach((m: any) => {
+            line += `\n    [${m.role}]: ${m.content.slice(0, 150)}`;
+          });
+        }
+        return line;
+      }).join('\n')}` : '',
+      goals.length > 0 ? `GOALS (${goals.length}):\n${goals.map(g => {
+        let line = `- [${g.status}] ${g.title} - ${g.progress}%`;
+        if (g.description) line += `\n  Description: ${g.description.slice(0, 200)}`;
+        return line;
+      }).join('\n')}` : '',
       diagrams.length > 0 ? `DIAGRAMS (${diagrams.length}):\n${diagrams.map(d => `- ${d.title} (${d.type})`).join('\n')}` : '',
     ].filter(Boolean).join('\n\n');
 
     const hasActivity = tasks.length + notes.length + brainstorms.length + goals.length + diagrams.length > 0;
 
-    const systemPrompt = `You are an AI project manager assistant creating a daily summary (notulen/meeting notes).
-Your output must be ONLY a valid JSON object with these fields:
-- "title": string - A concise title for today's summary (max 100 chars)
-- "summary": string - A comprehensive summary of all activities in the last 24 hours. Use markdown formatting. Include what was done, what changed, and key decisions. If no activity, acknowledge it and suggest next steps.
-- "conclusions": string - Key takeaways and conclusions based on the activity. What patterns do you see? What's going well? What needs attention?
-- "recommendations": string - Actionable recommendations for what to do next. Be specific. Prioritize items. Suggest timeline if appropriate.
+    const today = new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
 
-LANGUAGE: Write in the same language as the activity titles (if Indonesian, write in Indonesian; if English, write in English).
+    const systemPrompt = `You are a senior project manager creating a professional daily summary report (notulen/meeting notes).
+Date: ${today}
+
+Your output must be ONLY a valid JSON object with these fields:
+- "title": string - A specific, descriptive title reflecting today's key achievements/themes (max 100 chars). NOT generic like "Daily Summary" — be specific.
+- "summary": string - A well-structured comprehensive summary using markdown. Organize into sections:
+  ## Key Accomplishments
+  List completed work and progress made with context.
+  ## Active Work
+  What is currently in progress and its status.
+  ## Discussions & Ideas
+  Insights from brainstorm sessions and notes.
+  ## Goals Progress
+  Track goal movement with % changes.
+  Include specific details: task names, descriptions, what changed, who's involved. Be thorough but concise.
+- "conclusions": string - Insightful analysis in markdown:
+  - **Velocity**: How productive was the team today?
+  - **Patterns**: Any recurring themes or blockers?
+  - **Wins**: What went well? Acknowledge achievements.
+  - **Concerns**: What needs attention? Any risks?
+- "recommendations": string - Specific, actionable next steps in markdown. Categorize by urgency and format as:
+  ### 🔴 Urgent (Do Today/Tomorrow)
+  1. **[Action]** — Why it matters. Suggest who should handle it.
+  
+  ### 🟡 Important (This Week)
+  1. **[Action]** — Expected impact and measurable outcome.
+  
+  ### 🟢 Nice-to-Have (When Possible)
+  1. **[Action]** — Long-term benefit.
+  
+  Each recommendation MUST include:
+  - A concrete, specific action (not vague like "improve quality")
+  - WHO should do it (based on task assignments or team context)
+  - WHEN it should be done (today, tomorrow, this week, etc.)
+  - WHY it matters (impact on project goals, deadlines, or team velocity)
+  - SUCCESS METRIC: How to know the action was completed successfully
+
+QUALITY RULES:
+- Reference specific task/goal names — don't be vague.
+- If descriptions or brainstorm content is provided, analyze and synthesize it, don't just repeat titles.
+- Quantify progress where possible (e.g. "3 of 5 tasks completed", "progress went from 40% to 70%").
+- Make conclusions insightful, not just restating facts.
+- Make recommendations actionable and prioritized.
+
+LANGUAGE (CRITICAL — MUST FOLLOW):
+- Detect the language of the activity titles AND the user's custom prompt (if provided).
+- Write ALL output in the SAME language as the input.
+- If activity titles are in Indonesian (Bahasa Indonesia), write EVERYTHING in Indonesian.
+- If the user's additional context/prompt is in Indonesian, write in Indonesian regardless of activity title language.
+- Do NOT default to English. Always match the dominant language of the input.
+
 OUTPUT: Only valid JSON, no markdown fences, no extra text.`;
 
     const userMessage = hasActivity
@@ -164,7 +233,7 @@ OUTPUT: Only valid JSON, no markdown fences, no extra text.`;
     const result = await aiService.chat(userId, options.provider, options.model, [
       { role: 'system', content: systemPrompt },
       { role: 'user', content: userMessage },
-    ]);
+    ], { temperature: 0.3, maxTokens: 4096 });
 
     // Parse response
     let parsed: any;

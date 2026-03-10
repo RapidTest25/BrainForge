@@ -44,9 +44,10 @@ export async function sprintRoutes(app: FastifyInstance) {
   app.post('/:teamId/sprints/ai-generate', { preHandler: [teamGuard()] }, async (request, reply) => {
     const { teamId } = request.params as { teamId: string };
     const body = createSprintSchema.parse(request.body);
+    const projectId = (request.body as any).projectId;
     const sprint = await sprintService.generateAndSave(
       teamId, request.user.id, body.provider, body.model,
-      body.title, body.goal, body.deadline, body.teamSize, body.context
+      body.title, body.goal, body.deadline, body.teamSize, body.context, projectId
     );
     return reply.status(201).send({ success: true, data: sprint });
   });

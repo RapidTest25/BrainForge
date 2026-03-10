@@ -5,6 +5,7 @@ class CalendarService {
   async create(teamId: string, userId: string, data: {
     title: string; type: string; startDate: string; endDate?: string;
     allDay?: boolean; color?: string; description?: string;
+    location?: string; meetingLink?: string;
   }) {
     return prisma.calendarEvent.create({
       data: {
@@ -17,6 +18,8 @@ class CalendarService {
         allDay: data.allDay ?? false,
         color: data.color,
         description: data.description,
+        location: data.location,
+        meetingLink: data.meetingLink,
       },
       include: { creator: { select: { id: true, name: true, avatarUrl: true } } },
     });

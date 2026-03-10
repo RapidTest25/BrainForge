@@ -6,7 +6,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   Plus, Zap, Target, AlertTriangle, Calendar, CheckCircle2, Clock, ListChecks,
   ArrowRight, ArrowLeft, Trash2, Search, ChevronDown, Edit2, BarChart3,
-  Users, Play, Archive, CircleDot, Circle,
+  Users, Play, Archive, CircleDot, Circle, Loader2,
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -78,7 +78,7 @@ export default function SprintsPage() {
   });
 
   const generateMutation = useMutation({
-    mutationFn: (data: any) => api.post(`/teams/${teamId}/sprints/ai-generate`, data),
+    mutationFn: (data: any) => api.post(`/teams/${teamId}/sprints/ai-generate`, { ...data, projectId: activeProject?.id }),
     onSuccess: (data: any) => {
       queryClient.invalidateQueries({ queryKey: ['sprints', teamId] });
       setShowGenerate(false);
@@ -877,11 +877,31 @@ export default function SprintsPage() {
             <button
               onClick={handleGenerate}
               disabled={!genForm.goal || !genForm.deadline || generateMutation.isPending}
-              className="px-5 py-2 bg-[#7b68ee] text-white text-sm font-medium rounded-lg hover:bg-[#6c5ce7] disabled:opacity-50 transition-colors"
+              className="px-5 py-2 bg-[#7b68ee] text-white text-sm font-medium rounded-lg hover:bg-[#6c5ce7] disabled:opacity-50 transition-colors flex items-center gap-1.5"
             >
-              {generateMutation.isPending ? 'Generating...' : 'Generate Plan'}
+              {generateMutation.isPending ? <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Generating...</> : 'Generate Plan'}
             </button>
           </DialogFooter>
+
+          {/* Progress overlay while generating */}
+          {generateMutation.isPending && (
+            <div className="absolute inset-0 bg-card/80 backdrop-blur-sm flex flex-col items-center justify-center rounded-lg z-10">
+              <div className="relative">
+                <div className="h-16 w-16 rounded-2xl bg-[#7b68ee]/10 flex items-center justify-center mb-4">
+                  <Loader2 className="h-8 w-8 text-[#7b68ee] animate-spin" />
+                </div>
+              </div>
+              <h3 className="text-sm font-semibold text-foreground mb-1">Generating Sprint Plan...</h3>
+              <p className="text-xs text-muted-foreground text-center max-w-[250px]">
+                AI is creating tasks, milestones, risks, and daily schedules for your sprint.
+              </p>
+              <div className="flex items-center gap-1.5 mt-4">
+                <div className="h-1.5 w-1.5 rounded-full bg-[#7b68ee] animate-bounce [animation-delay:0ms]" />
+                <div className="h-1.5 w-1.5 rounded-full bg-[#7b68ee] animate-bounce [animation-delay:150ms]" />
+                <div className="h-1.5 w-1.5 rounded-full bg-[#7b68ee] animate-bounce [animation-delay:300ms]" />
+              </div>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
 

@@ -37,14 +37,20 @@ ABSOLUTE OUTPUT RULES (must follow):
 REQUESTED TOP-LEVEL KEYS:
 ${requestedKeys.map((k) => `"${k}"`).join(', ')}
 
-LANGUAGE:
-- Write all text in the same language as the user.
+LANGUAGE (CRITICAL — MUST FOLLOW):
+- Detect the language of the user's input/prompt.
+- Write ALL output text in the SAME language as the user's input.
+- If the user writes in Indonesian (Bahasa Indonesia), ALL titles, descriptions, content, and text MUST be in Indonesian.
+- If the user writes in English, output in English.
+- If the user writes in any other language, output in that language.
+- This applies to EVERY text field: titles, descriptions, content, initialMessage, notes, goals — EVERYTHING.
+- Do NOT mix languages. Be consistent throughout.
 
 SCHEMAS (only include requested keys):
 ${requestedKeys.includes('tasks') ? `
 "tasks": an array of 3 to 8 objects. Each object must include:
-- "title": string, 5-70 chars, starts with a verb, actionable
-- "description": string, includes: steps + deliverable + acceptance criteria (use \\n for new lines)
+- "title": string, 5-70 chars, starts with a verb, actionable (in user's language)
+- "description": string, includes: steps + deliverable + acceptance criteria (use \\n for new lines, in user's language)
 - "priority": one of ["URGENT","HIGH","MEDIUM","LOW"]
 - "status": exactly "TODO"
 
@@ -56,27 +62,28 @@ TASK QUALITY RULES:
 ` : ''}
 ${requestedKeys.includes('brainstorm') ? `
 "brainstorm": an object with:
-- "title": string, max 80 chars
+- "title": string, max 80 chars (in user's language)
 - "mode": exactly "BRAINSTORM"
-- "initialMessage": string, a facilitator opener that includes:
+- "initialMessage": string, a facilitator opener (in user's language) that includes:
   - goal of the session
   - 3-6 guiding questions using \\n- bullet format
   - timebox suggestion (e.g., "10 minutes diverge, 10 minutes converge")
 BRAINSTORM RULES:
 - Make it engaging but focused on the user's prompt.
+- The initialMessage MUST be in the same language as the user's input.
 ` : ''}
 ${requestedKeys.includes('notes') ? `
 "notes": an array of 1 to 3 objects. Each object must include:
-- "title": string, max 80 chars
-- "content": string, structured with \\n and '-' bullets where helpful.
+- "title": string, max 80 chars (in user's language)
+- "content": string, structured with \\n and '-' bullets where helpful (in user's language).
 NOTES RULES:
 - Include decisions, assumptions, and next steps.
 - Actionable, no filler.
 ` : ''}
 ${requestedKeys.includes('goals') ? `
 "goals": an array of 3 to 6 objects. Each object must include:
-- "title": string, max 100 chars, clear and measurable (SMART goal format)
-- "description": string, detailed with success criteria, key results, and milestones (use \\n for new lines)
+- "title": string, max 100 chars, clear and measurable, SMART goal format (in user's language)
+- "description": string, detailed with success criteria, key results, and milestones (use \\n for new lines, in user's language)
 - "status": exactly "NOT_STARTED"
 - "progress": number 0
 - "dueDate": ISO 8601 date string, realistic deadline (within 1-12 months from now)

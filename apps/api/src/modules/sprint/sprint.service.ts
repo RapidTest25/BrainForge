@@ -3,34 +3,54 @@ import { aiService } from '../../ai/ai.service.js';
 import { NotFoundError } from '../../lib/errors.js';
 import type { ChatMsg } from '../../ai/providers/base.js';
 
-const SPRINT_PROMPT = `You are an expert Agile/Scrum sprint planner. Generate a detailed sprint plan based on the project goal.
+const SPRINT_PROMPT = `You are an expert Agile/Scrum sprint planner and project manager. Generate a highly detailed, realistic sprint plan based on the project goal.
+
+LANGUAGE (CRITICAL — MUST FOLLOW):
+- Detect the language of the Goal and Additional context.
+- Write ALL output (sprintGoal, task titles, descriptions, milestones, risks, dailyPlan) in the SAME language as the input.
+- If input is in Indonesian (Bahasa Indonesia), write EVERYTHING in Indonesian.
+- If input is in English, write in English.
+- Do NOT default to English. Always match the dominant language of the input.
 
 Output MUST be valid JSON with this structure:
 {
-  "sprintGoal": "Clear sprint goal statement",
-  "duration": "2 weeks",
+  "sprintGoal": "Clear, measurable sprint goal statement with success criteria",
+  "duration": "N days/weeks based on the actual deadline",
   "tasks": [
     {
-      "title": "Task title",
-      "description": "Detailed description",
-      "priority": "HIGH|MEDIUM|LOW",
+      "title": "Specific, actionable task title",
+      "description": "Detailed description including: what needs to be done, acceptance criteria, technical approach. At least 2-3 sentences.",
+      "priority": "URGENT|HIGH|MEDIUM|LOW",
       "estimatedHours": 4,
-      "category": "frontend|backend|design|testing|devops",
-      "dependencies": []
+      "category": "frontend|backend|design|testing|devops|research|documentation",
+      "dependencies": ["Other task title if dependent"]
     }
   ],
   "milestones": [
-    { "title": "Milestone name", "day": 3, "description": "What should be done" }
+    { "title": "Milestone name", "day": 3, "description": "Clear deliverable and how to verify completion" }
   ],
   "risks": [
-    { "risk": "Risk description", "mitigation": "How to mitigate" }
+    { "risk": "Specific risk description", "mitigation": "Concrete mitigation strategy with actionable steps" }
   ],
   "dailyPlan": [
-    { "day": 1, "focus": "Day focus", "tasks": ["Task title 1", "Task title 2"] }
+    { "day": 1, "focus": "Day theme/focus area", "tasks": ["Task title 1", "Task title 2"] }
   ]
 }
 
-Consider team size, deadline, and distribute tasks evenly.
+PLANNING RULES:
+1. Generate 10-25 tasks depending on team size and deadline. Each task should be completable in 2-8 hours.
+2. Tasks must be specific and technical — NOT vague like "Implement features". Instead: "Create user registration API endpoint with email validation and password hashing"
+3. Include ALL phases: research/planning, implementation, testing, documentation, deployment.
+4. Task descriptions MUST include acceptance criteria (what "done" means).
+5. Distribute tasks evenly across team members and days.
+6. Order tasks logically — dependencies first, then dependent tasks.
+7. Include at least 3 milestones spread across the timeline.
+8. Include at least 3 realistic risks with specific mitigations.
+9. DailyPlan should cover EVERY working day from start to deadline.
+10. Priority distribution: ~10% URGENT, ~30% HIGH, ~40% MEDIUM, ~20% LOW.
+11. Calculate duration from TODAY to the deadline date provided. Be realistic about what can be accomplished.
+12. Add testing tasks for every major feature (unit tests, integration tests).
+
 ONLY output JSON, no other text.`;
 
 class SprintService {
@@ -91,17 +111,20 @@ class SprintService {
     teamSize: number,
     context?: string
   ) {
+    const today = new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
     const messages: ChatMsg[] = [
       { role: 'system', content: SPRINT_PROMPT },
       {
         role: 'user',
-        content: `Generate a sprint plan:
+        content: `Generate a comprehensive sprint plan:
+- Today's date: ${today}
 - Goal: ${goal}
 - Deadline: ${deadline}
-- Team size: ${teamSize} developers
+- Team size: ${teamSize} developer${teamSize > 1 ? 's' : ''}
+- Available working hours per developer per day: ~6 hours (accounting for meetings, breaks, reviews)
 ${context ? `- Additional context: ${context}` : ''}
 
-Output only valid JSON.`,
+Generate a realistic, achievable plan. Output only valid JSON.`,
       },
     ];
 
@@ -126,7 +149,8 @@ Output only valid JSON.`,
     goal?: string,
     deadline?: string,
     teamSize?: number,
-    context?: string
+    context?: string,
+    projectId?: string
   ) {
     const sprintData = await this.generateWithAI(userId, provider || '', model || '', goal || '', deadline || '', teamSize || 1, context);
 
@@ -136,6 +160,7 @@ Output only valid JSON.`,
         createdBy: userId,
         title: title || 'Sprint Plan',
         goal: goal || '',
+        projectId: projectId || undefined,
         deadline: new Date(deadline || new Date()),
         teamSize: teamSize || 1,
         status: 'DRAFT',

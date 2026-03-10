@@ -77,23 +77,26 @@ export class CopilotProvider implements AIProviderInterface {
     return this.getStaticModels();
   }
 
-  /** Verified models known to work on GitHub Models (models.inference.ai.azure.com) */
+  /**
+   * Verified models known to work on GitHub Models (models.inference.ai.azure.com).
+   * NOTE: Claude (Anthropic) models are NOT available on GitHub Models — use the CLAUDE provider for those.
+   */
   private getStaticModels(): ModelDef[] {
     return [
       // OpenAI — verified working
-      { id: 'gpt-4o', name: 'GPT-4o', contextWindow: 128000, costPer1kInput: 0, costPer1kOutput: 0, description: 'OpenAI GPT-4o via GitHub — recommended' },
-      { id: 'gpt-4o-mini', name: 'GPT-4o Mini', contextWindow: 128000, costPer1kInput: 0, costPer1kOutput: 0, description: 'Fast & efficient via GitHub' },
-      { id: 'o3-mini', name: 'O3 Mini', contextWindow: 200000, costPer1kInput: 0, costPer1kOutput: 0, description: 'Reasoning model via GitHub' },
-      { id: 'o4-mini', name: 'O4 Mini', contextWindow: 200000, costPer1kInput: 0, costPer1kOutput: 0, description: 'Latest reasoning model via GitHub' },
+      { id: 'gpt-4o', name: 'GPT-4o', contextWindow: 128000, costPer1kInput: 0, costPer1kOutput: 0, description: 'OpenAI GPT-4o — best quality, free via GitHub Copilot' },
+      { id: 'gpt-4o-mini', name: 'GPT-4o Mini', contextWindow: 128000, costPer1kInput: 0, costPer1kOutput: 0, description: 'Fast & efficient — free via GitHub Copilot' },
+      { id: 'o3-mini', name: 'O3 Mini (Reasoning)', contextWindow: 200000, costPer1kInput: 0, costPer1kOutput: 0, description: 'Reasoning model — free via GitHub Copilot' },
+      { id: 'o4-mini', name: 'O4 Mini (Reasoning)', contextWindow: 200000, costPer1kInput: 0, costPer1kOutput: 0, description: 'Latest reasoning model — free via GitHub Copilot' },
 
       // Meta Llama — verified in catalog
-      { id: 'Meta-Llama-3.1-405B-Instruct', name: 'Llama 3.1 405B', contextWindow: 128000, costPer1kInput: 0, costPer1kOutput: 0, description: 'Meta Llama 3.1 405B via GitHub' },
-      { id: 'Meta-Llama-3.1-70B-Instruct', name: 'Llama 3.1 70B', contextWindow: 128000, costPer1kInput: 0, costPer1kOutput: 0, description: 'Meta Llama 3.1 70B via GitHub' },
-      { id: 'Meta-Llama-3.1-8B-Instruct', name: 'Llama 3.1 8B', contextWindow: 128000, costPer1kInput: 0, costPer1kOutput: 0, description: 'Fast Llama 3.1 8B via GitHub' },
+      { id: 'Meta-Llama-3.1-405B-Instruct', name: 'Llama 3.1 405B', contextWindow: 128000, costPer1kInput: 0, costPer1kOutput: 0, description: 'Meta — largest open model, free via GitHub' },
+      { id: 'Meta-Llama-3.1-70B-Instruct', name: 'Llama 3.1 70B', contextWindow: 128000, costPer1kInput: 0, costPer1kOutput: 0, description: 'Meta — balanced performance, free via GitHub' },
+      { id: 'Meta-Llama-3.1-8B-Instruct', name: 'Llama 3.1 8B', contextWindow: 128000, costPer1kInput: 0, costPer1kOutput: 0, description: 'Meta — fast & lightweight, free via GitHub' },
 
       // Mistral — verified in catalog
-      { id: 'Mistral-large-2407', name: 'Mistral Large', contextWindow: 128000, costPer1kInput: 0, costPer1kOutput: 0, description: 'Mistral Large via GitHub' },
-      { id: 'Mistral-Nemo', name: 'Mistral Nemo', contextWindow: 128000, costPer1kInput: 0, costPer1kOutput: 0, description: 'Mistral Nemo via GitHub' },
+      { id: 'Mistral-large-2407', name: 'Mistral Large', contextWindow: 128000, costPer1kInput: 0, costPer1kOutput: 0, description: 'Mistral Large — free via GitHub' },
+      { id: 'Mistral-Nemo', name: 'Mistral Nemo', contextWindow: 128000, costPer1kInput: 0, costPer1kOutput: 0, description: 'Mistral Nemo — free via GitHub' },
     ];
   }
 

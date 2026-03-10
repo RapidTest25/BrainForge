@@ -193,24 +193,44 @@ interface NodePos {
   y: number;
   w: number;
   h: number;
+  isContainer?: boolean;
+  parentId?: string;
 }
 
-function parseVertexPositions(xml: string): NodePos[] {
+function parseVertexPositions(xml: string, skipChildren = false): NodePos[] {
   const cellBlocks = xml.match(/<mxCell[^>]*vertex="1"[\s\S]*?(?:<\/mxCell>|<mxGeometry[^/]*\/>[\s\n]*<\/mxCell>)/g) || [];
   const positions: NodePos[] = [];
 
   for (const block of cellBlocks) {
     const idMatch = block.match(/id="([^"]*)"/);
-    const geoMatch = block.match(/x="([^"]*)".*?y="([^"]*)".*?width="([^"]*)".*?height="([^"]*)"/);
-    if (idMatch && geoMatch) {
-      positions.push({
-        id: idMatch[1],
-        x: parseFloat(geoMatch[1]) || 0,
-        y: parseFloat(geoMatch[2]) || 0,
-        w: parseFloat(geoMatch[3]) || 120,
-        h: parseFloat(geoMatch[4]) || 60,
-      });
-    }
+    if (!idMatch) continue;
+
+    // Extract geometry attributes individually (order-independent)
+    const geoBlock = block.match(/<mxGeometry[^>]*>/);
+    if (!geoBlock) continue;
+    const geo = geoBlock[0];
+    const xm = geo.match(/\bx="([^"]*)"/);
+    const ym = geo.match(/\by="([^"]*)"/);
+    const wm = geo.match(/\bwidth="([^"]*)"/);
+    const hm = geo.match(/\bheight="([^"]*)"/);
+    if (!wm || !hm) continue; // need at least width/height
+
+    const isContainer = /container\s*=\s*["']?1/.test(block);
+    const parentMatch = block.match(/\bparent="([^"]*)"/);
+    const parentId = parentMatch ? parentMatch[1] : undefined;
+
+    // Skip child cells of containers (e.g. ERD table rows) if requested
+    if (skipChildren && parentId && parentId !== '1' && parentId !== '0') continue;
+
+    positions.push({
+      id: idMatch[1],
+      x: parseFloat(xm?.[1] || '0'),
+      y: parseFloat(ym?.[1] || '0'),
+      w: parseFloat(wm[1]) || 120,
+      h: parseFloat(hm[1]) || 60,
+      isContainer,
+      parentId: parentId || undefined,
+    });
   }
   return positions;
 }
@@ -219,12 +239,21 @@ function applyPositions(xml: string, positions: NodePos[]): string {
   let fixedXml = xml;
   for (const pos of positions) {
     const escapedId = pos.id.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    // Match geometry x/y in any order
-    const cellPattern = new RegExp(
-      `(<mxCell[^>]*id="${escapedId}"[^>]*>[\\s\\S]*?<mxGeometry[^>]*?)x="[^"]*"([^>]*?)y="[^"]*"`,
+    // Try x...y order
+    const pat1 = new RegExp(
+      `(<mxCell[^>]*id="${escapedId}"[^>]*>[\\s\\S]*?<mxGeometry[^>]*?)\\bx="[^"]*"([^>]*?)\\by="[^"]*"`,
       'g'
     );
-    fixedXml = fixedXml.replace(cellPattern, `$1x="${Math.round(pos.x)}"$2y="${Math.round(pos.y)}"`);
+    const before = fixedXml;
+    fixedXml = fixedXml.replace(pat1, `$1x="${Math.round(pos.x)}"$2y="${Math.round(pos.y)}"`);
+    if (fixedXml === before) {
+      // Try y...x order
+      const pat2 = new RegExp(
+        `(<mxCell[^>]*id="${escapedId}"[^>]*>[\\s\\S]*?<mxGeometry[^>]*?)\\by="[^"]*"([^>]*?)\\bx="[^"]*"`,
+        'g'
+      );
+      fixedXml = fixedXml.replace(pat2, `$1y="${Math.round(pos.y)}"$2x="${Math.round(pos.x)}"`);
+    }
   }
   return fixedXml;
 }
@@ -316,51 +345,76 @@ function fixSequenceDiagram(xml: string): string {
   return fixedXml;
 }
 
-function fixGenericOverlaps(xml: string): string {
-  const positions = parseVertexPositions(xml);
+function fixGenericOverlaps(xml: string, diagramType?: string): string {
+  // For ERD/ARCHITECTURE/COMPONENT, only fix top-level container overlaps (skip child rows)
+  const isContainerType = diagramType === 'ERD' || diagramType === 'ARCHITECTURE' || diagramType === 'COMPONENT';
+  const positions = parseVertexPositions(xml, isContainerType);
   if (positions.length < 2) return xml;
 
+  // Build set of container IDs so we don't separate children from parents
+  const containerIds = new Set(positions.filter(p => p.isContainer).map(p => p.id));
+
+  // Only fix overlaps between top-level nodes (parent is root '0'/'1' or is a container itself)
+  const topLevel = positions.filter(p => !p.parentId || p.parentId === '0' || p.parentId === '1' || containerIds.has(p.id));
+
+  const pad = isContainerType ? 30 : 25;
   let hasOverlap = true;
   let iterations = 0;
-  const maxIterations = 80;
-  const pad = 40;
+  const maxIterations = 60;
 
   while (hasOverlap && iterations < maxIterations) {
     hasOverlap = false;
     iterations++;
 
-    for (let i = 0; i < positions.length; i++) {
-      for (let j = i + 1; j < positions.length; j++) {
-        const a = positions[i];
-        const b = positions[j];
+    for (let i = 0; i < topLevel.length; i++) {
+      for (let j = i + 1; j < topLevel.length; j++) {
+        const a = topLevel[i];
+        const b = topLevel[j];
 
         const overlapX = a.x < b.x + b.w + pad && a.x + a.w + pad > b.x;
         const overlapY = a.y < b.y + b.h + pad && a.y + a.h + pad > b.y;
 
         if (overlapX && overlapY) {
           hasOverlap = true;
-          const dx = (a.x + a.w / 2) - (b.x + b.w / 2);
-          const dy = (a.y + a.h / 2) - (b.y + b.h / 2);
+          const acx = a.x + a.w / 2, acy = a.y + a.h / 2;
+          const bcx = b.x + b.w / 2, bcy = b.y + b.h / 2;
+          const dx = acx - bcx;
+          const dy = acy - bcy;
 
+          // Push both nodes apart equally (balanced)
           if (Math.abs(dx) >= Math.abs(dy)) {
-            if (dx > 0) {
-              b.x = Math.max(20, a.x - b.w - pad - 50);
+            const needed = (a.w / 2 + b.w / 2 + pad) - Math.abs(dx);
+            const half = Math.ceil(needed / 2) + 5;
+            if (dx >= 0) {
+              a.x += half;
+              b.x -= half;
             } else {
-              b.x = a.x + a.w + pad + 50;
+              a.x -= half;
+              b.x += half;
             }
           } else {
-            if (dy > 0) {
-              b.y = Math.max(20, a.y - b.h - pad - 30);
+            const needed = (a.h / 2 + b.h / 2 + pad) - Math.abs(dy);
+            const half = Math.ceil(needed / 2) + 5;
+            if (dy >= 0) {
+              a.y += half;
+              b.y -= half;
             } else {
-              b.y = a.y + a.h + pad + 30;
+              a.y -= half;
+              b.y += half;
             }
           }
+
+          // Clamp to positive coords
+          a.x = Math.max(10, a.x);
+          a.y = Math.max(10, a.y);
+          b.x = Math.max(10, b.x);
+          b.y = Math.max(10, b.y);
         }
       }
     }
   }
 
-  return applyPositions(xml, positions);
+  return applyPositions(xml, topLevel);
 }
 
 function fixMindmapDiagram(xml: string): string {
@@ -510,12 +564,19 @@ function fixMindmapDiagram(xml: string): string {
           hasOverlap = true;
           const dx = (a.x + a.w / 2) - (b.x + b.w / 2);
           const dy = (a.y + a.h / 2) - (b.y + b.h / 2);
-          const pushX = Math.abs(dx) >= Math.abs(dy);
-          if (pushX) {
-            b.x += dx > 0 ? -(b.w + pad + 20) : (a.w + pad + 20);
+          if (Math.abs(dx) >= Math.abs(dy)) {
+            const needed = (a.w / 2 + b.w / 2 + pad) - Math.abs(dx);
+            const half = Math.ceil(needed / 2) + 5;
+            if (dx >= 0) { a.x += half; b.x -= half; }
+            else { a.x -= half; b.x += half; }
           } else {
-            b.y += dy > 0 ? -(b.h + pad + 15) : (a.h + pad + 15);
+            const needed = (a.h / 2 + b.h / 2 + pad) - Math.abs(dy);
+            const half = Math.ceil(needed / 2) + 5;
+            if (dy >= 0) { a.y += half; b.y -= half; }
+            else { a.y -= half; b.y += half; }
           }
+          a.x = Math.max(10, a.x);
+          a.y = Math.max(10, a.y);
           b.x = Math.max(10, b.x);
           b.y = Math.max(10, b.y);
         }
@@ -533,7 +594,7 @@ function fixOverlappingNodes(xml: string, diagramType: string = 'FLOWCHART'): st
   if (diagramType === 'MINDMAP') {
     return fixMindmapDiagram(xml);
   }
-  return fixGenericOverlaps(xml);
+  return fixGenericOverlaps(xml, diagramType);
 }
 
 class DiagramService {
@@ -595,12 +656,168 @@ class DiagramService {
     diagramType: string
   ) {
     const typeHints: Record<string, string> = {
-      SEQUENCE: `CRITICAL: Follow the SEQUENCE section EXACTLY. Place 4-6 participant boxes at y=30 spaced 220px apart. Add dashed lifelines below each. Messages are HORIZONTAL ARROWS between lifelines going TOP to BOTTOM (y=120, 170, 220, 270...). Use mxPoint sourcePoint/targetPoint geometry (NOT source/target attributes). Generate 10-18 messages covering the COMPLETE interaction flow including validation, error cases, and return messages. Use descriptive labels like "POST /api/login", "Validate token", "Return 401 Unauthorized". Use different fillColors per participant. Think about ALL the steps — don't skip any.`,
-      FLOWCHART: `Follow the FLOWCHART section. Center column at x=350, y starts at 40 increments 130px. Use rounded boxes for process, rhombus for decisions, green rounded for start/end, red for errors, purple for sub-processes. Generate 15-25 nodes with 3+ decision diamonds, at least 1 error/exception path, parallel branches. Add descriptive edge labels ("validates", "on success", "on failure"). Think about the COMPLETE process — include validation, error handling, notifications, logging. Use shadow=1 on primary nodes.`,
-      ERD: `Follow the ERD section. Use shape=table containers with text child rows (parent=tableId). Generate 5-8 tables with 4-8 fields EACH including data types (e.g., "id (PK) INT", "email VARCHAR(255) UNIQUE", "created_at TIMESTAMP"). Place tables in a grid 360px apart, using different fillColors. Include ALL relevant FK relationships with cardinality labels (1:*, 1:1, *:*). Think like a database architect — include all necessary junction tables, audit fields, and indexes.`,
-      MINDMAP: `CRITICAL: Follow the MINDMAP section EXACTLY. Place ONE ellipse center node at (350,305) size 200x90 with purple fill. Distribute 6-8 level-1 branches EVENLY in a circle at 300px radius. Each level-1 gets 2-4 level-2 children at 200px further out. Use source/target on ALL edges. Each level-1 branch uses a UNIQUE color (blue, green, yellow, red, purple, orange, teal, pink). Total nodes: 25-40. Think comprehensively — cover ALL aspects, sub-topics, and details of the subject.`,
-      ARCHITECTURE: `Follow the ARCHITECTURE section. Generate 4-5 horizontal layers: Presentation (y=40, red), API/Gateway (y=220, yellow), Services (y=400, blue), Data (y=600, green), Infrastructure (y=780, grey/purple). Each layer has 3-5 components spaced 220px apart. Use shape=hexagon for gateways, shape=cylinder3 for databases, rounded=1 with shadow=1 for services. Generate 15-25 total components. Include load balancers, message queues, caches, monitoring. Think like a solutions architect — design a complete production system.`,
-      COMPONENT: `Follow the COMPONENT section. Generate 3-4 folder packages (shape=folder) each containing 3-5 components (shape=component). Packages 300px apart vertically, components 200px apart inside with 40px padding. Use unique color themes per package. Add inter-package dependency edges with "<<uses>>" or "<<depends>>" labels. Total 15-25 elements. Include interfaces, adapters, and cross-cutting concerns.`,
+      SEQUENCE: `CRITICAL: Follow the SEQUENCE section EXACTLY.
+
+STEP-BY-STEP GENERATION PROCESS:
+1. FIRST define 4-6 participant boxes at y=30. Space them 220px apart starting at x=60. Style: shape=mxgraph.sequence.object;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontStyle=1;fontSize=13; width=150 height=50.
+2. THEN draw a dashed lifeline below EACH participant: endArrow=none;dashed=1;strokeColor=#999999;dashPattern=5 5; from (center_x,80) to (center_x, last_message_y+80).
+3. THEN draw message arrows TOP→BOTTOM. Each message is an EDGE with mxPoint sourcePoint/targetPoint geometry (NOT source/target attributes). Forward: strokeWidth=2; Return: dashed=1;strokeWidth=1.5;strokeColor=#999999;
+   y-positions: 120, 170, 220, 270, 320, 370, 420, 470, 520, 570, 620, 670, 720...
+
+QUALITY CHECKLIST:
+- Use DESCRIPTIVE action labels: "POST /api/login {credentials}", "Verify credentials against DB", "Generate JWT + refresh token", "Return 200 {token, user}"
+- Include REQUEST + RESPONSE pairs (forward arrow then dashed return arrow)
+- Include at least 1 ERROR PATH (e.g., "Return 401 Unauthorized")
+- Include at least 1 CONDITIONAL/ALTERNATIVE path
+- Show async operations with "async" label or separate activation boxes
+- Use DIFFERENT fillColors per participant (blue, green, yellow, orange, purple)
+- Generate 12-20 messages minimum covering the COMPLETE interaction lifecycle
+- Label participants with their ROLE: "Client/Browser", "API Gateway", "Auth Service", "Database", "Cache"`,
+
+      FLOWCHART: `Follow the FLOWCHART section EXACTLY.
+
+LAYOUT:
+- Main flow: center column at x=350, y starts at 40, increment 130px vertically
+- Decision diamonds branch LEFT (x=50) and RIGHT (x=650) then RECONVERGE to center
+- Use swim-lane separators between major phases
+
+NODE TYPES & STYLES:
+- Start/End: rounded=1;arcSize=50;fillColor=#d5e8d4;strokeColor=#82b366;fontStyle=1;shadow=1
+- Process: rounded=1;fillColor=#dae8fc;strokeColor=#6c8ebf;shadow=1
+- Decision: rhombus;fillColor=#fff2cc;strokeColor=#d6b656;fontStyle=1
+- Error/Exception: rounded=1;fillColor=#f8cecc;strokeColor=#b85450;shadow=1
+- Sub-process: rounded=1;fillColor=#e1d5e7;strokeColor=#9673a6
+- Input/Output: shape=parallelogram;fillColor=#ffe6cc;strokeColor=#d79b00
+
+QUALITY CHECKLIST:
+- Generate 18-28 nodes total
+- Include 4+ decision diamonds with Yes/No branches
+- Include at least 2 error/exception paths with recovery or fallback
+- Include 1+ parallel process branches
+- Add DESCRIPTIVE edge labels: "validates OK", "on success", "on failure", "timeout", "retry"
+- Use shadow=1 on ALL primary nodes
+- Make each node label clear and actionable (verb + noun): "Validate Input Data", "Query Database", "Send Notification"
+- Include logging/audit steps where appropriate
+- End with proper termination nodes (success + error endings)`,
+
+      ERD: `Follow the ERD section EXACTLY.
+
+TABLE STRUCTURE:
+- Each table = shape=table;startSize=30;container=1;collapsible=0;childLayout=tableLayout;fixedRows=1;rowLines=0;fontStyle=1;align=center;fillColor=COLOR;strokeColor=STROKE
+- Header height=30 with table name in bold
+- Each field = child row (parent=tableId) at y=30,60,90... height=30, width=same as table
+- Table width=280, height = 30 + (numFields × 30)
+
+FIELD FORMAT (CRITICAL):
+- "id (PK) INT" — bold (fontStyle=1), always first
+- "user_id (FK) INT" — red text (fontColor=#CC0000) for foreign keys
+- "email VARCHAR(255) UNIQUE" — include data type AND constraints
+- "status ENUM('active','inactive')" — show enum values
+- "created_at TIMESTAMP DEFAULT NOW()" — include defaults for audit fields
+- "updated_at TIMESTAMP" — always include audit fields
+
+LAYOUT:
+- Grid layout: x=60, x=420, x=780 (360px horizontal spacing)
+- Rows: y=40, y=380, y=720 (340px vertical spacing)
+- Different fillColor per table: blue=#dae8fc, green=#d5e8d4, yellow=#fff2cc, orange=#ffe6cc, purple=#e1d5e7, pink=#f5c2c7
+
+RELATIONSHIPS:
+- Use entityRelationEdgeStyle edges with cardinality labels: "1", "*", "1..*"
+- Place labels near source/target: "1" near PK table, "*" near FK table
+- Include ALL necessary junction tables for M:N relationships
+
+QUALITY CHECKLIST:
+- Generate 6-10 tables with 5-10 fields EACH
+- Include proper data types for EVERY field
+- Add PK, FK, UNIQUE constraints
+- Include audit columns (created_at, updated_at) in every table
+- Include at least 1 junction/pivot table for M:N relationships
+- Include indexes for frequently queried fields
+- Think about all entities: users, roles, permissions, main domain entities, settings, logs`,
+
+      MINDMAP: `CRITICAL: Follow the MINDMAP section EXACTLY.
+
+LAYOUT (RADIAL):
+- Canvas center: (450, 350)
+- ONE central ellipse node at (350, 305) size 200x90: fillColor=#7b68ee;fontColor=#ffffff;strokeColor=#6c5ce7;fontSize=16;fontStyle=1;shadow=1
+- 6-8 Level-1 branches: evenly distributed in a CIRCLE at radius 300px from center
+- Each Level-1 gets 2-4 Level-2 children at 200px further out in SAME angular direction
+- Optional Level-3: 170px further than L2
+
+COLORS (EACH branch = unique color family):
+- Branch 1: fillColor=#dae8fc;strokeColor=#6c8ebf (blue)
+- Branch 2: fillColor=#d5e8d4;strokeColor=#82b366 (green)
+- Branch 3: fillColor=#fff2cc;strokeColor=#d6b656 (yellow)
+- Branch 4: fillColor=#f8cecc;strokeColor=#b85450 (red)
+- Branch 5: fillColor=#e1d5e7;strokeColor=#9673a6 (purple)
+- Branch 6: fillColor=#ffe6cc;strokeColor=#d79b00 (orange)
+- Branch 7: fillColor=#b1ddf0;strokeColor=#10739e (teal)
+- Branch 8: fillColor=#f5c2c7;strokeColor=#c94f6d (pink)
+- Level-2: lighter version of parent color
+- Level-3: even lighter
+
+EDGES: ALL edges use source="parentId" target="childId". Center→L1: strokeWidth=2;curved=1. L1→L2: strokeWidth=1.5;strokeColor=#999. L2→L3: strokeWidth=1;strokeColor=#bbb.
+
+QUALITY CHECKLIST:
+- Total 30-45 nodes covering ALL aspects of the topic
+- 7-8 Level-1 branches (main categories/themes)
+- Each L1 branch: 3-4 Level-2 children (sub-topics)
+- Include actionable items, not just categories
+- Use concise but descriptive labels (2-5 words each)
+- Cover BOTH obvious AND non-obvious aspects
+- Think comprehensively: technical, business, user, operational perspectives`,
+
+      ARCHITECTURE: `Follow the ARCHITECTURE section EXACTLY.
+
+LAYER STRUCTURE (top to bottom, each layer = fullwidth translucent background rectangle):
+1. CLIENT LAYER (y=40): Browsers, Mobile, Desktop apps — fillColor=#f8cecc;strokeColor=#b85450
+2. API LAYER (y=220): API Gateway, Load Balancer, CDN — fillColor=#fff2cc;strokeColor=#d6b656
+3. SERVICE LAYER (y=400): Microservices, Business Logic — fillColor=#dae8fc;strokeColor=#6c8ebf
+4. DATA LAYER (y=600): Databases, Caches, Message Queues, Search — fillColor=#d5e8d4;strokeColor=#82b366
+5. INFRA LAYER (y=780): Monitoring, Logging, CI/CD, Container Orchestration — fillColor=#e1d5e7;strokeColor=#9673a6
+
+SHAPES PER LAYER:
+- Clients: rounded=1;shadow=1 (rectangles)
+- Gateway/LB: shape=hexagon;perimeter=hexagonPerimeter2;shadow=1
+- Services: rounded=1;shadow=1 (labeled with service name)
+- Databases: shape=cylinder3;boundedLbl=1;backgroundOutline=1;size=15
+- Queues: shape=parallelogram (or mxgraph.arrows2 shape)
+- Cache: shape=cylinder3 with orange fill
+- Monitoring: rounded=1;dashed=1
+
+LAYOUT: Items spaced 220px apart horizontally (x=60, 280, 500, 720, 940).
+Add layer label rectangles behind each row (full width, semi-transparent, no stroke).
+
+QUALITY CHECKLIST:
+- Generate 20-30 total components across 4-5 layers
+- Include ALL of: load balancer, API gateway, auth service, main domain services, database (primary + replica), cache (Redis), message queue, object storage, monitoring, logging
+- Add BI-DIRECTIONAL arrows between layers showing data flow
+- Label arrows with protocols: "HTTPS", "gRPC", "WebSocket", "AMQP", "TCP"
+- Show redundancy (multiple instances where appropriate)
+- Include a legend or title box`,
+
+      COMPONENT: `Follow the COMPONENT section EXACTLY.
+
+STRUCTURE:
+- 3-5 Packages (folders): shape=folder;fontStyle=1;spacingTop=10;tabWidth=50;tabHeight=14;tabPosition=left;container=1
+- Each package contains 3-5 Components: shape=component;align=left;spacingLeft=36;rounded=1
+- Add small Interface circles: shape=ellipse;width=30;height=30 with <<interface>> stereotype
+- Dependencies: dashed edges with labels
+
+LAYOUT:
+- Packages: 320px apart vertically, starting at y=40
+- Package width=700-900, height = based on content (auto-calculate)
+- Components inside: 40px padding from edges, 200px apart horizontally
+- Components: width=160, height=60
+
+QUALITY CHECKLIST:
+- Generate 4 packages with 3-5 components each (16-25 total elements)
+- Package themes: Presentation (blue), Business Logic (green), Data Access (yellow), Infrastructure (purple)
+- Include interfaces between packages
+- Add cross-package dependency edges with "<<uses>>", "<<implements>>", "<<depends>>" labels
+- Each component has a CLEAR responsibility label
+- Include adapters, factories, repositories, services, controllers
+- Show the Dependency Inversion principle where applicable`,
     };
 
     const hint = typeHints[diagramType] || typeHints.FLOWCHART;
@@ -614,7 +831,7 @@ class DiagramService {
       { role: 'system', content: DIAGRAM_PROMPT },
       {
         role: 'user',
-        content: `Generate a ${diagramType} diagram for the following:\n\n${description}\n\n${hint}${expansionNote}\n\nOutput ONLY valid draw.io XML starting with <mxGraphModel>. No markdown, no code fences, no explanation.`,
+        content: `Generate a ${diagramType} diagram for the following:\n\n${description}\n\n${hint}${expansionNote}\n\nIMPORTANT: Use the SAME LANGUAGE as the user's description for ALL labels and text in the diagram. If the description is in Indonesian, ALL node labels, edge labels, and descriptions must be in Indonesian. If in English, use English. Match the user's language exactly.\n\nOutput ONLY valid draw.io XML starting with <mxGraphModel>. No markdown, no code fences, no explanation.`,
       },
     ];
 

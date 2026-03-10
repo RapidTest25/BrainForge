@@ -505,6 +505,8 @@ model CalendarEvent {
   endDate     DateTime?
   allDay      Boolean   @default(false)
   color       String?
+  location    String?
+  meetingLink String?
   taskId      String?
   sprintId    String?
   sessionId   String?

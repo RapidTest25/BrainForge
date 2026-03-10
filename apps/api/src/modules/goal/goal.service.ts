@@ -95,7 +95,15 @@ Output MUST be valid JSON with this structure:
 Rules:
 - Generate 3-6 goals
 - Goals must be Specific, Measurable, Achievable, Relevant, Time-bound
-- Use the same language as the user's input
+
+LANGUAGE (CRITICAL):
+- Detect the language of the user's input/prompt.
+- Write ALL titles and descriptions in the SAME language as the user's input.
+- If user writes in Indonesian → output in Indonesian.
+- If user writes in English → output in English.
+- If user writes in any other language → output in that language.
+- Do NOT default to English. Match the user's language exactly.
+
 - Output ONLY valid JSON, no markdown, no code fences
 - Each goal should include measurable key results in the description`;
 

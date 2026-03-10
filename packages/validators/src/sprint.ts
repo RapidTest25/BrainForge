@@ -18,6 +18,9 @@ export const createSprintSchema = z.object({
 
 export const updateSprintSchema = z.object({
   title: z.string().min(1).max(200).optional(),
+  goal: z.string().min(1).max(5000).optional(),
+  deadline: flexibleDatetime.optional(),
+  teamSize: z.number().int().min(1).max(20).optional(),
   status: z.enum(['DRAFT', 'ACTIVE', 'COMPLETED', 'ARCHIVED']).optional(),
 });
 

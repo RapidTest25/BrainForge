@@ -1,0 +1,277 @@
+/* BrainForge Meet Extension - Content Script Styles */
+
+#brainforge-panel {
+  position: fixed;
+  right: 20px;
+  bottom: 100px;
+  width: 360px;
+  max-height: 600px;
+  background: white;
+  border: 1px solid #ddd;
+  border-radius: 12px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  transition: all 0.3s ease;
+}
+
+#brainforge-panel.hidden {
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(10px);
+}
+
+#brainforge-panel-container {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+}
+
+#brainforge-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+#brainforge-header h3 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+#brainforge-close {
+  background: none;
+  border: none;
+  color: white;
+  font-size: 20px;
+  cursor: pointer;
+  padding: 0;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.2s;
+}
+
+#brainforge-close:hover {
+  transform: scale(1.2);
+}
+
+#brainforge-controls {
+  display: flex;
+  gap: 8px;
+  padding: 12px;
+  background: #f9f9f9;
+  border-bottom: 1px solid #e0e0e0;
+  flex-wrap: wrap;
+}
+
+#brainforge-status {
+  padding: 8px 12px;
+  font-size: 12px;
+  text-align: center;
+  min-height: 20px;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.status {
+  font-weight: 500;
+}
+
+.status-info {
+  color: #0066cc;
+  background: #e6f2ff;
+}
+
+.status-recording {
+  color: #cc0000;
+  background: #ffe6e6;
+  animation: pulse 1s infinite;
+}
+
+.status-progress {
+  color: #ff7700;
+  background: #fff0e6;
+}
+
+.status-success {
+  color: #00aa00;
+  background: #e6ffe6;
+}
+
+.status-error {
+  color: #cc0000;
+  background: #ffe6e6;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
+}
+
+#brainforge-transcript-section,
+#brainforge-summary-section {
+  padding: 12px;
+  border-bottom: 1px solid #e0e0e0;
+  overflow-y: auto;
+  flex: 1;
+}
+
+#brainforge-transcript-section h4,
+#brainforge-summary-section h4 {
+  font-size: 12px;
+  font-weight: 600;
+  margin-bottom: 8px;
+  color: #333;
+}
+
+.transcript-box,
+.summary-box {
+  background: #f9f9f9;
+  border: 1px solid #e0e0e0;
+  border-radius: 6px;
+  padding: 10px;
+  font-size: 11px;
+  line-height: 1.5;
+  color: #333;
+  max-height: 250px;
+  overflow-y: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-family: 'Courier New', monospace;
+}
+
+.summary-box {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  white-space: normal;
+}
+
+.btn {
+  padding: 8px 12px;
+  border: none;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+  flex: 1;
+}
+
+.btn-primary {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+}
+
+.btn-primary:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+}
+
+.btn-primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn-primary.recording {
+  background: linear-gradient(135deg, #ff4444 0%, #cc0000 100%);
+}
+
+.btn-secondary {
+  background: #e0e0e0;
+  color: #333;
+}
+
+.btn-secondary:hover:not(:disabled) {
+  background: #d0d0d0;
+}
+
+.btn-secondary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn-success {
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  color: white;
+  margin-top: 8px;
+}
+
+.btn-success:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+}
+
+/* Scrollbar styling */
+.transcript-box::-webkit-scrollbar,
+.summary-box::-webkit-scrollbar,
+#brainforge-transcript-section::-webkit-scrollbar,
+#brainforge-summary-section::-webkit-scrollbar {
+  width: 4px;
+}
+
+.transcript-box::-webkit-scrollbar-track,
+.summary-box::-webkit-scrollbar-track,
+#brainforge-transcript-section::-webkit-scrollbar-track,
+#brainforge-summary-section::-webkit-scrollbar-track {
+  background: #f1f1f1;
+}
+
+.transcript-box::-webkit-scrollbar-thumb,
+.summary-box::-webkit-scrollbar-thumb,
+#brainforge-transcript-section::-webkit-scrollbar-thumb,
+#brainforge-summary-section::-webkit-scrollbar-thumb {
+  background: #667eea;
+  border-radius: 2px;
+}
+
+.transcript-box::-webkit-scrollbar-thumb:hover,
+.summary-box::-webkit-scrollbar-thumb:hover,
+#brainforge-transcript-section::-webkit-scrollbar-thumb:hover,
+#brainforge-summary-section::-webkit-scrollbar-thumb:hover {
+  background: #764ba2;
+}
+
+/* Meet button integration */
+.brainforge-meet-btn {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+  border-radius: 50%;
+  width: 40px;
+  height: 40px;
+  font-size: 20px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+  margin: 0 8px;
+}
+
+.brainforge-meet-btn:hover {
+  transform: scale(1.1);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+}
+
+.brainforge-meet-btn:active {
+  transform: scale(0.95);
+}
+
+/* Responsive design */
+@media (max-width: 600px) {
+  #brainforge-panel {
+    width: calc(100vw - 40px);
+    right: 20px;
+    bottom: 80px;
+    max-height: 400px;
+  }
+}

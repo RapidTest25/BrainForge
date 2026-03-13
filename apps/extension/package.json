@@ -1,0 +1,22 @@
+{
+  "name": "brainforge-meet-assistant",
+  "version": "1.0.0",
+  "description": "AI-powered meeting assistant for Google Meet - Chrome Extension",
+  "author": "BrainForge Team",
+  "license": "MIT",
+  "private": true,
+  "scripts": {
+    "dev": "echo 'No build needed! Load from chrome://extensions/'",
+    "build": "echo 'Extension is ready to load'",
+    "bundle": "echo 'To bundle for Chrome Web Store, use standard CRX tools'"
+  },
+  "devDependencies": {},
+  "keywords": [
+    "chrome-extension",
+    "google-meet",
+    "ai",
+    "transcription",
+    "summarization",
+    "brainforge"
+  ]
+}

@@ -557,7 +557,8 @@ export default function NotulenPage() {
         <DeleteConfirmDialog
           open={!!deleteConfirm}
           onClose={() => setDeleteConfirm(null)}
-          title={deleteConfirm?.title || ''}
+          title="Delete Notulen"
+          itemLabel={deleteConfirm?.title || ''}
           onConfirm={() => {
             if (deleteConfirm) deleteMutation.mutate(deleteConfirm.id);
             setDeleteConfirm(null);
@@ -576,12 +577,12 @@ export default function NotulenPage() {
       {/* Header */}
       <div className="flex items-center justify-between gap-4 flex-wrap">
         <div className="flex items-center gap-3">
-          <div className="h-10 w-10 rounded-xl bg-cyan-500/10 flex items-center justify-center">
+          <div className="h-9 w-9 rounded-xl bg-cyan-500/10 flex items-center justify-center">
             <ScrollText className="h-5 w-5 text-cyan-500" />
           </div>
           <div>
-            <h1 className="text-xl font-bold text-foreground">Notulen</h1>
-            <p className="text-[13px] text-muted-foreground">AI-powered daily summaries & meeting notes</p>
+            <h1 className="text-lg sm:text-xl font-semibold text-foreground">Notulen</h1>
+            <p className="text-xs text-muted-foreground">AI-powered daily summaries & meeting notes</p>
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -884,7 +885,8 @@ export default function NotulenPage() {
       <DeleteConfirmDialog
         open={!!deleteConfirm}
         onClose={() => setDeleteConfirm(null)}
-        title={deleteConfirm?.title || ''}
+        title="Delete Notulen"
+        itemLabel={deleteConfirm?.title || ''}
         onConfirm={() => {
           if (deleteConfirm) deleteMutation.mutate(deleteConfirm.id);
           setDeleteConfirm(null);

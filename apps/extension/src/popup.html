@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>BrainForge Meet Assistant</title>
+    <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+    <div class="popup-container">
+        <div class="popup-header">
+            <h2>🧠 BrainForge Meet</h2>
+            <p>AI Meeting Assistant</p>
+        </div>
+
+        <div class="popup-content">
+            <div class="section">
+                <h3>Configuration</h3>
+                
+                <div class="form-group">
+                    <label for="apiUrl">API URL</label>
+                    <input type="text" id="apiUrl" placeholder="http://localhost:4000/api" value="">
+                </div>
+
+                <div class="form-group">
+                    <label for="teamId">Team ID</label>
+                    <input type="text" id="teamId" placeholder="Your BrainForge Team ID" value="">
+                </div>
+
+                <div class="form-group">
+                    <label for="authToken">Auth Token</label>
+                    <input type="password" id="authToken" placeholder="Your BrainForge Auth Token" value="">
+                    <small>Find this in browser localStorage after logging into BrainForge</small>
+                </div>
+
+                <div class="form-group">
+                    <label for="provider">AI Provider</label>
+                    <select id="provider">
+                        <option value="COPILOT">Copilot</option>
+                        <option value="OPENAI">OpenAI</option>
+                        <option value="CLAUDE">Claude</option>
+                        <option value="GEMINI">Gemini</option>
+                        <option value="OPENROUTER">OpenRouter</option>
+                        <option value="GROQ">Groq</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="model">Model</label>
+                    <input type="text" id="model" placeholder="gpt-4o" value="">
+                </div>
+
+                <div class="form-group">
+                    <label for="language">Language</label>
+                    <select id="language">
+                        <option value="id-ID">Indonesian (Bahasa Indonesia)</option>
+                        <option value="en-US">English</option>
+                        <option value="es-ES">Spanish</option>
+                        <option value="fr-FR">French</option>
+                        <option value="de-DE">German</option>
+                        <option value="ja-JP">Japanese</option>
+                        <option value="zh-CN">Chinese (Simplified)</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="section">
+                <h3>Instructions</h3>
+                <ol>
+                    <li>Go to <strong>BrainForge → Settings → Account</strong> to find your Team ID and Auth Token</li>
+                    <li>Paste them above</li>
+                    <li>Choose your preferred AI provider and model</li>
+                    <li>Click "Save Settings"</li>
+                    <li>Open a Google Meet and look for the 🧠 button in the call controls</li>
+                    <li>Click it to start recording and transcribing!</li>
+                </ol>
+            </div>
+
+            <div class="button-group">
+                <button id="saveBtn" class="btn btn-primary">💾 Save Settings</button>
+                <button id="clearBtn" class="btn btn-secondary">🗑️ Clear Settings</button>
+            </div>
+
+            <div id="message" class="message"></div>
+        </div>
+    </div>
+
+    <script src="popup.js"></script>
+</body>
+</html>

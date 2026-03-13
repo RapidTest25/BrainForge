@@ -5,7 +5,7 @@ import { useSearchParams } from 'next/navigation';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   Plus, FileText, Search, Clock, History, Wand2, Type, Maximize2, CheckCheck, Languages, AlignLeft, Sparkles, ArrowLeft, ChevronDown,
-  Eye, PenLine, Hash, Copy, Columns, BookOpen, MoreVertical,
+  Eye, PenLine, Hash, Copy, Columns, BookOpen, MoreVertical, Loader2,
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import {
@@ -539,15 +539,17 @@ export default function NotesPage() {
   return (
     <div className="max-w-6xl mx-auto space-y-5 px-1">
       <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-xl font-bold text-foreground flex items-center gap-2">
+        <div className="flex items-center gap-3">
+          <div className="h-9 w-9 rounded-xl bg-[#8b5cf6]/10 flex items-center justify-center">
             <BookOpen className="h-5 w-5 text-[#8b5cf6]" />
-            Notes
-          </h1>
-          <p className="text-xs text-muted-foreground mt-0.5">
-            {filteredNotes.length} {filteredNotes.length === 1 ? 'note' : 'notes'}
-            {activeProject ? (' in ' + activeProject.name) : ''}
-          </p>
+          </div>
+          <div>
+            <h1 className="text-lg sm:text-xl font-semibold text-foreground">Notes</h1>
+            <p className="text-xs text-muted-foreground">
+              {filteredNotes.length} {filteredNotes.length === 1 ? 'note' : 'notes'}
+              {activeProject ? (' in ' + activeProject.name) : ''}
+            </p>
+          </div>
         </div>
         <button
           onClick={() => setShowCreate(true)}
@@ -569,7 +571,14 @@ export default function NotesPage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+      {/* Loading */}
+      {!notes && (
+        <div className="flex items-center justify-center py-20">
+          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+        </div>
+      )}
+
+      {notes && <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
         {filteredNotes.map((note: any) => (
           <div
             key={note.id}
@@ -634,7 +643,7 @@ export default function NotesPage() {
             </button>
           </div>
         )}
-      </div>
+      </div>}
 
       <Dialog open={showCreate} onOpenChange={setShowCreate}>
         <DialogContent className="bg-card max-w-sm">

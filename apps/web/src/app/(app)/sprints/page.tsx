@@ -18,7 +18,6 @@ import {
 } from '@/components/ui/select';
 import { useTeamStore } from '@/stores/team-store';
 import { useProjectStore } from '@/stores/project-store';
-import { NoProjectGuard } from '@/components/no-project-guard';
 import { api } from '@/lib/api';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
@@ -54,6 +53,7 @@ export default function SprintsPage() {
   const [sprintModelOpen, setSprintModelOpen] = useState(false);
 
   const [editForm, setEditForm] = useState({ title: '', goal: '', deadline: '', teamSize: 3 });
+  const [searchQuery, setSearchQuery] = useState('');
 
   // AI progress modal state
   const [aiProgressOpen, setAiProgressOpen] = useState(false);
@@ -650,12 +650,24 @@ export default function SprintsPage() {
     );
   }
 
+  const filteredSprints = (sprints?.data || []).filter((s: any) =>
+    !searchQuery || (s.title || s.goal || '').toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
   // ─── Sprint List View ───
   return (
     <div className="max-w-5xl mx-auto space-y-5">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <h1 className="text-lg sm:text-xl font-semibold text-foreground">Sprint Planner</h1>
+        <div className="flex items-center gap-3">
+          <div className="h-9 w-9 rounded-xl bg-red-500/10 flex items-center justify-center">
+            <Zap className="h-5 w-5 text-red-500" />
+          </div>
+          <div>
+            <h1 className="text-lg sm:text-xl font-semibold text-foreground">Sprint Planner</h1>
+            {sprints?.data && <p className="text-xs text-muted-foreground">{sprints.data.length} sprint{sprints.data.length !== 1 ? 's' : ''}</p>}
+          </div>
+        </div>
         <div className="flex items-center gap-2">
           <button
             onClick={() => setShowCreate(true)}
@@ -674,12 +686,32 @@ export default function SprintsPage() {
         </div>
       </div>
 
+      {/* Search */}
+      {(sprints?.data || []).length > 0 && (
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Search sprints..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="pl-9 border-border focus:border-[#7b68ee]"
+          />
+        </div>
+      )}
+
+      {/* Loading */}
+      {!sprints && (
+        <div className="flex items-center justify-center py-20">
+          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+        </div>
+      )}
+
       {/* Sprint List */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-        {(sprints?.data || []).map((sprint: any) => (
+      {sprints && <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+        {filteredSprints.map((sprint: any) => (
           <div
             key={sprint.id}
-            className="bg-card border border-border rounded-xl p-4 cursor-pointer hover:shadow-sm hover:border-border transition-all group"
+            className="bg-card border border-border rounded-xl p-4 cursor-pointer hover:shadow-md hover:border-[#7b68ee]/20 hover:-translate-y-0.5 transition-all group"
             onClick={() => setSelectedSprint(sprint)}
           >
             <div className="flex items-start justify-between gap-2">
@@ -712,10 +744,10 @@ export default function SprintsPage() {
             </div>
           </div>
         ))}
-      </div>
+      </div>}
 
       {/* Empty State */}
-      {(!sprints?.data || sprints.data.length === 0) && (
+      {sprints && sprints.data.length === 0 && (
         <div className="text-center py-16">
           <Zap className="h-10 w-10 mx-auto text-muted-foreground/60 mb-3" />
           <h3 className="font-medium text-foreground mb-1">No Sprint Plans Yet</h3>

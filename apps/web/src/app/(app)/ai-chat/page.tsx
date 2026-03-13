@@ -675,7 +675,7 @@ export default function AiChatPage() {
         )}
 
             {/* ── Input Area (always visible) ── */}
-            <div className="border-t border-border bg-background/80 backdrop-blur-sm shrink-0">
+            <div className="bg-background/80 backdrop-blur-sm shrink-0">
               <div className="max-w-3xl mx-auto px-4 py-3">
                 {/* Provider pills & model selector */}
                 <div className="space-y-2 mb-2">

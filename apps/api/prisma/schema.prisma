@@ -133,6 +133,7 @@ model User {
   projectMemberships ProjectMember[]
   notulenConfigs     NotulenConfig[]
   notulenEntries     NotulenEntry[]
+  meetings           Meeting[]
 }
 
 // ==========================================
@@ -164,6 +165,7 @@ model Team {
   projects           Project[]
   notulenConfigs     NotulenConfig[]
   notulenEntries     NotulenEntry[]
+  meetings           Meeting[]
 }
 
 model TeamMember {
@@ -238,6 +240,7 @@ model Project {
   goals              Goal[]
   aiChats            AiChat[]
   notulenEntries     NotulenEntry[]
+  meetings           Meeting[]
 }
 model ProjectMember {
   id        String   @id @default(cuid())
@@ -670,6 +673,41 @@ model NotulenEntry {
   date           DateTime @default(now())
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
+
+  team    Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  project Project? @relation(fields: [projectId], references: [id])
+  creator User     @relation(fields: [createdBy], references: [id])
+}
+
+// ==========================================
+// MEETING (Voice Recording & AI Summary)
+// ==========================================
+
+enum MeetingStatus {
+  SCHEDULED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+model Meeting {
+  id          String        @id @default(cuid())
+  teamId      String
+  projectId   String?
+  createdBy   String
+  title       String
+  description String?       @db.Text
+  meetLink    String?
+  status      MeetingStatus @default(SCHEDULED)
+  startTime   DateTime?
+  endTime     DateTime?
+  transcript  String?       @db.Text
+  summary     String?       @db.Text
+  actionItems Json?
+  provider    String?
+  model       String?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
 
   team    Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
   project Project? @relation(fields: [projectId], references: [id])

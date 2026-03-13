@@ -7,7 +7,7 @@ import {
   GitBranch, Calendar, Zap, FileText, Key, Settings,
   ChevronDown, Users, Home, Target, Star,
   PanelLeftClose, PanelLeftOpen, BookOpen, X, Bot,
-  FolderKanban, Circle, ChevronsLeft, ChevronsRight, Shield, ScrollText
+  FolderKanban, Circle, ChevronsLeft, ChevronsRight, Shield, ScrollText, Video
 } from 'lucide-react';
 import { BrainForgeLogo } from '@/components/icons/brainforge-logo';
 import { cn } from '@/lib/utils';
@@ -27,7 +27,7 @@ const MAIN_NAV = [
   { label: 'AI Chat', href: '/ai-chat', icon: Bot },
 ];
 
-const PROJECT_DEPENDENT_HREFS = new Set(['/goals', '/tasks', '/brainstorm', '/diagrams', '/calendar', '/sprints', '/notes', '/notulen']);
+const PROJECT_DEPENDENT_HREFS = new Set(['/goals', '/tasks', '/brainstorm', '/diagrams', '/calendar', '/sprints', '/notes', '/notulen', '/meetings']);
 
 const DEFAULT_FAVORITES = ['/tasks', '/sprints'];
 
@@ -44,6 +44,7 @@ const ALL_NAV_ITEMS: Array<{ label: string; href: string; icon: any; color?: str
   { label: 'Sprints', href: '/sprints', icon: Zap, color: '#ef4444' },
   { label: 'Notes', href: '/notes', icon: FileText, color: '#8b5cf6' },
   { label: 'Notulen', href: '/notulen', icon: ScrollText, color: '#06b6d4' },
+  { label: 'Meetings', href: '/meetings', icon: Video, color: '#10b981' },
   { label: 'Docs', href: '/docs', icon: BookOpen },
   { label: 'BYOK', href: '/settings/ai-keys', icon: Key },
   { label: 'Team', href: '/settings/team', icon: Users },
@@ -70,6 +71,7 @@ const SPACE_NAV = [
   { label: 'Sprints', href: '/sprints', icon: Zap, color: '#ef4444' },
   { label: 'Notes', href: '/notes', icon: FileText, color: '#8b5cf6' },
   { label: 'Notulen', href: '/notulen', icon: ScrollText, color: '#06b6d4' },
+  { label: 'Meetings', href: '/meetings', icon: Video, color: '#10b981' },
 ];
 
 const BOTTOM_NAV = [

@@ -19,6 +19,7 @@ import { projectRoutes } from './modules/project/project.routes.js';
 import { adminRoutes } from './modules/admin/admin.routes.js';
 import { settingsRoutes } from './modules/admin/settings.routes.js';
 import { notulenRoutes } from './modules/notulen/notulen.routes.js';
+import { meetingRoutes } from './modules/meeting/meeting.routes.js';
 import { aiService } from './ai/ai.service.js';
 import { prisma } from './lib/prisma.js';
 import { AppError } from './lib/errors.js';
@@ -173,6 +174,7 @@ export async function buildApp() {
   app.register(adminRoutes, { prefix: '/api/admin' });
   app.register(settingsRoutes, { prefix: '/api/admin/settings' });
   app.register(notulenRoutes, { prefix: '/api/teams' });
+  app.register(meetingRoutes, { prefix: '/api/teams' });
 
   return app;
 }

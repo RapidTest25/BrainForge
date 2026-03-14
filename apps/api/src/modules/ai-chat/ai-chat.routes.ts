@@ -48,8 +48,8 @@ export async function aiChatRoutes(app: FastifyInstance) {
   // POST /:teamId/ai-chat/:chatId/messages — send message & get AI response
   app.post('/:teamId/ai-chat/:chatId/messages', { preHandler: [teamGuard()] }, async (request, reply) => {
     const { chatId } = request.params as { chatId: string };
-    const { content, provider, model, localReply } = request.body as {
-      content: string; provider: string; model: string; localReply?: string;
+    const { content, provider, model } = request.body as {
+      content: string; provider: string; model: string;
     };
 
     if (!content?.trim()) {
@@ -60,11 +60,6 @@ export async function aiChatRoutes(app: FastifyInstance) {
     }
 
     try {
-      // If localReply is provided (browser-side inference), just save both messages
-      if (provider === 'BROWSER' && localReply) {
-        const result = await aiChatService.saveLocalMessages(chatId, request.user.id, content, localReply, model);
-        return reply.send({ success: true, data: result });
-      }
       const aiMessage = await aiChatService.sendMessage(chatId, request.user.id, content, provider, model);
       return reply.send({ success: true, data: aiMessage });
     } catch (error: any) {

@@ -17,8 +17,6 @@ import { api } from '@/lib/api';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { DeleteConfirmDialog } from '@/components/shared/delete-confirm-dialog';
-import { LOCAL_MODELS, LoadingStatus, isWebGPUSupported, loadLocalModel, chatWithLocalModel } from '@/lib/webllm';
-import type { ChatCompletionMessageParam } from '@mlc-ai/web-llm';
 
 const PROVIDER_INFO: Record<string, { label: string; icon: string; color: string }> = {
   OPENAI: { label: 'OpenAI', icon: '🟢', color: '#10a37f' },
@@ -30,7 +28,6 @@ const PROVIDER_INFO: Record<string, { label: string; icon: string; color: string
   MISTRAL: { label: 'Mistral', icon: '🌀', color: '#ff7000' },
   DEEPSEEK: { label: 'DeepSeek', icon: '🌊', color: '#4d6bfe' },
   OLLAMA: { label: 'Ollama', icon: '🦙', color: '#1a1a2e' },
-  BROWSER: { label: 'Browser (Local)', icon: '💻', color: '#22c55e' },
 };
 
 const MODEL_CATEGORY_RULES = [
@@ -101,10 +98,8 @@ export default function AiChatPage() {
   const [titleDraft, setTitleDraft] = useState('');
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [deleteConfirm, setDeleteConfirm] = useState<{ id: string; title: string } | null>(null);
-  const [localModelStatus, setLocalModelStatus] = useState<LoadingStatus>({ stage: 'idle', progress: 0, text: '' });
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const webgpuSupported = typeof window !== 'undefined' ? isWebGPUSupported() : false;
   const [appliedMessages, setAppliedMessages] = useState<Set<string>>(new Set());
   const [applyingUpdates, setApplyingUpdates] = useState<string | null>(null);
 
@@ -277,36 +272,12 @@ export default function AiChatPage() {
         };
       });
 
-      if (provider === 'BROWSER') {
-        // Client-side inference via WebLLM
-        const engine = await loadLocalModel(model, setLocalModelStatus);
-        const existingMessages = (activeChat?.messages || []).map((m: any) => ({
-          role: m.role === 'USER' ? 'user' : 'assistant',
-          content: m.content,
-        })) as ChatCompletionMessageParam[];
-        existingMessages.push({ role: 'user', content: text });
-
-        const reply = await chatWithLocalModel(engine, existingMessages,
-          'You are BrainForge AI, a helpful project management assistant. Be concise and actionable.'
-        );
-
-        // Save both messages to backend
-        await api.post(`/teams/${teamId}/ai-chat/${chatId}/messages`, {
-          content: text,
-          provider: 'BROWSER',
-          model,
-          localReply: reply,
-        });
-        queryClient.invalidateQueries({ queryKey: ['ai-chat', chatId] });
-      } else {
-        // Server-side inference
-        await api.post(`/teams/${teamId}/ai-chat/${chatId}/messages`, {
-          content: text,
-          provider,
-          model,
-        });
-        queryClient.invalidateQueries({ queryKey: ['ai-chat', chatId] });
-      }
+      await api.post(`/teams/${teamId}/ai-chat/${chatId}/messages`, {
+        content: text,
+        provider,
+        model,
+      });
+      queryClient.invalidateQueries({ queryKey: ['ai-chat', chatId] });
     } catch (err: any) {
       toast.error(err.message || 'Failed to send message');
       queryClient.invalidateQueries({ queryKey: ['ai-chat', chatId] });
@@ -681,7 +652,7 @@ export default function AiChatPage() {
                 <div className="space-y-2 mb-2">
                   {/* Provider pills */}
                   <div className="flex flex-wrap gap-1.5">
-                    {connectedProviders.size === 0 && !webgpuSupported ? (
+                    {connectedProviders.size === 0 ? (
                       <div className="w-full flex items-center gap-2 px-3 py-2 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-500 text-[11px]">
                         <AlertCircle className="h-3.5 w-3.5 shrink-0" />
                         No API keys connected. Go to Settings → AI Integration.
@@ -707,46 +678,9 @@ export default function AiChatPage() {
                           </button>
                         );
                       })}
-                      {/* Browser (Local) provider — always available if WebGPU supported */}
-                      {webgpuSupported && (
-                        <button
-                          onClick={() => {
-                            setProvider('BROWSER');
-                            if (!LOCAL_MODELS.find(m => m.id === model)) {
-                              setModel(LOCAL_MODELS[0].id);
-                            }
-                          }}
-                          className={cn(
-                            'flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-medium transition-all border',
-                            provider === 'BROWSER'
-                              ? 'border-green-500 bg-green-500/5 text-green-600'
-                              : 'border-border bg-card text-muted-foreground hover:bg-muted'
-                          )}
-                        >
-                          <span className="text-xs leading-none">💻</span>
-                          Browser (Local)
-                        </button>
-                      )}
                       </>
                     )}
                   </div>
-
-                  {/* Local model loading progress */}
-                  {provider === 'BROWSER' && localModelStatus.stage === 'loading' && (
-                    <div className="space-y-1">
-                      <div className="flex items-center gap-2">
-                        <Loader2 className="h-3 w-3 animate-spin text-green-500" />
-                        <span className="text-[11px] text-muted-foreground truncate">{localModelStatus.text}</span>
-                        <span className="text-[11px] font-medium text-green-600 ml-auto">{localModelStatus.progress}%</span>
-                      </div>
-                      <div className="h-1.5 rounded-full bg-muted overflow-hidden">
-                        <div
-                          className="h-full rounded-full bg-green-500 transition-all duration-300"
-                          style={{ width: `${localModelStatus.progress}%` }}
-                        />
-                      </div>
-                    </div>
-                  )}
 
                   {/* Model selector toggle */}
                   <button
@@ -755,9 +689,7 @@ export default function AiChatPage() {
                   >
                     <Zap className="h-3 w-3 text-amber-500 shrink-0" />
                     <span className="text-[11px] font-medium text-foreground truncate flex-1">
-                      {provider === 'BROWSER'
-                        ? LOCAL_MODELS.find(m => m.id === model)?.name || model || 'Select local model'
-                        : (modelsData?.data?.[provider] || []).find((m: any) => m.id === model)?.name || model || 'Select model'}
+                      {(modelsData?.data?.[provider] || []).find((m: any) => m.id === model)?.name || model || 'Select model'}
                     </span>
                     <ChevronDown className={cn('h-3 w-3 text-muted-foreground transition-transform', modelSelectorOpen && 'rotate-180')} />
                   </button>
@@ -765,128 +697,85 @@ export default function AiChatPage() {
                   {/* Expanded model list */}
                   {modelSelectorOpen && (
                     <div className="rounded-xl border border-border bg-card shadow-lg overflow-hidden">
-                      {provider === 'BROWSER' ? (
-                        /* Local model list */
+                      <>
+                        {/* Search */}
+                        {(modelsData?.data?.[provider] || []).length > 6 && (
+                          <div className="relative border-b border-border">
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground" />
+                            <Input
+                              placeholder="Search models..."
+                              value={modelFilter}
+                              onChange={(e) => setModelFilter(e.target.value)}
+                              className="h-8 pl-8 text-[11px] rounded-none border-0 bg-transparent focus-visible:ring-0"
+                            />
+                          </div>
+                        )}
                         <div className="max-h-55 overflow-y-auto p-1">
-                          <div className="sticky top-0 z-10 flex items-center gap-1.5 px-2 py-1 text-[10px] font-bold text-muted-foreground uppercase tracking-wider bg-card/95 backdrop-blur-sm">
-                            <span className="text-xs leading-none">💻</span>
-                            Local Models (WebGPU)
-                            <span className="text-[9px] font-normal ml-auto opacity-50">{LOCAL_MODELS.length}</span>
-                          </div>
-                          {LOCAL_MODELS.map((m) => {
-                            const isSelected = model === m.id;
-                            return (
-                              <button
-                                key={m.id}
-                                onClick={() => { setModel(m.id); setModelSelectorOpen(false); }}
-                                className={cn(
-                                  'w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg transition-all text-left',
-                                  isSelected
-                                    ? 'bg-green-500/10 text-green-600'
-                                    : 'hover:bg-muted/50 text-foreground'
+                          {(() => {
+                            const allProviderModels = modelsData?.data?.[provider] || [];
+                            const filtered = modelFilter
+                              ? allProviderModels.filter((m: any) =>
+                                  m.name.toLowerCase().includes(modelFilter.toLowerCase()) ||
+                                  m.id.toLowerCase().includes(modelFilter.toLowerCase())
+                                )
+                              : allProviderModels;
+
+                            if (filtered.length === 0) {
+                              return (
+                                <div className="text-center py-4">
+                                  <Search className="h-4 w-4 mx-auto text-muted-foreground/30 mb-1" />
+                                  <p className="text-[11px] text-muted-foreground">No models match &quot;{modelFilter}&quot;</p>
+                                </div>
+                              );
+                            }
+
+                            const groups = categorizeModels(filtered);
+                            const showHeaders = groups.length > 1;
+
+                            return groups.map(group => (
+                              <div key={group.label}>
+                                {showHeaders && (
+                                  <div className="sticky top-0 z-10 flex items-center gap-1.5 px-2 py-1 mt-1 first:mt-0 text-[10px] font-bold text-muted-foreground uppercase tracking-wider bg-card/95 backdrop-blur-sm">
+                                    <span className="text-xs leading-none">{group.icon}</span>
+                                    {group.label}
+                                    <span className="text-[9px] font-normal ml-auto opacity-50">{group.models.length}</span>
+                                  </div>
                                 )}
-                              >
-                                <div className={cn(
-                                  'h-3.5 w-3.5 rounded-full border-2 flex items-center justify-center shrink-0',
-                                  isSelected ? 'border-green-500' : 'border-muted-foreground/30'
-                                )}>
-                                  {isSelected && <div className="h-1.5 w-1.5 rounded-full bg-green-500" />}
-                                </div>
-                                <div className="flex-1 min-w-0">
-                                  <div className="flex items-center gap-1.5">
-                                    <span className="text-[12px] font-medium truncate">{m.name}</span>
-                                    <span className="text-[8px] font-bold px-1 rounded bg-green-500/10 text-green-500">LOCAL</span>
-                                  </div>
-                                </div>
-                                <span className="text-[10px] text-muted-foreground shrink-0">{m.size}</span>
-                              </button>
-                            );
-                          })}
-                          <div className="px-2.5 py-2 text-[10px] text-muted-foreground border-t border-border/50 mt-1">
-                            Models run entirely in your browser via WebGPU. First load downloads the model weights (cached for future use).
-                          </div>
+                                {group.models.map((m: any) => {
+                                  const isSelected = model === m.id;
+                                  const isFree = m.costPer1kInput === 0 && m.costPer1kOutput === 0;
+                                  return (
+                                    <button
+                                      key={m.id}
+                                      onClick={() => { setModel(m.id); setModelSelectorOpen(false); }}
+                                      className={cn(
+                                        'w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg transition-all text-left',
+                                        isSelected
+                                          ? 'bg-primary/10 text-primary'
+                                          : 'hover:bg-muted/50 text-foreground'
+                                      )}
+                                    >
+                                      <div className={cn(
+                                        'h-3.5 w-3.5 rounded-full border-2 flex items-center justify-center shrink-0',
+                                        isSelected ? 'border-primary' : 'border-muted-foreground/30'
+                                      )}>
+                                        {isSelected && <div className="h-1.5 w-1.5 rounded-full bg-primary" />}
+                                      </div>
+                                      <div className="flex-1 min-w-0">
+                                        <div className="flex items-center gap-1.5">
+                                          <span className="text-[12px] font-medium truncate">{m.name}</span>
+                                          {isFree && <span className="text-[8px] font-bold px-1 rounded bg-green-500/10 text-green-500">FREE</span>}
+                                        </div>
+                                      </div>
+                                      <span className="text-[10px] text-muted-foreground shrink-0">{(m.contextWindow / 1000).toFixed(0)}K</span>
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            ));
+                          })()}
                         </div>
-                      ) : (
-                        <>
-                          {/* Search */}
-                          {(modelsData?.data?.[provider] || []).length > 6 && (
-                            <div className="relative border-b border-border">
-                              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground" />
-                              <Input
-                                placeholder="Search models..."
-                                value={modelFilter}
-                                onChange={(e) => setModelFilter(e.target.value)}
-                                className="h-8 pl-8 text-[11px] rounded-none border-0 bg-transparent focus-visible:ring-0"
-                              />
-                            </div>
-                          )}
-                          <div className="max-h-55 overflow-y-auto p-1">
-                            {(() => {
-                              const allProviderModels = modelsData?.data?.[provider] || [];
-                              const filtered = modelFilter
-                                ? allProviderModels.filter((m: any) =>
-                                    m.name.toLowerCase().includes(modelFilter.toLowerCase()) ||
-                                    m.id.toLowerCase().includes(modelFilter.toLowerCase())
-                                  )
-                                : allProviderModels;
-
-                              if (filtered.length === 0) {
-                                return (
-                                  <div className="text-center py-4">
-                                    <Search className="h-4 w-4 mx-auto text-muted-foreground/30 mb-1" />
-                                    <p className="text-[11px] text-muted-foreground">No models match &quot;{modelFilter}&quot;</p>
-                                  </div>
-                                );
-                              }
-
-                              const groups = categorizeModels(filtered);
-                              const showHeaders = groups.length > 1;
-
-                              return groups.map(group => (
-                                <div key={group.label}>
-                                  {showHeaders && (
-                                    <div className="sticky top-0 z-10 flex items-center gap-1.5 px-2 py-1 mt-1 first:mt-0 text-[10px] font-bold text-muted-foreground uppercase tracking-wider bg-card/95 backdrop-blur-sm">
-                                      <span className="text-xs leading-none">{group.icon}</span>
-                                      {group.label}
-                                      <span className="text-[9px] font-normal ml-auto opacity-50">{group.models.length}</span>
-                                    </div>
-                                  )}
-                                  {group.models.map((m: any) => {
-                                    const isSelected = model === m.id;
-                                    const isFree = m.costPer1kInput === 0 && m.costPer1kOutput === 0;
-                                    return (
-                                      <button
-                                        key={m.id}
-                                        onClick={() => { setModel(m.id); setModelSelectorOpen(false); }}
-                                        className={cn(
-                                          'w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg transition-all text-left',
-                                          isSelected
-                                            ? 'bg-primary/10 text-primary'
-                                            : 'hover:bg-muted/50 text-foreground'
-                                        )}
-                                      >
-                                        <div className={cn(
-                                          'h-3.5 w-3.5 rounded-full border-2 flex items-center justify-center shrink-0',
-                                          isSelected ? 'border-primary' : 'border-muted-foreground/30'
-                                        )}>
-                                          {isSelected && <div className="h-1.5 w-1.5 rounded-full bg-primary" />}
-                                        </div>
-                                        <div className="flex-1 min-w-0">
-                                          <div className="flex items-center gap-1.5">
-                                            <span className="text-[12px] font-medium truncate">{m.name}</span>
-                                            {isFree && <span className="text-[8px] font-bold px-1 rounded bg-green-500/10 text-green-500">FREE</span>}
-                                          </div>
-                                        </div>
-                                        <span className="text-[10px] text-muted-foreground shrink-0">{(m.contextWindow / 1000).toFixed(0)}K</span>
-                                      </button>
-                                    );
-                                  })}
-                                </div>
-                              ));
-                            })()}
-                          </div>
-                        </>
-                      )}
+                      </>
                     </div>
                   )}
                 </div>

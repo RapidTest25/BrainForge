@@ -36,6 +36,8 @@ export const meetingRoutes: FastifyPluginAsync = async (app) => {
       startTime?: string;
       endTime?: string;
       projectId?: string;
+      transcript?: string;
+      status?: string;
     };
 
     if (!body.title) {

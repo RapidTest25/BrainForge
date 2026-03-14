@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useMutation, useQueryClient, useQuery } from '@tanstack/react-query';
 import {
   Sparkles, Loader2, CheckSquare, Brain, FileText,
-  Wand2, Check, X, AlertCircle, Zap, ChevronDown, Search, Target
+  Wand2, Check, X, AlertCircle, Zap, ChevronDown, Search, Target, Rocket
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -52,10 +52,11 @@ function loadAIGenState(): AIGenState | null {
 }
 
 const GENERATE_OPTIONS = [
-  { key: 'tasks', label: 'Tasks', icon: CheckSquare, color: '#7b68ee', desc: 'Auto-create tasks with priorities' },
+  { key: 'tasks', label: 'Tasks', icon: CheckSquare, color: '#7b68ee', desc: 'Auto-create specific tasks with priorities' },
+  { key: 'sprints', label: 'Sprints', icon: Rocket, color: '#f59e0b', desc: 'Plan sprints with goals & deadlines' },
   { key: 'brainstorm', label: 'Brainstorm', icon: Brain, color: '#22c55e', desc: 'Start an AI brainstorm session' },
   { key: 'notes', label: 'Notes', icon: FileText, color: '#8b5cf6', desc: 'Generate notes & documentation' },
-  { key: 'goals', label: 'Goals', icon: Target, color: '#f59e0b', desc: 'Create SMART project goals' },
+  { key: 'goals', label: 'Goals', icon: Target, color: '#ef4444', desc: 'Create measurable SMART project goals' },
 ];
 
 const PROVIDER_INFO: Record<string, { label: string; icon: string; color: string }> = {
@@ -271,6 +272,7 @@ export function AIGenerateDialog({ open, onOpenChange }: AIGenerateDialogProps) 
     queryClient.invalidateQueries({ queryKey: ['brainstorm-sessions', teamId] });
     queryClient.invalidateQueries({ queryKey: ['notes', teamId] });
     queryClient.invalidateQueries({ queryKey: ['goals', teamId] });
+    queryClient.invalidateQueries({ queryKey: ['sprints', teamId] });
   };
 
   const toggleType = (type: string) => {

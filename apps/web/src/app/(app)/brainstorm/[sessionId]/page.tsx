@@ -7,9 +7,9 @@ import {
   MessageSquare, Send, Swords, BarChart3,
   Sparkles, Loader2, ArrowLeft, Pencil, Trash2,
   Circle, Square, Type, Minus, Eraser, Download,
-  ArrowRight, Diamond, RotateCcw,
+  ArrowRight, Diamond, RotateCcw, CheckCircle2,
   Users, FileText, Check, X, Paperclip, Image as ImageIcon, File as FileIcon,
-  MoreVertical, Edit2, Brain, ChevronDown, Search, Ban,
+  MoreVertical, Edit2, Brain, ChevronDown, Search, Ban, Link2, Target, Calendar as CalendarIcon, Zap,
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -70,6 +70,10 @@ export default function BrainstormSessionPage() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
   const [editingContent, setEditingContent] = useState('');
+  const [showEmbedDialog, setShowEmbedDialog] = useState(false);
+  const [embedType, setEmbedType] = useState<'task' | 'note' | 'sprint' | 'calendar' | 'diagram' | 'goal'>('note');
+  const [embedSearch, setEmbedSearch] = useState('');
+  const [selectedEmbed, setSelectedEmbed] = useState<any>(null);
 
   // @mention state
   const [mentionQuery, setMentionQuery] = useState<string | null>(null);
@@ -255,6 +259,8 @@ export default function BrainstormSessionPage() {
 
   const teamMembers = teamMembersRes?.data || [];
 
+  const projectId = session?.data?.projectId as string | undefined;
+
   // Mention candidates: AI + team members
   const mentionCandidates = [
     { id: '__ai__', name: 'AI Assistant', avatarUrl: null, isAI: true },
@@ -409,6 +415,65 @@ export default function BrainstormSessionPage() {
     }
   };
 
+  const buildEmbedPayload = (item: any, type: string) => {
+    const base = {
+      kind: type,
+      id: item.id,
+    } as any;
+
+    if (type === 'note') {
+      base.title = item.title || 'Untitled Note';
+      base.subtitle = 'Note';
+      base.href = `/notes/${item.id}`;
+      base.meta = { updatedAt: item.updatedAt };
+      return base;
+    }
+
+    if (type === 'sprint') {
+      base.title = item.title || 'Sprint';
+      base.subtitle = `Sprint • ${item.status || 'DRAFT'}`;
+      base.href = `/sprints?open=${item.id}`;
+      base.meta = { deadline: item.deadline };
+      return base;
+    }
+
+    if (type === 'calendar') {
+      base.title = item.title || 'Calendar Event';
+      base.subtitle = `Calendar • ${item.type || 'EVENT'}`;
+      base.href = `/calendar`;
+      base.meta = { startDate: item.startDate, endDate: item.endDate };
+      return base;
+    }
+
+    if (type === 'diagram') {
+      base.title = item.title || 'Diagram';
+      base.subtitle = `Diagram • ${item.type || 'FREEFORM'}`;
+      base.href = `/diagrams/${item.id}`;
+      base.meta = { updatedAt: item.updatedAt };
+      return base;
+    }
+
+    if (type === 'task') {
+      base.title = item.title || 'Task';
+      base.subtitle = `Task • ${item.status || 'TODO'}`;
+      base.href = `/tasks`;
+      base.meta = { priority: item.priority, dueDate: item.dueDate };
+      return base;
+    }
+
+    if (type === 'goal') {
+      base.title = item.title || 'Goal';
+      base.subtitle = `Goal • ${item.status || 'NOT_STARTED'}`;
+      base.href = `/goals`;
+      base.meta = { progress: item.progress, dueDate: item.dueDate };
+      return base;
+    }
+
+    return base;
+  };
+
+  const embedToMessage = (embed: any) => `[[embed]]${JSON.stringify(embed)}`;
+
   // @mention helpers
   const handleMessageChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const val = e.target.value;
@@ -517,6 +582,70 @@ export default function BrainstormSessionPage() {
     return parts.length > 0 ? parts : content;
   };
 
+  const parseEmbed = (content: string) => {
+    const regex = /\[\[embed\]\]([\s\S]*?)$/;
+    const match = content.match(regex);
+    if (!match) return { text: content, embed: null };
+    try {
+      const embed = JSON.parse(match[1]);
+      const text = content.replace(regex, '').trim();
+      return { text, embed };
+    } catch {
+      return { text: content, embed: null };
+    }
+  };
+
+  const renderEmbedCard = (embed: any, isOwn: boolean) => {
+    const kind = embed?.kind as string;
+    const title = embed?.title || 'Untitled';
+    const subtitle = embed?.subtitle || '';
+    const href = embed?.href as string | undefined;
+    const meta = embed?.meta || {};
+    const iconMap: Record<string, any> = {
+      note: FileText,
+      sprint: Zap,
+      calendar: CalendarIcon,
+      diagram: Diamond,
+      task: CheckCircle2,
+      goal: Target,
+    };
+    const Icon = iconMap[kind] || FileText;
+
+    return (
+      <div
+        className={cn(
+          'mt-2 rounded-xl border p-3 text-sm cursor-pointer transition-all',
+          isOwn ? 'border-white/30 bg-white/10 hover:bg-white/15' : 'border-border bg-card hover:border-[#7b68ee]/30'
+        )}
+        onClick={() => { if (href) router.push(href); }}
+      >
+        <div className="flex items-start gap-3">
+          <div className={cn(
+            'h-9 w-9 rounded-lg flex items-center justify-center shrink-0',
+            isOwn ? 'bg-white/15 text-white' : 'bg-[#7b68ee]/10 text-[#7b68ee]'
+          )}>
+            <Icon className="h-4 w-4" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="font-semibold truncate">{title}</p>
+            {subtitle && <p className={cn('text-[11px]', isOwn ? 'text-white/70' : 'text-muted-foreground')}>{subtitle}</p>}
+            <div className={cn('text-[10px] mt-1', isOwn ? 'text-white/60' : 'text-muted-foreground')}>
+              {meta?.dueDate && <span>Due: {new Date(meta.dueDate).toLocaleDateString()} </span>}
+              {meta?.deadline && <span>Deadline: {new Date(meta.deadline).toLocaleDateString()} </span>}
+              {meta?.startDate && <span>Start: {new Date(meta.startDate).toLocaleDateString()} </span>}
+              {meta?.progress !== undefined && <span>Progress: {meta.progress}% </span>}
+            </div>
+          </div>
+          {href && (
+            <div className={cn('text-[10px] px-2 py-1 rounded-md', isOwn ? 'bg-white/15' : 'bg-muted text-muted-foreground')}>
+              Open
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  };
+
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
 
@@ -563,6 +692,48 @@ export default function BrainstormSessionPage() {
   };
 
   const getModeInfo = (mode: string) => MODES.find(m => m.value === mode);
+
+  const { data: embedNotes } = useQuery({
+    queryKey: ['embed-notes', teamId, projectId],
+    queryFn: () => api.get<{ data: any[] }>(`/teams/${teamId}/notes${projectId ? `?projectId=${projectId}` : ''}`),
+    enabled: showEmbedDialog && !!teamId,
+  });
+
+  const { data: embedSprints } = useQuery({
+    queryKey: ['embed-sprints', teamId, projectId],
+    queryFn: () => api.get<{ data: any[] }>(`/teams/${teamId}/sprints${projectId ? `?projectId=${projectId}` : ''}`),
+    enabled: showEmbedDialog && !!teamId,
+  });
+
+  const { data: embedDiagrams } = useQuery({
+    queryKey: ['embed-diagrams', teamId, projectId],
+    queryFn: () => api.get<{ data: any[] }>(`/teams/${teamId}/diagrams${projectId ? `?projectId=${projectId}` : ''}`),
+    enabled: showEmbedDialog && !!teamId,
+  });
+
+  const { data: embedTasks } = useQuery({
+    queryKey: ['embed-tasks', teamId, projectId],
+    queryFn: () => api.get<{ data: any[] }>(`/teams/${teamId}/tasks${projectId ? `?projectId=${projectId}` : ''}`),
+    enabled: showEmbedDialog && !!teamId,
+  });
+
+  const { data: embedGoals } = useQuery({
+    queryKey: ['embed-goals', teamId, projectId],
+    queryFn: () => api.get<{ data: any[] }>(`/teams/${teamId}/goals${projectId ? `?projectId=${projectId}` : ''}`),
+    enabled: showEmbedDialog && !!teamId,
+  });
+
+  const { data: embedCalendar } = useQuery({
+    queryKey: ['embed-calendar', teamId],
+    queryFn: () => {
+      const start = new Date();
+      start.setDate(start.getDate() - 7);
+      const end = new Date();
+      end.setDate(end.getDate() + 60);
+      return api.get<{ data: any[] }>(`/teams/${teamId}/calendar?start=${start.toISOString()}&end=${end.toISOString()}`);
+    },
+    enabled: showEmbedDialog && !!teamId,
+  });
 
   // ===== TITLE EDIT =====
   const startEditTitle = () => {
@@ -834,6 +1005,7 @@ export default function BrainstormSessionPage() {
               const isOwn = msg.userId === user?.id;
               const isAI = msg.role === 'ASSISTANT';
               const isDeleted = msg.content === '___MESSAGE_DELETED___';
+              const { text: msgText, embed } = parseEmbed(msg.content || '');
               const senderName = msg.user?.name || (isAI ? 'AI Assistant' : 'Unknown');
               const senderInitial = isAI ? '' : senderName.charAt(0).toUpperCase();
               const isEditing = editingMessageId === msg.id;
@@ -894,7 +1066,8 @@ export default function BrainstormSessionPage() {
                       </div>
                     ) : (
                       <>
-                        {msg.content && <p className="text-sm whitespace-pre-wrap leading-relaxed">{renderMessageContent(msg.content, isOwn, isAI)}</p>}
+                        {msgText && <p className="text-sm whitespace-pre-wrap leading-relaxed">{renderMessageContent(msgText, isOwn, isAI)}</p>}
+                        {embed && renderEmbedCard(embed, isOwn)}
                         {msg.fileUrl && (() => {
                           const baseUrl = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api').replace(/\/api$/, '');
                           const fullUrl = msg.fileUrl.startsWith('http') ? msg.fileUrl : `${baseUrl}${msg.fileUrl}`;
@@ -1029,6 +1202,17 @@ export default function BrainstormSessionPage() {
               accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.sql,.txt,.csv,.json,.xml,.zip,.rar"
               onChange={handleFileUpload}
             />
+            <button
+              onClick={() => {
+                setShowEmbedDialog(true);
+                setEmbedSearch('');
+                setSelectedEmbed(null);
+              }}
+              className="shrink-0 h-11 w-11 flex items-center justify-center rounded-xl border border-border hover:bg-accent text-muted-foreground hover:text-[#7b68ee] transition-all"
+              title="Embed item"
+            >
+              <Link2 className="h-4 w-4" />
+            </button>
             <button
               onClick={() => fileInputRef.current?.click()}
               disabled={uploading}
@@ -1204,6 +1388,107 @@ export default function BrainstormSessionPage() {
           </div>
         </>
       )}
+
+      <Dialog open={showEmbedDialog} onOpenChange={setShowEmbedDialog}>
+        <DialogContent className="bg-card sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="text-foreground">Embed item ke Brainstorming</DialogTitle>
+            <DialogDescription className="text-xs text-muted-foreground">
+              Pilih item dari workspace untuk di-embed ke chat (read-only).
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div className="space-y-1.5">
+              <label className="text-[12px] font-semibold text-muted-foreground">Tipe</label>
+              <Select value={embedType} onValueChange={(v) => { setEmbedType(v as any); setSelectedEmbed(null); }}>
+                <SelectTrigger className="border-border"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="note">Note</SelectItem>
+                  <SelectItem value="sprint">Sprint</SelectItem>
+                  <SelectItem value="calendar">Calendar</SelectItem>
+                  <SelectItem value="diagram">Diagram</SelectItem>
+                  <SelectItem value="task">Task</SelectItem>
+                  <SelectItem value="goal">Goal</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-[12px] font-semibold text-muted-foreground">Cari</label>
+              <Input
+                value={embedSearch}
+                onChange={(e) => setEmbedSearch(e.target.value)}
+                placeholder="Ketik untuk mencari..."
+                className="border-border"
+              />
+            </div>
+
+            <div className="max-h-64 overflow-y-auto border border-border rounded-lg divide-y">
+              {(() => {
+                const search = embedSearch.toLowerCase();
+                const list = (
+                  embedType === 'note' ? (embedNotes?.data || []) :
+                  embedType === 'sprint' ? (embedSprints?.data || []) :
+                  embedType === 'calendar' ? (embedCalendar?.data || []) :
+                  embedType === 'diagram' ? (embedDiagrams?.data || []) :
+                  embedType === 'task' ? (embedTasks?.data || []) :
+                  (embedGoals?.data || [])
+                ) as any[];
+
+                const filtered = list.filter((item: any) => {
+                  const title = (item.title || item.goal || '').toLowerCase();
+                  return !search || title.includes(search);
+                });
+
+                if (filtered.length === 0) {
+                  return <div className="p-3 text-xs text-muted-foreground">Tidak ada item ditemukan.</div>;
+                }
+
+                return filtered.map((item: any) => {
+                  const title = item.title || item.goal || 'Untitled';
+                  const subtitle = embedType === 'calendar'
+                    ? (item.startDate ? new Date(item.startDate).toLocaleDateString() : '')
+                    : item.status || item.type || '';
+                  const isSelected = selectedEmbed?.id === item.id;
+                  return (
+                    <button
+                      key={item.id}
+                      onClick={() => setSelectedEmbed(item)}
+                      className={cn(
+                        'w-full text-left px-3 py-2 hover:bg-accent transition-colors',
+                        isSelected && 'bg-[#7b68ee]/10 text-[#7b68ee]'
+                      )}
+                    >
+                      <div className="text-sm font-medium truncate">{title}</div>
+                      {subtitle && <div className="text-[11px] text-muted-foreground truncate">{subtitle}</div>}
+                    </button>
+                  );
+                });
+              })()}
+            </div>
+          </div>
+          <DialogFooter>
+            <button
+              onClick={() => setShowEmbedDialog(false)}
+              className="px-3 py-2 text-sm text-muted-foreground hover:text-foreground"
+            >
+              Batal
+            </button>
+            <button
+              onClick={() => {
+                if (!selectedEmbed) return;
+                const embed = buildEmbedPayload(selectedEmbed, embedType);
+                sendMutation.mutate({ content: embedToMessage(embed) });
+                setShowEmbedDialog(false);
+                setSelectedEmbed(null);
+              }}
+              disabled={!selectedEmbed || sendMutation.isPending}
+              className="px-4 py-2 bg-[#7b68ee] text-white text-sm rounded-lg disabled:opacity-50"
+            >
+              Embed ke Chat
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* ===== WHITEBOARD TAB ===== */}
       {activeTab === 'whiteboard' && (

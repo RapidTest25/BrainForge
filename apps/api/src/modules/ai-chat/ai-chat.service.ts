@@ -126,27 +126,35 @@ class AiChatService {
     });
     if (!chat) throw new Error('Chat not found');
 
-    const projectContext = await this.getProjectContext(chat.teamId);
+    const [projectContext, userContext] = await Promise.all([
+      this.getProjectContext(chat.teamId),
+      this.getUserActivityContext(chat.teamId, userId),
+    ]);
 
     // Build messages list for AI
     const systemPrompt = `You are BrainForge AI Assistant — a smart project management helper.
-You have access to the current project/workspace context below. Use it to provide helpful summaries, suggest next goals, analyze progress, and answer questions about the project.
+You have access to the full workspace context and the current user's activity history below. Use them to provide accurate, personalised, and actionable assistance.
 
-=== PROJECT CONTEXT ===
+=== WORKSPACE CONTEXT ===
 ${projectContext}
-=== END CONTEXT ===
+=== END WORKSPACE CONTEXT ===
+
+=== CURRENT USER ACTIVITY ===
+${userContext}
+=== END USER ACTIVITY ===
+
+CONVERSATION HISTORY: The full conversation history is included in this request. Read ALL previous messages carefully — always stay consistent with what was discussed earlier, build on previous answers, and never repeat information already given unless asked.
 
 Guidelines:
 - Be concise and actionable
-- When summarizing, highlight key progress, blockers, and upcoming work
-- When suggesting goals, base them on current task statuses and team activity
+- Reference specific tasks, goals, or sprints by name when relevant
+- When summarising, highlight key progress, blockers, and upcoming work
+- When suggesting next steps, base them on the user's own tasks and recent activity
 - Format responses with markdown for readability
-- If asked to determine next steps, analyze incomplete tasks, goals, and recent brainstorm sessions
+- Detect the user's language from their message and reply in the SAME language
 
 PROJECT UPDATE SUGGESTIONS:
-When the user asks you to analyze, brainstorm, plan, or improve the project — AND the conversation leads to actionable changes (new tasks, new goals, or notes) — you SHOULD offer to update the project.
-
-To suggest project updates, include a JSON block at the END of your response using this exact format:
+When the conversation naturally produces actionable items (new tasks, goals, or notes), include a JSON block at the END of your response:
 
 \`\`\`brainforge-updates
 {
@@ -159,7 +167,7 @@ To suggest project updates, include a JSON block at the END of your response usi
 }
 \`\`\`
 
-Only include this block when the conversation naturally produces actionable items. Do NOT include it for simple Q&A or informational responses. The user will be able to review and apply these suggestions.`;
+Only include this block when it is truly useful. Do NOT include it for simple Q&A or informational responses.`;
 
     const messages: ChatMsg[] = [
       { role: 'system', content: systemPrompt },
@@ -225,12 +233,12 @@ Only include this block when the conversation naturally produces actionable item
   }
 
   private async getProjectContext(teamId: string): Promise<string> {
-    const [tasks, goals, brainstorms, sprints] = await Promise.all([
+    const [tasks, goals, brainstorms, sprints, notes] = await Promise.all([
       prisma.task.findMany({
         where: { teamId },
         select: { title: true, status: true, priority: true, dueDate: true, description: true },
         orderBy: { updatedAt: 'desc' },
-        take: 30,
+        take: 40,
       }),
       prisma.goal.findMany({
         where: { teamId },
@@ -246,9 +254,15 @@ Only include this block when the conversation naturally produces actionable item
       }),
       prisma.sprintPlan.findMany({
         where: { teamId },
-        select: { title: true, goal: true, status: true, deadline: true },
+        select: { title: true, goal: true, status: true, deadline: true, teamSize: true },
         orderBy: { updatedAt: 'desc' },
         take: 5,
+      }),
+      prisma.note.findMany({
+        where: { teamId },
+        select: { title: true, content: true, updatedAt: true },
+        orderBy: { updatedAt: 'desc' },
+        take: 10,
       }),
     ]);
 
@@ -257,22 +271,83 @@ Only include this block when the conversation naturally produces actionable item
     if (tasks.length) {
       const tasksByStatus: Record<string, number> = {};
       tasks.forEach(t => { tasksByStatus[t.status] = (tasksByStatus[t.status] || 0) + 1; });
-      sections.push(`TASKS (${tasks.length} recent):\nStatus summary: ${Object.entries(tasksByStatus).map(([s, c]) => `${s}: ${c}`).join(', ')}\n${tasks.slice(0, 15).map(t => `- [${t.status}] ${t.title}${t.priority !== 'MEDIUM' ? ` (${t.priority})` : ''}${t.dueDate ? ` due ${new Date(t.dueDate).toLocaleDateString()}` : ''}`).join('\n')}`);
+      const statusSummary = Object.entries(tasksByStatus).map(([s, c]) => `${s}: ${c}`).join(', ');
+      const taskLines = tasks.slice(0, 20).map(t =>
+        `- [${t.status}][${t.priority}] ${t.title}${t.dueDate ? ` due ${new Date(t.dueDate).toLocaleDateString()}` : ''}${t.description ? ` — ${t.description.slice(0, 80)}` : ''}`
+      ).join('\n');
+      sections.push(`TASKS (${tasks.length} total):\nStatus summary: ${statusSummary}\n${taskLines}`);
     }
 
     if (goals.length) {
-      sections.push(`GOALS (${goals.length}):\n${goals.map(g => `- [${g.status}] ${g.title} (${g.progress}% done)${g.description ? `: ${g.description.slice(0, 100)}` : ''}`).join('\n')}`);
-    }
-
-    if (brainstorms.length) {
-      sections.push(`BRAINSTORM SESSIONS (${brainstorms.length} recent):\n${brainstorms.map(b => `- ${b.title} (${b.mode})${b.context ? `: ${b.context.slice(0, 80)}` : ''}`).join('\n')}`);
+      sections.push(`GOALS (${goals.length}):\n${goals.map(g =>
+        `- [${g.status}] ${g.title} (${g.progress}% done)${g.dueDate ? ` due ${new Date(g.dueDate).toLocaleDateString()}` : ''}${g.description ? `: ${g.description.slice(0, 120)}` : ''}`
+      ).join('\n')}`);
     }
 
     if (sprints.length) {
-      sections.push(`SPRINTS (${sprints.length}):\n${sprints.map(s => `- [${s.status}] ${s.title}: ${s.goal.slice(0, 100)} (deadline: ${new Date(s.deadline).toLocaleDateString()})`).join('\n')}`);
+      sections.push(`SPRINTS (${sprints.length}):\n${sprints.map(s =>
+        `- [${s.status}] ${s.title} — goal: ${s.goal.slice(0, 120)} (deadline: ${new Date(s.deadline).toLocaleDateString()}, team: ${s.teamSize})`
+      ).join('\n')}`);
+    }
+
+    if (brainstorms.length) {
+      sections.push(`BRAINSTORM SESSIONS (${brainstorms.length}):\n${brainstorms.map(b =>
+        `- ${b.title} (${b.mode})${b.context ? `: ${b.context.slice(0, 100)}` : ''}`
+      ).join('\n')}`);
+    }
+
+    if (notes.length) {
+      sections.push(`NOTES (${notes.length} recent):\n${notes.map(n =>
+        `- "${n.title}"${n.content ? `: ${n.content.slice(0, 100)}` : ''}`
+      ).join('\n')}`);
     }
 
     return sections.length ? sections.join('\n\n') : 'No project data yet. This is a fresh workspace.';
+  }
+
+  private async getUserActivityContext(teamId: string, userId: string): Promise<string> {
+    const [myTasks, myGoals, myNotes, mySprints] = await Promise.all([
+      prisma.task.findMany({
+        where: { teamId, createdBy: userId },
+        select: { title: true, status: true, priority: true, updatedAt: true },
+        orderBy: { updatedAt: 'desc' },
+        take: 15,
+      }),
+      prisma.goal.findMany({
+        where: { teamId, createdBy: userId },
+        select: { title: true, status: true, progress: true },
+        orderBy: { updatedAt: 'desc' },
+        take: 8,
+      }),
+      prisma.note.findMany({
+        where: { teamId, createdBy: userId },
+        select: { title: true, updatedAt: true },
+        orderBy: { updatedAt: 'desc' },
+        take: 8,
+      }),
+      prisma.sprintPlan.findMany({
+        where: { teamId, createdBy: userId },
+        select: { title: true, status: true, deadline: true },
+        orderBy: { updatedAt: 'desc' },
+        take: 3,
+      }),
+    ]);
+
+    const parts: string[] = [];
+    if (myTasks.length) {
+      parts.push(`My Tasks (${myTasks.length}):\n${myTasks.map(t => `- [${t.status}][${t.priority}] ${t.title}`).join('\n')}`);
+    }
+    if (myGoals.length) {
+      parts.push(`My Goals (${myGoals.length}):\n${myGoals.map(g => `- [${g.status}] ${g.title} (${g.progress}%)`).join('\n')}`);
+    }
+    if (mySprints.length) {
+      parts.push(`My Sprints (${mySprints.length}):\n${mySprints.map(s => `- [${s.status}] ${s.title} deadline: ${new Date(s.deadline).toLocaleDateString()}`).join('\n')}`);
+    }
+    if (myNotes.length) {
+      parts.push(`My Notes (${myNotes.length}):\n${myNotes.map(n => `- "${n.title}"`).join('\n')}`);
+    }
+
+    return parts.length ? parts.join('\n\n') : 'No personal activity yet.';
   }
 }
 

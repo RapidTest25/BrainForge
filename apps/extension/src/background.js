@@ -3,10 +3,11 @@
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.action === 'openMeetingsPage') {
     const meetingId = request.meetingId;
-    
-    // Open BrainForge meetings page in a new tab
-    chrome.tabs.create({
-      url: `http://localhost:3000/meetings?meetingId=${meetingId}`,
+    chrome.storage.sync.get(['appUrl'], (result) => {
+      const appUrl = (result.appUrl || 'http://localhost:3000').replace(/\/$/, '');
+      chrome.tabs.create({
+        url: `${appUrl}/meetings?meetingId=${meetingId}`,
+      });
     });
   }
 });
@@ -22,7 +23,7 @@ chrome.runtime.onInstalled.addListener(() => {
 
 chrome.contextMenus.onClicked.addListener((info) => {
   if (info.menuItemId === 'brainforge-config') {
-    chrome.runtime.openOptionsPage();
+    chrome.action.openPopup();
   }
 });
 

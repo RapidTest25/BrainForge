@@ -33,8 +33,23 @@ export async function buildApp() {
   });
 
   // CORS
+  const configuredOrigins = (process.env.CORS_ORIGIN || 'http://localhost:3000')
+    .split(',')
+    .map((o) => o.trim())
+    .filter(Boolean);
+
   await app.register(cors, {
-    origin: process.env.CORS_ORIGIN || 'http://localhost:3000',
+    origin: (origin, cb) => {
+      // Allow non-browser or same-origin requests
+      if (!origin) return cb(null, true);
+
+      // Allow Chrome extensions (for Meet extension popup/content-script fetches)
+      if (origin.startsWith('chrome-extension://')) return cb(null, true);
+
+      if (configuredOrigins.includes(origin)) return cb(null, true);
+
+      return cb(new Error('Not allowed by CORS'), false);
+    },
     credentials: true,
   });
 

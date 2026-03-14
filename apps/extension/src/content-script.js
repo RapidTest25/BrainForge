@@ -9,6 +9,10 @@ let transcript = '';
 let panelVisible = false;
 const API_URL = 'http://localhost:4000/api';
 
+async function getSettings(keys) {
+  return chrome.storage.sync.get(keys);
+}
+
 // Initialize Speech Recognition
 function initRecognition() {
   const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -20,7 +24,7 @@ function initRecognition() {
   const rec = new SpeechRecognition();
   rec.continuous = true;
   rec.interimResults = true;
-  rec.lang = 'id-ID'; // Indonesian by default, can be made configurable
+  rec.lang = 'id-ID';
 
   rec.onstart = () => {
     console.log('[🎤] Recording started');
@@ -108,13 +112,18 @@ function attachPanelEventListeners() {
   }
 }
 
-function toggleRecording() {
+async function toggleRecording() {
   if (!recognition) {
     recognition = initRecognition();
     if (!recognition) {
       alert('Speech Recognition not supported in this browser');
       return;
     }
+  }
+
+  const settings = await getSettings(['language']);
+  if (settings.language) {
+    recognition.lang = settings.language;
   }
 
   isRecording = !isRecording;
@@ -157,47 +166,61 @@ async function summarizeTranscript() {
   updatePanelStatus('Generating AI summary...', 'progress');
 
   try {
-    // Get stored settings
-    const settings = await chrome.storage.sync.get(['apiUrl', 'teamId', 'provider', 'model']);
+    const settings = await getSettings(['apiUrl', 'teamId', 'provider', 'model', 'authToken']);
     const apiUrl = settings.apiUrl || API_URL;
     const teamId = settings.teamId;
     const provider = settings.provider || 'COPILOT';
     const model = settings.model || 'gpt-4o';
+    const authToken = settings.authToken;
 
-    if (!teamId) {
-      alert('Please configure BrainForge extension first');
+    if (!authToken) {
+      alert('Please login to BrainForge extension first');
+      summarizeBtn.disabled = false;
+      summarizeBtn.textContent = '✨ Summarize';
       return;
     }
 
-    // Create temporary meeting
+    if (!teamId) {
+      alert('Please choose team in extension settings first');
+      summarizeBtn.disabled = false;
+      summarizeBtn.textContent = '✨ Summarize';
+      return;
+    }
+
     const meetResponse = await fetch(`${apiUrl}/teams/${teamId}/meetings`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${await getAuthToken()}`,
+        'Authorization': `Bearer ${authToken}`,
       },
       body: JSON.stringify({
         title: `Meet Recording - ${new Date().toLocaleString('id-ID')}`,
         description: 'Recording from Google Meet via BrainForge extension',
         transcript: transcript.trim(),
+        status: 'COMPLETED',
       }),
     });
 
-    if (!meetResponse.ok) throw new Error('Failed to create meeting');
+    if (!meetResponse.ok) {
+      const err = await meetResponse.json().catch(() => ({}));
+      throw new Error(err?.error?.message || 'Failed to create meeting');
+    }
     const meetData = await meetResponse.json();
     const meetingId = meetData.data.id;
 
-    // Summarize via API
     const summaryResponse = await fetch(`${apiUrl}/teams/${teamId}/meetings/${meetingId}/summarize`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${await getAuthToken()}`,
+        'Authorization': `Bearer ${authToken}`,
       },
       body: JSON.stringify({ provider, model }),
     });
 
-    if (!summaryResponse.ok) throw new Error('Failed to summarize');
+    if (!summaryResponse.ok) {
+      const err = await summaryResponse.json().catch(() => ({}));
+      throw new Error(err?.error?.message || 'Failed to summarize');
+    }
     const summaryData = await summaryResponse.json();
     const summary = summaryData.data.summary;
 
@@ -211,7 +234,7 @@ async function summarizeTranscript() {
     summarizeBtn.textContent = '✨ Summarize';
   } catch (error) {
     console.error('Summary error:', error);
-    updatePanelStatus(`Error: ${error.message}`, 'error');
+    updatePanelStatus(`Error: ${error?.message || 'Unknown error'}`, 'error');
     summarizeBtn.disabled = false;
     summarizeBtn.textContent = '✨ Summarize';
   }
@@ -239,44 +262,66 @@ function togglePanelVisibility() {
   panel.classList.toggle('hidden', !panelVisible);
 }
 
-async function getAuthToken() {
-  return new Promise((resolve) => {
-    chrome.storage.sync.get(['authToken'], (result) => {
-      resolve(result.authToken || '');
-    });
+// Selectors to try for Google Meet toolbar injection
+const MEET_TOOLBAR_SELECTORS = [
+  '[role="toolbar"]',
+  '[jsname="A7sL1e"]',
+  '.T4LgNb',
+  '[data-fps-request-screencast-cap]',
+  '[data-call-ended="false"]',
+];
+
+function createToggleButton() {
+  const btn = document.createElement('button');
+  btn.id = 'brainforge-toggle-meet';
+  btn.className = 'brainforge-meet-btn';
+  btn.setAttribute('title', 'BrainForge Meet Assistant');
+  btn.setAttribute('aria-label', 'BrainForge Meet Assistant');
+  btn.innerHTML = '🧠';
+  btn.addEventListener('click', () => {
+    createPanel();
+    togglePanelVisibility();
   });
+  return btn;
 }
 
 // Create a button to show/hide panel (injected to Meet call controls)
 function addPanelToggleButton() {
-  // Wait for Meet UI to load
   const interval = setInterval(() => {
-    // Look for the call controls container
-    const controlsContainer = document.querySelector('[role="toolbar"]') || document.querySelector('[data-tooltip="Settings"]')?.closest('[role="toolbar"]');
-    
-    if (controlsContainer && !document.getElementById('brainforge-toggle-meet')) {
+    if (document.getElementById('brainforge-toggle-meet')) {
       clearInterval(interval);
-      
-      const toggleBtn = document.createElement('button');
-      toggleBtn.id = 'brainforge-toggle-meet';
-      toggleBtn.className = 'brainforge-meet-btn';
-      toggleBtn.setAttribute('data-tooltip', 'BrainForge Assistant');
-      toggleBtn.innerHTML = '🧠';
-      toggleBtn.addEventListener('click', () => {
-        createPanel();
-        togglePanelVisibility();
-      });
-      
-      // Try to append to controls
-      const meetControlsButton = controlsContainer.querySelector('button[data-tooltip*="More"]') || controlsContainer.querySelector('button:last-child');
-      if (meetControlsButton && meetControlsButton.parentElement) {
-        meetControlsButton.parentElement.insertBefore(toggleBtn, meetControlsButton);
+      return;
+    }
+
+    for (const selector of MEET_TOOLBAR_SELECTORS) {
+      const container = document.querySelector(selector);
+      if (!container) continue;
+
+      const toggleBtn = createToggleButton();
+      const refBtn =
+        container.querySelector('button[data-tooltip*="More"]') ||
+        container.querySelector('button[aria-label*="More"]') ||
+        container.querySelector('button:last-child');
+
+      if (refBtn && refBtn.parentElement) {
+        refBtn.parentElement.insertBefore(toggleBtn, refBtn);
+      } else {
+        container.appendChild(toggleBtn);
       }
+      clearInterval(interval);
+      return;
     }
   }, 1000);
 
-  // Clear interval after 10 seconds
-  setTimeout(() => clearInterval(interval), 10000);
+  // Fallback: after 8 seconds use a persistent floating button
+  setTimeout(() => {
+    clearInterval(interval);
+    if (!document.getElementById('brainforge-toggle-meet')) {
+      const floatBtn = createToggleButton();
+      floatBtn.classList.add('brainforge-meet-btn-float');
+      document.body.appendChild(floatBtn);
+    }
+  }, 8000);
 }
 
 // Initialize when DOM is ready
@@ -289,3 +334,4 @@ if (document.readyState === 'loading') {
 // Create panel button in Meet call controls
 createPanel();
 document.getElementById('brainforge-panel').classList.add('hidden');
+

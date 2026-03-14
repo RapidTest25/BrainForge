@@ -6,6 +6,91 @@ import type { ChatMsg } from '../../ai/providers/base.js';
 const USER_SELECT = { id: true, name: true, avatarUrl: true };
 
 class BrainstormService {
+  private async getWorkspaceContext(teamId: string, projectId?: string) {
+    const projectFilter = projectId ? { projectId } : {};
+
+    const [tasks, notes, sprints, events, diagrams, goals] = await Promise.all([
+      prisma.task.findMany({
+        where: { teamId, ...projectFilter },
+        orderBy: { updatedAt: 'desc' },
+        take: 20,
+        select: { id: true, title: true, status: true, priority: true, dueDate: true },
+      }),
+      prisma.note.findMany({
+        where: { teamId, ...projectFilter },
+        orderBy: { updatedAt: 'desc' },
+        take: 10,
+        select: { id: true, title: true, content: true, updatedAt: true },
+      }),
+      prisma.sprintPlan.findMany({
+        where: { teamId, ...projectFilter },
+        orderBy: { updatedAt: 'desc' },
+        take: 5,
+        select: { id: true, title: true, status: true, deadline: true, goal: true },
+      }),
+      prisma.calendarEvent.findMany({
+        where: { teamId },
+        orderBy: { startDate: 'asc' },
+        take: 10,
+        select: { id: true, title: true, type: true, startDate: true, endDate: true },
+      }),
+      prisma.diagram.findMany({
+        where: { teamId, ...projectFilter },
+        orderBy: { updatedAt: 'desc' },
+        take: 5,
+        select: { id: true, title: true, type: true, updatedAt: true },
+      }),
+      prisma.goal.findMany({
+        where: { teamId, ...projectFilter },
+        orderBy: { updatedAt: 'desc' },
+        take: 10,
+        select: { id: true, title: true, status: true, progress: true, dueDate: true },
+      }),
+    ]);
+
+    const sections: string[] = [];
+
+    if (tasks.length > 0) {
+      const taskLines = tasks.map(t => `- ${t.title} [${t.status}${t.priority ? `, ${t.priority}` : ''}]${t.dueDate ? ` (due ${t.dueDate.toISOString().split('T')[0]})` : ''}`).join('\n');
+      sections.push(`TASKS (${tasks.length}):\n${taskLines}`);
+    }
+
+    if (notes.length > 0) {
+      const noteLines = notes.map(n => {
+        const snippet = (n.content || '').replace(/\s+/g, ' ').trim().slice(0, 120);
+        return `- ${n.title}${snippet ? ` — ${snippet}` : ''}`;
+      }).join('\n');
+      sections.push(`NOTES (${notes.length}):\n${noteLines}`);
+    }
+
+    if (sprints.length > 0) {
+      const sprintLines = sprints.map(s => `- ${s.title} [${s.status}]${s.deadline ? ` (deadline ${s.deadline.toISOString().split('T')[0]})` : ''}`).join('\n');
+      sections.push(`SPRINTS (${sprints.length}):\n${sprintLines}`);
+    }
+
+    if (events.length > 0) {
+      const eventLines = events.map(e => {
+        const start = e.startDate.toISOString().split('T')[0];
+        const end = e.endDate ? e.endDate.toISOString().split('T')[0] : '';
+        return `- ${e.title} [${e.type}] (${start}${end ? ` to ${end}` : ''})`;
+      }).join('\n');
+      sections.push(`CALENDAR (${events.length}):\n${eventLines}`);
+    }
+
+    if (diagrams.length > 0) {
+      const diagramLines = diagrams.map(d => `- ${d.title} [${d.type}]`).join('\n');
+      sections.push(`DIAGRAMS (${diagrams.length}):\n${diagramLines}`);
+    }
+
+    if (goals.length > 0) {
+      const goalLines = goals.map(g => `- ${g.title} [${g.status}, ${g.progress}%]${g.dueDate ? ` (due ${g.dueDate.toISOString().split('T')[0]})` : ''}`).join('\n');
+      sections.push(`GOALS (${goals.length}):\n${goalLines}`);
+    }
+
+    if (sections.length === 0) return 'No workspace data available yet.';
+    return sections.join('\n\n');
+  }
+
   async createSession(teamId: string, userId: string, data: { title: string; mode: string; context?: string; projectId?: string }) {
     return prisma.brainstormSession.create({
       data: {
@@ -171,6 +256,8 @@ class BrainstormService {
     });
     if (!session) throw new NotFoundError('Brainstorm session not found');
 
+    const workspaceContext = await this.getWorkspaceContext(session.teamId, session.projectId || undefined);
+
     // Build conversation context from recent messages (oldest first)
     const recentMessages = [...session.messages].reverse();
     const conversationContext = recentMessages
@@ -193,10 +280,14 @@ You are participating in a team brainstorm session titled "${session.title}".
 ${session.context ? `Session context: ${session.context}` : ''}
 Mode: ${session.mode}
 
+  Workspace context (read-only; do not claim to create or modify data):
+  ${workspaceContext}
+
 Guidelines:
 - Respond naturally as a team member, not as a generic chatbot
 - Keep responses focused and concise (2-4 paragraphs max)
 - Use the conversation context to give relevant, contextual responses
+  - Use the workspace context to reference existing notes, sprints, calendar events, diagrams, tasks, and goals when helpful
 - If asked a question, answer it directly
 - If asked for ideas, provide 3-5 concrete suggestions
 - Format with markdown for readability (bullet points, bold, etc.)

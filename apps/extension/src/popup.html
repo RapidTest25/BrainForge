@@ -14,6 +14,26 @@
 
         <div class="popup-content">
             <div class="section">
+                <h3>Account</h3>
+                <div id="accountState" class="account-state">Not logged in</div>
+
+                <div id="loginForm" class="login-form">
+                    <div class="form-group">
+                        <label for="loginEmail">Email</label>
+                        <input type="email" id="loginEmail" placeholder="you@brainforge.app" value="">
+                    </div>
+                    <div class="form-group">
+                        <label for="loginPassword">Password</label>
+                        <input type="password" id="loginPassword" placeholder="Your password" value="">
+                    </div>
+                    <div class="button-group">
+                        <button id="loginBtn" class="btn btn-primary">Login</button>
+                        <button id="logoutBtn" class="btn btn-secondary" disabled>Logout</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="section">
                 <h3>Configuration</h3>
                 
                 <div class="form-group">
@@ -22,14 +42,16 @@
                 </div>
 
                 <div class="form-group">
-                    <label for="teamId">Team ID</label>
-                    <input type="text" id="teamId" placeholder="Your BrainForge Team ID" value="">
+                    <label for="appUrl">App URL</label>
+                    <input type="text" id="appUrl" placeholder="http://localhost:3000" value="">
+                    <small>Untuk buka halaman Meetings setelah summarize.</small>
                 </div>
 
                 <div class="form-group">
-                    <label for="authToken">Auth Token</label>
-                    <input type="password" id="authToken" placeholder="Your BrainForge Auth Token" value="">
-                    <small>Find this in browser localStorage after logging into BrainForge</small>
+                    <label for="teamSelect">Team</label>
+                    <select id="teamSelect">
+                        <option value="">Login dulu untuk memuat team...</option>
+                    </select>
                 </div>
 
                 <div class="form-group">
@@ -66,12 +88,11 @@
             <div class="section">
                 <h3>Instructions</h3>
                 <ol>
-                    <li>Go to <strong>BrainForge → Settings → Account</strong> to find your Team ID and Auth Token</li>
-                    <li>Paste them above</li>
-                    <li>Choose your preferred AI provider and model</li>
-                    <li>Click "Save Settings"</li>
-                    <li>Open a Google Meet and look for the 🧠 button in the call controls</li>
-                    <li>Click it to start recording and transcribing!</li>
+                    <li>Isi API URL dan App URL sesuai environment (local/production)</li>
+                    <li>Login pakai akun BrainForge di atas</li>
+                    <li>Pilih team, provider, model, dan language</li>
+                    <li>Klik "Save Settings"</li>
+                    <li>Buka Google Meet dan klik tombol 🧠</li>
                 </ol>
             </div>
 

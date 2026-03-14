@@ -35,6 +35,8 @@ class MeetingService {
     startTime?: string;
     endTime?: string;
     projectId?: string;
+    transcript?: string;
+    status?: string;
   }) {
     return prisma.meeting.create({
       data: {
@@ -46,6 +48,8 @@ class MeetingService {
         startTime: data.startTime ? new Date(data.startTime) : undefined,
         endTime: data.endTime ? new Date(data.endTime) : undefined,
         projectId: data.projectId,
+        transcript: data.transcript,
+        ...(data.status ? { status: data.status as any } : {}),
       },
       include: {
         creator: { select: { id: true, name: true, avatarUrl: true } },

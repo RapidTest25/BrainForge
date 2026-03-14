@@ -12,9 +12,8 @@
   ],
   "host_permissions": [
     "https://meet.google.com/*",
-    "https://meet.google.com/*/",
-    "http://localhost:4000/*",
-    "http://localhost:3000/*"
+    "http://*/*",
+    "https://*/*"
   ],
   "icons": {
     "16": "icons/icon-16.png",

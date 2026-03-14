@@ -108,6 +108,33 @@ body {
   margin-top: 4px;
 }
 
+.account-state {
+  font-size: 12px;
+  border-radius: 8px;
+  padding: 10px 12px;
+  margin-bottom: 12px;
+  border: 1px solid #ddd;
+}
+
+.account-state-on {
+  background: #e8f7ef;
+  border-color: #b8e4cb;
+  color: #0b5b33;
+}
+
+.account-state-off {
+  background: #fff3e8;
+  border-color: #ffd2a6;
+  color: #7a3f04;
+}
+
+.login-form {
+  background: #fafafa;
+  border: 1px solid #ececec;
+  border-radius: 10px;
+  padding: 12px;
+}
+
 .button-group {
   display: flex;
   gap: 10px;

@@ -6,7 +6,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   Plus, Zap, Target, AlertTriangle, Calendar, CheckCircle2, Clock, ListChecks,
   ArrowRight, ArrowLeft, Trash2, Search, ChevronDown, Edit2, BarChart3,
-  Users, Play, Archive, CircleDot, Circle, Loader2,
+  Users, Play, Archive, CircleDot, Circle, Loader2, X,
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -16,17 +16,20 @@ import {
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
+import { Sheet, SheetContent } from '@/components/ui/sheet';
 import { useTeamStore } from '@/stores/team-store';
 import { useProjectStore } from '@/stores/project-store';
 import { api } from '@/lib/api';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { DeleteConfirmDialog } from '@/components/shared/delete-confirm-dialog';
+import { TaskDetailPanel } from '@/components/task-detail-panel';
 import {
   AIGenerateProgressModal, type AIStep,
 } from '@/components/ai-progress-modal';
 
 const PROVIDERS = ['OPENROUTER', 'OPENAI', 'CLAUDE', 'GEMINI', 'GROQ', 'COPILOT'];
+const TASK_STATUS_CYCLE = ['TODO', 'IN_PROGRESS', 'IN_REVIEW', 'DONE'] as const;
 
 export default function SprintsPage() {
   const { activeTeam } = useTeamStore();
@@ -39,6 +42,7 @@ export default function SprintsPage() {
   const [showGenerate, setShowGenerate] = useState(false);
   const [showEdit, setShowEdit] = useState(false);
   const [selectedSprint, setSelectedSprint] = useState<any>(null);
+  const [selectedTask, setSelectedTask] = useState<any>(null);
   const [activeTab, setActiveTab] = useState('tasks');
   const [deleteConfirm, setDeleteConfirm] = useState<{ id: string; title: string } | null>(null);
 
@@ -62,6 +66,7 @@ export default function SprintsPage() {
   const [aiResultId, setAiResultId] = useState<string | null>(null);
   const [aiStartedAt, setAiStartedAt] = useState<number | null>(null);
   const [aiItemTitle, setAiItemTitle] = useState('');
+  const [detailItem, setDetailItem] = useState<{ type: 'task' | 'milestone' | 'risk' | 'daily'; data: any } | null>(null);
 
   useEffect(() => {
     if (searchParams.get('new') === 'true') setShowCreate(true);
@@ -131,6 +136,35 @@ export default function SprintsPage() {
       queryClient.invalidateQueries({ queryKey: ['sprints', teamId] });
       setSelectedSprint(res.data);
       toast.success('Sprint status updated');
+    },
+  });
+
+  const updateTaskMutation = useMutation({
+    mutationFn: ({ taskId, data }: { taskId: string; data: any }) =>
+      api.patch(`/teams/${teamId}/tasks/${taskId}`, data),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['sprint-tasks', teamId, selectedSprint?.id] });
+      queryClient.invalidateQueries({ queryKey: ['tasks', teamId] });
+      if (selectedTask && selectedTask.id === variables.taskId) {
+        setSelectedTask((prev: any) => prev ? { ...prev, ...variables.data } : prev);
+      }
+      toast.success('Task updated');
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || 'Failed to update task');
+    },
+  });
+
+  const deleteTaskMutation = useMutation({
+    mutationFn: (taskId: string) => api.delete(`/teams/${teamId}/tasks/${taskId}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['sprint-tasks', teamId, selectedSprint?.id] });
+      queryClient.invalidateQueries({ queryKey: ['tasks', teamId] });
+      setSelectedTask(null);
+      toast.success('Task deleted');
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || 'Failed to delete task');
     },
   });
 
@@ -252,6 +286,13 @@ export default function SprintsPage() {
     }
   };
 
+  const getNextTaskStatus = (current: string) => {
+    const currentIndex = TASK_STATUS_CYCLE.indexOf((current || 'TODO') as any);
+    const safeIndex = currentIndex >= 0 ? currentIndex : 0;
+    const nextIndex = (safeIndex + 1) % TASK_STATUS_CYCLE.length;
+    return TASK_STATUS_CYCLE[nextIndex];
+  };
+
   const handleEditSprint = () => {
     if (!selectedSprint) return;
     setEditForm({
@@ -311,14 +352,14 @@ export default function SprintsPage() {
                 </button>
               );
             })()}
-            {selectedSprint.id && selectedSprint.status === 'DRAFT' && (
+            {selectedSprint.id && totalRealTasks === 0 && (plan.tasks?.length || 0) > 0 && (
               <button
                 onClick={() => convertMutation.mutate(selectedSprint.id)}
                 disabled={convertMutation.isPending}
                 className="flex items-center gap-1.5 px-3 py-1.5 border border-[#7b68ee] text-[#7b68ee] text-sm rounded-lg hover:bg-[#7b68ee]/10 disabled:opacity-50 transition-colors"
               >
                 <ArrowRight className="h-3.5 w-3.5" />
-                <span className="hidden sm:inline">Convert to Tasks</span>
+                <span className="hidden sm:inline">Start Tracking (Convert to Tasks)</span>
                 <span className="sm:hidden">Convert</span>
               </button>
             )}
@@ -402,6 +443,11 @@ export default function SprintsPage() {
         {/* Tab content */}
         {activeTab === 'tasks' && (
           <div className="space-y-2">
+            {totalRealTasks > 0 && (
+              <div className="bg-[#7b68ee]/8 border border-[#7b68ee]/20 rounded-xl p-3 text-xs text-[#6c5ce7]">
+                Klik badge status pada task untuk mengganti status dengan cepat. Klik card untuk lihat detail.
+              </div>
+            )}
             {/* Show real DB tasks if sprint has been converted */}
             {totalRealTasks > 0 ? (
               <>
@@ -414,7 +460,11 @@ export default function SprintsPage() {
                     CANCELLED: 'bg-red-500/10 text-red-500',
                   };
                   return (
-                    <div key={task.id} className="bg-card border border-border rounded-xl p-3 sm:p-4">
+                    <div
+                      key={task.id}
+                      className="bg-card border border-border rounded-xl p-3 sm:p-4 cursor-pointer hover:border-[#7b68ee]/30 hover:shadow-sm transition-all"
+                      onClick={() => setSelectedTask(task)}
+                    >
                       <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-2">
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2">
@@ -426,9 +476,24 @@ export default function SprintsPage() {
                           )}
                         </div>
                         <div className="flex items-center gap-2 ml-6 sm:ml-0 shrink-0 flex-wrap">
-                          <span className={cn('text-[11px] px-2 py-0.5 rounded font-medium', statusColors[task.status] || 'bg-muted text-muted-foreground')}>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              const nextStatus = getNextTaskStatus(task.status);
+                              if (nextStatus !== task.status) {
+                                updateTaskMutation.mutate({ taskId: task.id, data: { status: nextStatus } });
+                              }
+                            }}
+                            disabled={updateTaskMutation.isPending}
+                            className={cn(
+                              'text-[11px] px-2 py-0.5 rounded font-medium border transition-colors disabled:opacity-60',
+                              statusColors[task.status] || 'bg-muted text-muted-foreground'
+                            )}
+                            title="Klik untuk ganti status"
+                          >
                             {task.status?.replace('_', ' ')}
-                          </span>
+                          </button>
                           <span className={cn(
                             'text-[11px] px-2 py-0.5 rounded font-medium',
                             task.priority === 'URGENT' || task.priority === 'HIGH' ? 'bg-red-500/10 text-red-600' :
@@ -458,8 +523,15 @@ export default function SprintsPage() {
             ) : (
               // Show plan tasks (before conversion)
               <>
+                <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-3 text-xs text-amber-700">
+                  Progress baru bisa berjalan setelah sprint dikonversi ke task nyata. Klik <span className="font-semibold">Convert to Tasks</span> untuk mulai tracking status.
+                </div>
                 {(plan.tasks || []).map((task: any, i: number) => (
-              <div key={i} className="bg-card border border-border rounded-xl p-3 sm:p-4">
+              <div
+                key={i}
+                className="bg-card border border-border rounded-xl p-3 sm:p-4 cursor-pointer hover:border-[#7b68ee]/30 hover:shadow-sm transition-all"
+                onClick={() => setDetailItem({ type: 'task', data: task })}
+              >
                 <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-2">
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
@@ -501,7 +573,11 @@ export default function SprintsPage() {
         {activeTab === 'milestones' && (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             {(plan.milestones || []).map((m: any, i: number) => (
-              <div key={i} className="bg-card border border-border rounded-xl p-4 flex items-start gap-3">
+              <div
+                key={i}
+                className="bg-card border border-border rounded-xl p-4 flex items-start gap-3 cursor-pointer hover:border-[#7b68ee]/30 hover:shadow-sm transition-all"
+                onClick={() => setDetailItem({ type: 'milestone', data: m })}
+              >
                 <div className="h-8 w-8 rounded-lg bg-[#7b68ee]/10 flex items-center justify-center shrink-0">
                   <Target className="h-4 w-4 text-[#7b68ee]" />
                 </div>
@@ -525,7 +601,11 @@ export default function SprintsPage() {
         {activeTab === 'risks' && (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             {(plan.risks || []).map((r: any, i: number) => (
-              <div key={i} className="bg-card border border-border rounded-xl p-4 flex items-start gap-3">
+              <div
+                key={i}
+                className="bg-card border border-border rounded-xl p-4 flex items-start gap-3 cursor-pointer hover:border-[#7b68ee]/30 hover:shadow-sm transition-all"
+                onClick={() => setDetailItem({ type: 'risk', data: r })}
+              >
                 <div className="h-8 w-8 rounded-lg bg-amber-500/10 flex items-center justify-center shrink-0">
                   <AlertTriangle className="h-4 w-4 text-amber-500" />
                 </div>
@@ -550,7 +630,11 @@ export default function SprintsPage() {
         {activeTab === 'daily' && (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
             {(plan.dailyPlan || []).map((day: any, i: number) => (
-              <div key={i} className="bg-card border border-border rounded-xl p-4">
+              <div
+                key={i}
+                className="bg-card border border-border rounded-xl p-4 cursor-pointer hover:border-[#7b68ee]/30 hover:shadow-sm transition-all"
+                onClick={() => setDetailItem({ type: 'daily', data: day })}
+              >
                 <div className="flex items-center gap-2 mb-2">
                   <span className="text-xs font-semibold text-[#7b68ee] bg-[#7b68ee]/10 px-2 py-0.5 rounded">Day {day.day || i + 1}</span>
                   {day.focus && <span className="text-xs text-muted-foreground truncate">{day.focus}</span>}
@@ -646,6 +730,124 @@ export default function SprintsPage() {
           itemLabel={deleteConfirm?.title || ''}
           isPending={deleteMutation.isPending}
         />
+
+        <Sheet open={!!selectedTask} onOpenChange={(open) => { if (!open) setSelectedTask(null); }}>
+          <SheetContent side="right" hideClose className="w-full sm:w-105 md:w-120 p-0 border-l border-border">
+            {selectedTask && (
+              <TaskDetailPanel
+                task={selectedTask}
+                onClose={() => setSelectedTask(null)}
+                onUpdate={(taskId, data) => updateTaskMutation.mutate({ taskId, data })}
+                onDelete={(taskId) => deleteTaskMutation.mutate(taskId)}
+                isUpdating={updateTaskMutation.isPending}
+              />
+            )}
+          </SheetContent>
+        </Sheet>
+
+        <Sheet open={!!detailItem} onOpenChange={(open) => { if (!open) setDetailItem(null); }}>
+          <SheetContent side="right" className="w-full sm:w-105 md:w-120 p-0 border-l border-border">
+            <div className="flex flex-col h-full bg-card">
+              <div className="flex items-center justify-between px-5 py-3.5 border-b border-border">
+                <div className="text-xs text-muted-foreground font-medium">
+                  {detailItem?.type === 'task' && 'Sprint Task (Plan)'}
+                  {detailItem?.type === 'milestone' && 'Sprint Milestone'}
+                  {detailItem?.type === 'risk' && 'Sprint Risk'}
+                  {detailItem?.type === 'daily' && 'Daily Plan'}
+                </div>
+                <button
+                  onClick={() => setDetailItem(null)}
+                  className="h-7 w-7 flex items-center justify-center rounded-md hover:bg-accent transition-colors"
+                >
+                  <X className="h-4 w-4 text-muted-foreground" />
+                </button>
+              </div>
+
+              <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4 text-sm">
+                {detailItem?.type === 'task' && (
+                  <>
+                    <div>
+                      <p className="text-xs text-muted-foreground mb-1">Title</p>
+                      <p className="font-medium text-foreground">{detailItem.data?.title || '-'}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground mb-1">Description</p>
+                      <p className="text-foreground whitespace-pre-wrap">{detailItem.data?.description || '-'}</p>
+                    </div>
+                    <div className="flex gap-2 flex-wrap">
+                      {detailItem.data?.priority && <span className="text-[11px] px-2 py-0.5 rounded bg-muted text-muted-foreground">Priority: {detailItem.data.priority}</span>}
+                      {(detailItem.data?.estimatedHours || detailItem.data?.estimate) && (
+                        <span className="text-[11px] px-2 py-0.5 rounded bg-muted text-muted-foreground">Estimate: {detailItem.data.estimatedHours || detailItem.data.estimate}h</span>
+                      )}
+                      {detailItem.data?.category && <span className="text-[11px] px-2 py-0.5 rounded bg-muted text-muted-foreground">Category: {detailItem.data.category}</span>}
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                      Ini masih task rencana. Untuk update status/hapus, klik <span className="font-semibold">Convert to Tasks</span> dulu.
+                    </div>
+                  </>
+                )}
+
+                {detailItem?.type === 'milestone' && (
+                  <>
+                    <div>
+                      <p className="text-xs text-muted-foreground mb-1">Title</p>
+                      <p className="font-medium text-foreground">{detailItem.data?.title || '-'}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground mb-1">Description</p>
+                      <p className="text-foreground whitespace-pre-wrap">{detailItem.data?.description || '-'}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground mb-1">Target</p>
+                      <p className="text-foreground">{detailItem.data?.date || (detailItem.data?.day ? `Day ${detailItem.data.day}` : '-')}</p>
+                    </div>
+                  </>
+                )}
+
+                {detailItem?.type === 'risk' && (
+                  <>
+                    <div>
+                      <p className="text-xs text-muted-foreground mb-1">Risk</p>
+                      <p className="font-medium text-foreground">{detailItem.data?.risk || detailItem.data?.title || '-'}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground mb-1">Mitigation</p>
+                      <p className="text-foreground whitespace-pre-wrap">{detailItem.data?.mitigation || '-'}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground mb-1">Severity</p>
+                      <p className="text-foreground">{detailItem.data?.severity || 'MEDIUM'}</p>
+                    </div>
+                  </>
+                )}
+
+                {detailItem?.type === 'daily' && (
+                  <>
+                    <div>
+                      <p className="text-xs text-muted-foreground mb-1">Day</p>
+                      <p className="font-medium text-foreground">Day {detailItem.data?.day || '-'}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground mb-1">Focus</p>
+                      <p className="text-foreground whitespace-pre-wrap">{detailItem.data?.focus || '-'}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground mb-1">Activities</p>
+                      <ul className="space-y-1 list-disc pl-5 text-foreground">
+                        {(detailItem.data?.tasks || detailItem.data?.activities || []).map((item: any, idx: number) => (
+                          <li key={idx}>{typeof item === 'string' ? item : item?.title || item?.name || '-'}</li>
+                        ))}
+                        {(!detailItem.data?.tasks || detailItem.data.tasks.length === 0) && (!detailItem.data?.activities || detailItem.data.activities.length === 0) && (
+                          <li>-</li>
+                        )}
+                      </ul>
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
+          </SheetContent>
+        </Sheet>
       </div>
     );
   }

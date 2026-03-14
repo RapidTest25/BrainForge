@@ -10,6 +10,7 @@ import { Sheet, SheetContent } from '@/components/ui/sheet';
 import { api } from '@/lib/api';
 import { useQuery } from '@tanstack/react-query';
 import { RealtimeProvider } from '@/components/providers/realtime-provider';
+import { BrainstormDock } from '@/components/brainstorm/brainstorm-dock';
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
@@ -92,6 +93,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             {children}
           </RealtimeProvider>
         </main>
+        <BrainstormDock />
       </div>
     </div>
   );

@@ -3,7 +3,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Brain, MessageSquare, Send, X, ArrowLeft, FileText, Zap, Calendar as CalendarIcon, Diamond, CheckCircle2, Target } from 'lucide-react';
+import { Brain, MessageSquare, Send, X, ArrowLeft, ArrowUpRight, FileText, Zap, Calendar as CalendarIcon, Diamond, CheckCircle2, Target } from 'lucide-react';
+import { createPortal } from 'react-dom';
 import { api } from '@/lib/api';
 import { cn } from '@/lib/utils';
 import { useTeamStore } from '@/stores/team-store';
@@ -183,8 +184,11 @@ export function BrainstormDock() {
 
   if (!teamId) return null;
 
-  return (
-    <div className="fixed bottom-6 right-6 left-auto z-50" style={{ right: 24, bottom: 24 }}>
+  const dock = (
+    <div
+      className="fixed bottom-6 z-50"
+      style={{ right: 24, bottom: 24, left: 'auto', insetInlineStart: 'auto', insetInlineEnd: 24, direction: 'ltr' }}
+    >
       {/* Alerts */}
       <div className="flex flex-col gap-2 mb-3 items-end">
         {alerts.map((a) => (
@@ -194,7 +198,7 @@ export function BrainstormDock() {
                 <MessageSquare className="h-4 w-4 text-[#7b68ee]" />
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-xs text-muted-foreground">Pesan baru di brainstorm</p>
+                <p className="text-xs text-muted-foreground">New brainstorm message</p>
                 <p className="text-sm font-semibold text-foreground truncate">{a.title}</p>
               </div>
               <button
@@ -212,13 +216,13 @@ export function BrainstormDock() {
                 }}
                 className="text-[11px] px-2.5 py-1 rounded-lg bg-[#7b68ee] text-white"
               >
-                Buka chat
+                Open chat
               </button>
               <button
                 onClick={() => setOpen(true)}
                 className="text-[11px] px-2.5 py-1 rounded-lg border border-border text-muted-foreground hover:bg-accent"
               >
-                Lihat semua
+                View all
               </button>
             </div>
           </div>
@@ -265,7 +269,7 @@ export function BrainstormDock() {
                 ))}
                 {latestSessions.length === 0 && (
                   <div className="px-4 py-6 text-center text-xs text-muted-foreground">
-                    Belum ada session
+                    No sessions yet
                   </div>
                 )}
               </div>
@@ -274,7 +278,7 @@ export function BrainstormDock() {
                   onClick={() => { setOpen(false); router.push('/brainstorm'); }}
                   className="w-full text-sm font-medium text-[#7b68ee] hover:underline"
                 >
-                  Buka halaman Brainstorm
+                  Open Brainstorm page
                 </button>
               </div>
             </>
@@ -301,9 +305,10 @@ export function BrainstormDock() {
                 </div>
                 <button
                   onClick={() => { setOpen(false); router.push(`/brainstorm/${activeSessionId}`); }}
-                  className="text-[11px] px-2 py-1 rounded-lg border border-border text-muted-foreground hover:bg-accent"
+                  className="h-7 w-7 rounded-lg border border-border text-muted-foreground hover:bg-accent flex items-center justify-center"
+                  title="Open full view"
                 >
-                  Buka full
+                  <ArrowUpRight className="h-3.5 w-3.5" />
                 </button>
               </div>
 
@@ -347,7 +352,7 @@ export function BrainstormDock() {
                 <input
                   value={chatInput}
                   onChange={(e) => setChatInput(e.target.value)}
-                  placeholder="Ketik pesan..."
+                  placeholder="Type a message..."
                   className="flex-1 h-9 px-3 text-xs rounded-lg border border-border bg-background focus:outline-none focus:border-[#7b68ee]"
                   onKeyDown={(e) => {
                     if (e.key === 'Enter' && !e.shiftKey) {
@@ -388,4 +393,7 @@ export function BrainstormDock() {
       </button>
     </div>
   );
+
+  if (typeof document === 'undefined') return null;
+  return createPortal(dock, document.body);
 }

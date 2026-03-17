@@ -1,5 +1,3 @@
-// Popup script - login + configuration
-
 const DEFAULT_API_URL = 'http://localhost:4000/api';
 const DEFAULT_APP_URL = 'http://localhost:3000';
 
@@ -11,7 +9,6 @@ function el(id) {
 
 function normalizeBaseUrl(input) {
   const raw = (input || '').trim().replace(/\/$/, '');
-  if (!raw) return '';
   return raw;
 }
 
@@ -24,11 +21,14 @@ function normalizeApiUrl(input) {
 function showMessage(text, type) {
   const msgEl = el('message');
   msgEl.textContent = text;
-  msgEl.className = `message message-${type}`;
-  setTimeout(() => {
-    msgEl.textContent = '';
-    msgEl.className = 'message';
-  }, 3500);
+  msgEl.className = type ? `message message-${type}` : 'message';
+
+  if (text) {
+    setTimeout(() => {
+      msgEl.textContent = '';
+      msgEl.className = 'message';
+    }, 3200);
+  }
 }
 
 async function init() {
@@ -44,221 +44,153 @@ async function init() {
     'user',
   ]);
 
-  el('apiUrl').value = stored.apiUrl || DEFAULT_API_URL;
-  el('appUrl').value = stored.appUrl || DEFAULT_APP_URL;
   el('provider').value = stored.provider || 'COPILOT';
   el('model').value = stored.model || 'gpt-4o';
   el('language').value = stored.language || 'id-ID';
 
-  el('saveBtn').addEventListener('click', saveSettings);
-  el('clearBtn').addEventListener('click', clearSettings);
-  el('loginBtn').addEventListener('click', login);
-  el('logoutBtn').addEventListener('click', logout);
+  el('openMeetingsBtn').addEventListener('click', openMeetingsPage);
+  el('openMeetBtn').addEventListener('click', openGoogleMeet);
+  el('saveBtn').addEventListener('click', saveDefaults);
+  el('refreshBtn').addEventListener('click', refreshSync);
+  el('logoutBtn').addEventListener('click', disconnectExtension);
 
   if (stored.authToken) {
-    await hydrateUserAndTeams(stored.authToken, stored.apiUrl || DEFAULT_API_URL, stored.teamId || '');
+    await hydrateWorkspaceState(
+      stored.authToken,
+      stored.apiUrl || DEFAULT_API_URL,
+      stored.teamId || '',
+    );
   } else {
-    setLoggedOutState();
+    setDisconnectedState();
   }
 }
 
-function setLoggedOutState() {
-  el('accountState').textContent = 'Not logged in';
-  el('accountState').className = 'account-state account-state-off';
-  el('logoutBtn').disabled = true;
-  el('teamSelect').innerHTML = '<option value="">Login dulu untuk memuat team...</option>';
+function setWorkspaceMeta({ email, name, teamName, appUrl, apiUrl, connected }) {
+  el('accountEmail').textContent = email || 'Waiting for website sync';
+  el('teamName').textContent = teamName || 'No team selected';
+  el('connectionMode').textContent = connected ? 'Synced from website' : 'Needs website sync';
+  el('workspaceApp').textContent = normalizeBaseUrl(appUrl || DEFAULT_APP_URL) || DEFAULT_APP_URL;
+  el('workspaceApi').textContent = normalizeApiUrl(apiUrl || DEFAULT_API_URL) || DEFAULT_API_URL;
+
+  const title = connected
+    ? `Connected as ${name || email || 'BrainForge user'}`
+    : 'Open BrainForge Meetings to sync this extension';
+
+  el('accountState').textContent = title;
+  el('accountState').className = connected
+    ? 'account-state account-state-on'
+    : 'account-state account-state-off';
+  el('logoutBtn').disabled = !connected;
 }
 
-function setLoggedInState(user) {
-  el('accountState').textContent = `Logged in as ${user.name} (${user.email})`;
-  el('accountState').className = 'account-state account-state-on';
-  el('logoutBtn').disabled = false;
-}
-
-async function apiFetch(path, options = {}) {
-  const stored = await chrome.storage.sync.get(['apiUrl', 'authToken']);
-  const apiUrl = normalizeApiUrl(stored.apiUrl || DEFAULT_API_URL);
-  const headers = {
-    'Content-Type': 'application/json',
-    ...(options.headers || {}),
-  };
-  if (stored.authToken) headers.Authorization = `Bearer ${stored.authToken}`;
-
-  const response = await fetch(`${apiUrl}${path}`, {
-    ...options,
-    headers,
+function setDisconnectedState() {
+  setWorkspaceMeta({
+    email: '',
+    name: '',
+    teamName: '',
+    appUrl: DEFAULT_APP_URL,
+    apiUrl: DEFAULT_API_URL,
+    connected: false,
   });
-
-  const json = await response.json().catch(() => ({}));
-  if (!response.ok) {
-    throw new Error(json?.error?.message || json?.error || 'Request failed');
-  }
-  return json;
 }
 
-async function hydrateUserAndTeams(authToken, apiUrlInput, selectedTeamId) {
+async function hydrateWorkspaceState(authToken, apiUrlInput, selectedTeamId) {
   try {
     const apiUrl = normalizeApiUrl(apiUrlInput || DEFAULT_API_URL);
-    const [meRes, teamRes] = await Promise.all([
+
+    const [meRes, teamsRes, stored] = await Promise.all([
       fetch(`${apiUrl}/auth/me`, {
         headers: { Authorization: `Bearer ${authToken}` },
-      }).then(async (r) => {
-        const j = await r.json();
-        if (!r.ok) throw new Error(j?.error?.message || 'Invalid session');
-        return j;
+      }).then(async (res) => {
+        const json = await res.json();
+        if (!res.ok) throw new Error(json?.error?.message || 'Invalid session');
+        return json;
       }),
       fetch(`${apiUrl}/teams`, {
         headers: { Authorization: `Bearer ${authToken}` },
-      }).then(async (r) => {
-        const j = await r.json();
-        if (!r.ok) throw new Error(j?.error?.message || 'Failed to load teams');
-        return j;
+      }).then(async (res) => {
+        const json = await res.json();
+        if (!res.ok) throw new Error(json?.error?.message || 'Failed to load teams');
+        return json;
       }),
+      chrome.storage.sync.get(['appUrl']),
     ]);
 
     const user = meRes.data;
-    const teams = teamRes.data || [];
-
-    setLoggedInState(user);
-    const select = el('teamSelect');
-    select.innerHTML = '';
-
-    if (!teams.length) {
-      select.innerHTML = '<option value="">No teams found</option>';
-    } else {
-      teams.forEach((t) => {
-        const opt = document.createElement('option');
-        opt.value = t.id;
-        opt.textContent = t.name;
-        select.appendChild(opt);
-      });
-      const effectiveTeamId = selectedTeamId && teams.some((t) => t.id === selectedTeamId)
-        ? selectedTeamId
-        : teams[0].id;
-      select.value = effectiveTeamId;
-      await chrome.storage.sync.set({ teamId: effectiveTeamId, user });
-    }
-  } catch (err) {
-    console.error(err);
-    await chrome.storage.sync.remove(['authToken', 'refreshToken', 'teamId', 'user']);
-    setLoggedOutState();
-    showMessage('Session invalid. Please login again.', 'error');
-  }
-}
-
-async function login() {
-  const email = el('loginEmail').value.trim();
-  const password = el('loginPassword').value;
-  const apiUrl = normalizeApiUrl(el('apiUrl').value || DEFAULT_API_URL);
-
-  if (!email || !password) {
-    showMessage('Email dan password wajib diisi', 'error');
-    return;
-  }
-
-  try {
-    el('loginBtn').disabled = true;
-    el('loginBtn').textContent = 'Logging in...';
-
-    const response = await fetch(`${apiUrl}/auth/login`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password }),
-    });
-
-    const json = await response.json();
-    if (!response.ok || !json?.success) {
-      throw new Error(json?.error?.message || 'Login failed');
-    }
-
-    const authToken = json.data?.tokens?.accessToken;
-    const refreshToken = json.data?.tokens?.refreshToken;
-    if (!authToken) {
-      throw new Error('No access token returned');
-    }
+    const teams = teamsRes.data || [];
+    const selectedTeam =
+      teams.find((team) => team.id === selectedTeamId) ||
+      teams.find((team) => team.id === user.activeTeamId) ||
+      teams[0] ||
+      null;
 
     await chrome.storage.sync.set({
       apiUrl,
-      appUrl: normalizeBaseUrl(el('appUrl').value || DEFAULT_APP_URL),
-      authToken,
-      refreshToken,
-      provider: el('provider').value,
-      model: el('model').value,
-      language: el('language').value,
+      teamId: selectedTeam?.id || '',
+      user,
     });
 
-    await hydrateUserAndTeams(authToken, apiUrl, '');
-    el('loginPassword').value = '';
-    showMessage('Login berhasil', 'success');
-  } catch (err) {
-    console.error(err);
-    showMessage(err.message || 'Login gagal', 'error');
-  } finally {
-    el('loginBtn').disabled = false;
-    el('loginBtn').textContent = 'Login';
-  }
-}
-
-async function logout() {
-  try {
-    const stored = await chrome.storage.sync.get(['refreshToken']);
-    if (stored.refreshToken) {
-      await apiFetch('/auth/logout', {
-        method: 'POST',
-        body: JSON.stringify({ refreshToken: stored.refreshToken }),
-      }).catch(() => null);
-    }
-  } finally {
+    setWorkspaceMeta({
+      email: user?.email,
+      name: user?.name,
+      teamName: selectedTeam?.name || '',
+      appUrl: stored.appUrl || DEFAULT_APP_URL,
+      apiUrl,
+      connected: true,
+    });
+  } catch (error) {
+    console.error(error);
     await chrome.storage.sync.remove(['authToken', 'refreshToken', 'teamId', 'user']);
-    setLoggedOutState();
-    showMessage('Logged out', 'success');
+    setDisconnectedState();
+    showMessage(
+      'Website session not found. Open BrainForge Meetings and reconnect the extension.',
+      'error',
+    );
   }
 }
 
-async function saveSettings() {
-  const apiUrl = normalizeApiUrl(el('apiUrl').value || DEFAULT_API_URL);
-  const appUrl = normalizeBaseUrl(el('appUrl').value || DEFAULT_APP_URL);
-  const teamId = el('teamSelect').value;
-
-  if (!apiUrl || !appUrl) {
-    showMessage('API URL dan App URL harus valid', 'error');
-    return;
-  }
-
-  const stored = await chrome.storage.sync.get(['authToken']);
-  if (!stored.authToken) {
-    showMessage('Login dulu sebelum menyimpan konfigurasi', 'error');
-    return;
-  }
-
-  if (!teamId) {
-    showMessage('Pilih team terlebih dahulu', 'error');
-    return;
-  }
-
+async function saveDefaults() {
   await chrome.storage.sync.set({
-    apiUrl,
-    appUrl,
-    teamId,
     provider: el('provider').value,
-    model: el('model').value,
+    model: el('model').value.trim() || 'gpt-4o',
     language: el('language').value,
   });
 
-  showMessage('Konfigurasi disimpan', 'success');
+  showMessage('Meeting defaults saved', 'success');
 }
 
-async function clearSettings() {
-  if (!confirm('Clear settings dan logout extension?')) return;
+async function refreshSync() {
+  const stored = await chrome.storage.sync.get(['authToken', 'apiUrl', 'teamId']);
 
-  await chrome.storage.sync.clear();
-  el('apiUrl').value = DEFAULT_API_URL;
-  el('appUrl').value = DEFAULT_APP_URL;
-  el('provider').value = 'COPILOT';
-  el('model').value = 'gpt-4o';
-  el('language').value = 'id-ID';
-  el('loginEmail').value = '';
-  el('loginPassword').value = '';
-  setLoggedOutState();
-  showMessage('Settings dibersihkan', 'success');
+  if (!stored.authToken) {
+    setDisconnectedState();
+    showMessage('No synced website session yet. Open BrainForge Meetings first.', 'error');
+    return;
+  }
+
+  await hydrateWorkspaceState(
+    stored.authToken,
+    stored.apiUrl || DEFAULT_API_URL,
+    stored.teamId || '',
+  );
+  showMessage('Extension sync refreshed', 'success');
+}
+
+async function disconnectExtension() {
+  if (!confirm('Disconnect the local extension session from this browser?')) return;
+
+  await chrome.storage.sync.remove(['authToken', 'refreshToken', 'teamId', 'user']);
+  setDisconnectedState();
+  showMessage('Extension disconnected from the local session', 'success');
+}
+
+async function openMeetingsPage() {
+  const stored = await chrome.storage.sync.get(['appUrl']);
+  const appUrl = normalizeBaseUrl(stored.appUrl || DEFAULT_APP_URL) || DEFAULT_APP_URL;
+
+  chrome.tabs.create({ url: `${appUrl}/meetings` });
+}
+
+function openGoogleMeet() {
+  chrome.tabs.create({ url: 'https://meet.google.com' });
 }

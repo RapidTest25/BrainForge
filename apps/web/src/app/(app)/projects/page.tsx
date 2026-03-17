@@ -4,14 +4,42 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
-  Plus, FolderKanban, MoreHorizontal, Pencil, Trash2,
-  CheckSquare, MessageSquare, GitBranch, Target,
-  Hash, Palette, Search, LayoutGrid, List,
-  Rocket, Package, PaintBucket, Lightbulb, Zap, Flame, Star,
-  BarChart3, Wrench, Crosshair, Smartphone, Globe,
-  FlaskConical, FileText, Gamepad2, Building2,
-  Users, UserPlus, Crown, Shield, X,
-  type LucideIcon
+  Plus,
+  FolderKanban,
+  MoreHorizontal,
+  Pencil,
+  Trash2,
+  CheckSquare,
+  MessageSquare,
+  GitBranch,
+  Target,
+  Hash,
+  Palette,
+  Search,
+  LayoutGrid,
+  List,
+  Rocket,
+  Package,
+  PaintBucket,
+  Lightbulb,
+  Zap,
+  Flame,
+  Star,
+  BarChart3,
+  Wrench,
+  Crosshair,
+  Smartphone,
+  Globe,
+  FlaskConical,
+  FileText,
+  Gamepad2,
+  Building2,
+  Users,
+  UserPlus,
+  Crown,
+  Shield,
+  X,
+  type LucideIcon,
 } from 'lucide-react';
 import { useTeamStore } from '@/stores/team-store';
 import { useProjectStore, Project } from '@/stores/project-store';
@@ -30,9 +58,18 @@ import {
 } from '@/components/ui/dropdown-menu';
 
 const PROJECT_COLORS = [
-  '#7b68ee', '#3b82f6', '#22c55e', '#f59e0b', '#ef4444',
-  '#ec4899', '#8b5cf6', '#06b6d4', '#f97316', '#14b8a6',
-  '#6366f1', '#84cc16',
+  '#7b68ee',
+  '#3b82f6',
+  '#22c55e',
+  '#f59e0b',
+  '#ef4444',
+  '#ec4899',
+  '#8b5cf6',
+  '#06b6d4',
+  '#f97316',
+  '#14b8a6',
+  '#6366f1',
+  '#84cc16',
 ];
 
 // Icon map: icon name string → Lucide component
@@ -69,14 +106,15 @@ export default function ProjectsPage() {
   });
 
   const projects = projectsRes?.data || [];
-  const filtered = projects.filter(p =>
-    p.name.toLowerCase().includes(search.toLowerCase()) ||
-    (p.description || '').toLowerCase().includes(search.toLowerCase())
+  const filtered = projects.filter(
+    (p) =>
+      p.name.toLowerCase().includes(search.toLowerCase()) ||
+      (p.description || '').toLowerCase().includes(search.toLowerCase()),
   );
 
   const createMutation = useMutation({
     mutationFn: (data: { name: string; description?: string; color: string; icon: string }) =>
-      api.post<Project>(`/teams/${teamId}/projects`, data),
+      api.post<{ data: Project }>(`/teams/${teamId}/projects`, data),
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['projects', teamId] });
       resetForm();
@@ -91,8 +129,16 @@ export default function ProjectsPage() {
   });
 
   const updateMutation = useMutation({
-    mutationFn: ({ id, ...data }: { id: string; name: string; description?: string; color: string; icon: string }) =>
-      api.patch<Project>(`/teams/${teamId}/projects/${id}`, data),
+    mutationFn: ({
+      id,
+      ...data
+    }: {
+      id: string;
+      name: string;
+      description?: string;
+      color: string;
+      icon: string;
+    }) => api.patch<{ data: Project }>(`/teams/${teamId}/projects/${id}`, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['projects', teamId] });
       setEditProject(null);
@@ -138,12 +184,23 @@ export default function ProjectsPage() {
       toast.error('Please select a team first');
       return;
     }
-    createMutation.mutate({ name: name.trim(), description: description.trim() || undefined, color, icon });
+    createMutation.mutate({
+      name: name.trim(),
+      description: description.trim() || undefined,
+      color,
+      icon,
+    });
   }
 
   function handleUpdate() {
     if (!editProject || !name.trim()) return;
-    updateMutation.mutate({ id: editProject.id, name: name.trim(), description: description.trim() || undefined, color, icon });
+    updateMutation.mutate({
+      id: editProject.id,
+      name: name.trim(),
+      description: description.trim() || undefined,
+      color,
+      icon,
+    });
   }
 
   function handleSelect(project: Project) {
@@ -162,7 +219,10 @@ export default function ProjectsPage() {
             </p>
           </div>
           <Button
-            onClick={() => { resetForm(); setShowCreate(true); }}
+            onClick={() => {
+              resetForm();
+              setShowCreate(true);
+            }}
             className="bg-[#7b68ee] hover:bg-[#6c5ce7] text-white gap-2"
           >
             <Plus className="h-4 w-4" />
@@ -174,19 +234,33 @@ export default function ProjectsPage() {
         {activeProject && (
           <div
             className="mb-6 rounded-xl p-4 border flex items-center gap-4"
-            style={{ backgroundColor: `${activeProject.color}08`, borderColor: `${activeProject.color}30` }}
+            style={{
+              backgroundColor: `${activeProject.color}08`,
+              borderColor: `${activeProject.color}30`,
+            }}
           >
             <div
               className="h-12 w-12 rounded-xl flex items-center justify-center shrink-0"
               style={{ backgroundColor: `${activeProject.color}18` }}
             >
-              <ProjectIcon icon={activeProject.icon} className="h-6 w-6" style={{ color: activeProject.color }} />
+              <ProjectIcon
+                icon={activeProject.icon}
+                className="h-6 w-6"
+                style={{ color: activeProject.color }}
+              />
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-xs font-medium uppercase tracking-wider" style={{ color: activeProject.color }}>Active Project</p>
+              <p
+                className="text-xs font-medium uppercase tracking-wider"
+                style={{ color: activeProject.color }}
+              >
+                Active Project
+              </p>
               <p className="text-lg font-semibold text-foreground truncate">{activeProject.name}</p>
               {activeProject.description && (
-                <p className="text-sm text-muted-foreground truncate">{activeProject.description}</p>
+                <p className="text-sm text-muted-foreground truncate">
+                  {activeProject.description}
+                </p>
               )}
             </div>
             <Button
@@ -207,20 +281,30 @@ export default function ProjectsPage() {
             <Input
               placeholder="Search projects..."
               value={search}
-              onChange={e => setSearch(e.target.value)}
+              onChange={(e) => setSearch(e.target.value)}
               className="pl-9 h-9"
             />
           </div>
           <div className="flex items-center border rounded-lg overflow-hidden">
             <button
               onClick={() => setViewMode('grid')}
-              className={cn('p-2 transition-colors', viewMode === 'grid' ? 'bg-accent text-foreground' : 'text-muted-foreground hover:bg-accent/50')}
+              className={cn(
+                'p-2 transition-colors',
+                viewMode === 'grid'
+                  ? 'bg-accent text-foreground'
+                  : 'text-muted-foreground hover:bg-accent/50',
+              )}
             >
               <LayoutGrid className="h-4 w-4" />
             </button>
             <button
               onClick={() => setViewMode('list')}
-              className={cn('p-2 transition-colors', viewMode === 'list' ? 'bg-accent text-foreground' : 'text-muted-foreground hover:bg-accent/50')}
+              className={cn(
+                'p-2 transition-colors',
+                viewMode === 'list'
+                  ? 'bg-accent text-foreground'
+                  : 'text-muted-foreground hover:bg-accent/50',
+              )}
             >
               <List className="h-4 w-4" />
             </button>
@@ -230,7 +314,7 @@ export default function ProjectsPage() {
         {/* Projects */}
         {isLoading ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {[1, 2, 3].map(i => (
+            {[1, 2, 3].map((i) => (
               <div key={i} className="h-48 rounded-xl border bg-card animate-pulse" />
             ))}
           </div>
@@ -248,7 +332,13 @@ export default function ProjectsPage() {
                 : 'Create your first project to organize tasks, brainstorms, diagrams, and goals into separate workspaces.'}
             </p>
             {!search && (
-              <Button onClick={() => { resetForm(); setShowCreate(true); }} className="bg-[#7b68ee] hover:bg-[#6c5ce7] text-white gap-2">
+              <Button
+                onClick={() => {
+                  resetForm();
+                  setShowCreate(true);
+                }}
+                className="bg-[#7b68ee] hover:bg-[#6c5ce7] text-white gap-2"
+              >
                 <Plus className="h-4 w-4" />
                 Create Project
               </Button>
@@ -256,7 +346,7 @@ export default function ProjectsPage() {
           </div>
         ) : viewMode === 'grid' ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {filtered.map(project => (
+            {filtered.map((project) => (
               <ProjectCard
                 key={project.id}
                 project={project}
@@ -270,7 +360,7 @@ export default function ProjectsPage() {
           </div>
         ) : (
           <div className="space-y-2">
-            {filtered.map(project => (
+            {filtered.map((project) => (
               <ProjectRow
                 key={project.id}
                 project={project}
@@ -292,10 +382,14 @@ export default function ProjectsPage() {
             <DialogTitle>Create New Project</DialogTitle>
           </DialogHeader>
           <ProjectForm
-            name={name} setName={setName}
-            description={description} setDescription={setDescription}
-            color={color} setColor={setColor}
-            icon={icon} setIcon={setIcon}
+            name={name}
+            setName={setName}
+            description={description}
+            setDescription={setDescription}
+            color={color}
+            setColor={setColor}
+            icon={icon}
+            setIcon={setIcon}
             onSubmit={handleCreate}
             loading={createMutation.isPending}
             submitLabel="Create Project"
@@ -304,16 +398,25 @@ export default function ProjectsPage() {
       </Dialog>
 
       {/* Edit Dialog */}
-      <Dialog open={!!editProject} onOpenChange={v => { if (!v) setEditProject(null); }}>
+      <Dialog
+        open={!!editProject}
+        onOpenChange={(v) => {
+          if (!v) setEditProject(null);
+        }}
+      >
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>Edit Project</DialogTitle>
           </DialogHeader>
           <ProjectForm
-            name={name} setName={setName}
-            description={description} setDescription={setDescription}
-            color={color} setColor={setColor}
-            icon={icon} setIcon={setIcon}
+            name={name}
+            setName={setName}
+            description={description}
+            setDescription={setDescription}
+            color={color}
+            setColor={setColor}
+            icon={icon}
+            setIcon={setIcon}
             onSubmit={handleUpdate}
             loading={updateMutation.isPending}
             submitLabel="Save Changes"
@@ -322,16 +425,24 @@ export default function ProjectsPage() {
       </Dialog>
 
       {/* Delete Confirm */}
-      <Dialog open={!!deleteConfirm} onOpenChange={v => { if (!v) setDeleteConfirm(null); }}>
+      <Dialog
+        open={!!deleteConfirm}
+        onOpenChange={(v) => {
+          if (!v) setDeleteConfirm(null);
+        }}
+      >
         <DialogContent className="max-w-sm">
           <DialogHeader>
             <DialogTitle>Delete Project</DialogTitle>
           </DialogHeader>
           <p className="text-sm text-muted-foreground">
-            Are you sure you want to delete this project? Items within the project won&apos;t be deleted, but they will be unlinked from this project.
+            Are you sure you want to delete this project? Items within the project won&apos;t be
+            deleted, but they will be unlinked from this project.
           </p>
           <div className="flex justify-end gap-2 mt-4">
-            <Button variant="outline" onClick={() => setDeleteConfirm(null)}>Cancel</Button>
+            <Button variant="outline" onClick={() => setDeleteConfirm(null)}>
+              Cancel
+            </Button>
             <Button
               variant="destructive"
               onClick={() => deleteConfirm && deleteMutation.mutate(deleteConfirm)}
@@ -358,8 +469,12 @@ export default function ProjectsPage() {
 
 // ── Project Card (Grid View) ──
 function ProjectCard({
-  project, isActive, onSelect, onEdit, onDelete, onManageMembers
-
+  project,
+  isActive,
+  onSelect,
+  onEdit,
+  onDelete,
+  onManageMembers,
 }: {
   project: Project;
   isActive: boolean;
@@ -376,9 +491,13 @@ function ProjectCard({
       onClick={onSelect}
       className={cn(
         'group relative rounded-xl border bg-card p-5 cursor-pointer transition-all hover:shadow-md',
-        isActive && 'ring-0'
+        isActive && 'ring-0',
       )}
-      style={isActive ? { boxShadow: `0 0 0 2px ${project.color}`, borderColor: `${project.color}50` } : undefined}
+      style={
+        isActive
+          ? { boxShadow: `0 0 0 2px ${project.color}`, borderColor: `${project.color}50` }
+          : undefined
+      }
     >
       {/* Top row */}
       <div className="flex items-start justify-between mb-4">
@@ -391,13 +510,13 @@ function ProjectCard({
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <button
-              onClick={e => e.stopPropagation()}
+              onClick={(e) => e.stopPropagation()}
               className="p-1.5 rounded-md opacity-0 group-hover:opacity-100 transition-opacity hover:bg-accent"
             >
               <MoreHorizontal className="h-4 w-4 text-muted-foreground" />
             </button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" onClick={e => e.stopPropagation()}>
+          <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
             <DropdownMenuItem onClick={onEdit}>
               <Pencil className="h-4 w-4 mr-2" /> Edit
             </DropdownMenuItem>
@@ -423,18 +542,29 @@ function ProjectCard({
         <div className="flex items-center gap-1 mb-3">
           <div className="flex -space-x-1.5">
             {members.slice(0, 4).map((m: any) => (
-              <div key={m.user.id} className="h-6 w-6 rounded-full border-2 border-card bg-muted flex items-center justify-center overflow-hidden" title={m.user.name}>
+              <div
+                key={m.user.id}
+                className="h-6 w-6 rounded-full border-2 border-card bg-muted flex items-center justify-center overflow-hidden"
+                title={m.user.name}
+              >
                 {m.user.avatarUrl ? (
                   <img src={m.user.avatarUrl} alt="" className="h-full w-full object-cover" />
                 ) : (
-                  <span className="text-[9px] font-bold text-muted-foreground">{m.user.name?.charAt(0)?.toUpperCase()}</span>
+                  <span className="text-[9px] font-bold text-muted-foreground">
+                    {m.user.name?.charAt(0)?.toUpperCase()}
+                  </span>
                 )}
               </div>
             ))}
           </div>
-          {members.length > 4 && <span className="text-[10px] text-muted-foreground ml-1">+{members.length - 4}</span>}
+          {members.length > 4 && (
+            <span className="text-[10px] text-muted-foreground ml-1">+{members.length - 4}</span>
+          )}
           <button
-            onClick={(e) => { e.stopPropagation(); onManageMembers(); }}
+            onClick={(e) => {
+              e.stopPropagation();
+              onManageMembers();
+            }}
             className="h-6 w-6 rounded-full border-2 border-dashed border-muted-foreground/30 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:border-[#7b68ee] hover:text-[#7b68ee]"
           >
             <UserPlus className="h-3 w-3 text-muted-foreground" />
@@ -444,10 +574,18 @@ function ProjectCard({
 
       {/* Stats */}
       <div className="flex items-center gap-4 text-xs text-muted-foreground">
-        <span className="flex items-center gap-1"><CheckSquare className="h-3 w-3" /> {counts.tasks}</span>
-        <span className="flex items-center gap-1"><MessageSquare className="h-3 w-3" /> {counts.brainstormSessions}</span>
-        <span className="flex items-center gap-1"><GitBranch className="h-3 w-3" /> {counts.diagrams}</span>
-        <span className="flex items-center gap-1"><Target className="h-3 w-3" /> {counts.goals}</span>
+        <span className="flex items-center gap-1">
+          <CheckSquare className="h-3 w-3" /> {counts.tasks}
+        </span>
+        <span className="flex items-center gap-1">
+          <MessageSquare className="h-3 w-3" /> {counts.brainstormSessions}
+        </span>
+        <span className="flex items-center gap-1">
+          <GitBranch className="h-3 w-3" /> {counts.diagrams}
+        </span>
+        <span className="flex items-center gap-1">
+          <Target className="h-3 w-3" /> {counts.goals}
+        </span>
       </div>
 
       {/* Active indicator */}
@@ -469,7 +607,12 @@ function ProjectCard({
 
 // ── Project Row (List View) ──
 function ProjectRow({
-  project, isActive, onSelect, onEdit, onDelete, onManageMembers
+  project,
+  isActive,
+  onSelect,
+  onEdit,
+  onDelete,
+  onManageMembers,
 }: {
   project: Project;
   isActive: boolean;
@@ -485,9 +628,13 @@ function ProjectRow({
       onClick={onSelect}
       className={cn(
         'group flex items-center gap-4 rounded-lg border bg-card px-4 py-3 cursor-pointer transition-all hover:shadow-sm',
-        isActive && 'ring-0'
+        isActive && 'ring-0',
       )}
-      style={isActive ? { boxShadow: `0 0 0 2px ${project.color}`, borderColor: `${project.color}50` } : undefined}
+      style={
+        isActive
+          ? { boxShadow: `0 0 0 2px ${project.color}`, borderColor: `${project.color}50` }
+          : undefined
+      }
     >
       <div
         className="h-9 w-9 rounded-lg flex items-center justify-center shrink-0"
@@ -502,26 +649,36 @@ function ProjectRow({
         )}
       </div>
       <div className="hidden sm:flex items-center gap-4 text-xs text-muted-foreground shrink-0">
-        <span className="flex items-center gap-1"><CheckSquare className="h-3 w-3" /> {counts.tasks}</span>
-        <span className="flex items-center gap-1"><MessageSquare className="h-3 w-3" /> {counts.brainstormSessions}</span>
-        <span className="flex items-center gap-1"><GitBranch className="h-3 w-3" /> {counts.diagrams}</span>
-        <span className="flex items-center gap-1"><Target className="h-3 w-3" /> {counts.goals}</span>
+        <span className="flex items-center gap-1">
+          <CheckSquare className="h-3 w-3" /> {counts.tasks}
+        </span>
+        <span className="flex items-center gap-1">
+          <MessageSquare className="h-3 w-3" /> {counts.brainstormSessions}
+        </span>
+        <span className="flex items-center gap-1">
+          <GitBranch className="h-3 w-3" /> {counts.diagrams}
+        </span>
+        <span className="flex items-center gap-1">
+          <Target className="h-3 w-3" /> {counts.goals}
+        </span>
       </div>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <button
-            onClick={e => e.stopPropagation()}
+            onClick={(e) => e.stopPropagation()}
             className="p-1.5 rounded-md opacity-0 group-hover:opacity-100 transition-opacity hover:bg-accent shrink-0"
           >
             <MoreHorizontal className="h-4 w-4 text-muted-foreground" />
           </button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" onClick={e => e.stopPropagation()}>
+        <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
           <DropdownMenuItem onClick={onEdit}>
             <Pencil className="h-4 w-4 mr-2" /> Edit
-          </DropdownMenuItem>            <DropdownMenuItem onClick={onManageMembers}>
-              <Users className="h-4 w-4 mr-2" /> Team
-            </DropdownMenuItem>          <DropdownMenuItem onClick={onDelete} className="text-red-600">
+          </DropdownMenuItem>{' '}
+          <DropdownMenuItem onClick={onManageMembers}>
+            <Users className="h-4 w-4 mr-2" /> Team
+          </DropdownMenuItem>{' '}
+          <DropdownMenuItem onClick={onDelete} className="text-red-600">
             <Trash2 className="h-4 w-4 mr-2" /> Delete
           </DropdownMenuItem>
         </DropdownMenuContent>
@@ -538,14 +695,26 @@ function ProjectRow({
 
 // ── Project Form ──
 function ProjectForm({
-  name, setName, description, setDescription,
-  color, setColor, icon, setIcon,
-  onSubmit, loading, submitLabel,
+  name,
+  setName,
+  description,
+  setDescription,
+  color,
+  setColor,
+  icon,
+  setIcon,
+  onSubmit,
+  loading,
+  submitLabel,
 }: {
-  name: string; setName: (v: string) => void;
-  description: string; setDescription: (v: string) => void;
-  color: string; setColor: (v: string) => void;
-  icon: string; setIcon: (v: string) => void;
+  name: string;
+  setName: (v: string) => void;
+  description: string;
+  setDescription: (v: string) => void;
+  color: string;
+  setColor: (v: string) => void;
+  icon: string;
+  setIcon: (v: string) => void;
   onSubmit: () => void;
   loading: boolean;
   submitLabel: string;
@@ -572,8 +741,8 @@ function ProjectForm({
         <Input
           placeholder="e.g., Mobile App, Marketing Site"
           value={name}
-          onChange={e => setName(e.target.value)}
-          onKeyDown={e => e.key === 'Enter' && onSubmit()}
+          onChange={(e) => setName(e.target.value)}
+          onKeyDown={(e) => e.key === 'Enter' && onSubmit()}
           autoFocus
         />
       </div>
@@ -584,7 +753,7 @@ function ProjectForm({
         <Textarea
           placeholder="What is this project about?"
           value={description}
-          onChange={e => setDescription(e.target.value)}
+          onChange={(e) => setDescription(e.target.value)}
           rows={2}
           className="resize-none"
         />
@@ -594,7 +763,7 @@ function ProjectForm({
       <div>
         <label className="text-sm font-medium text-foreground mb-1.5 block">Icon</label>
         <div className="flex flex-wrap gap-1.5">
-          {PROJECT_ICONS.map(i => {
+          {PROJECT_ICONS.map((i) => {
             const Icon = PROJECT_ICON_MAP[i];
             return (
               <button
@@ -602,7 +771,7 @@ function ProjectForm({
                 onClick={() => setIcon(i)}
                 className={cn(
                   'h-9 w-9 rounded-lg flex items-center justify-center transition-all',
-                  icon === i ? 'bg-accent ring-2 ring-[#7b68ee] scale-110' : 'hover:bg-accent'
+                  icon === i ? 'bg-accent ring-2 ring-[#7b68ee] scale-110' : 'hover:bg-accent',
                 )}
               >
                 <Icon className="h-4 w-4 text-muted-foreground" />
@@ -616,13 +785,13 @@ function ProjectForm({
       <div>
         <label className="text-sm font-medium text-foreground mb-1.5 block">Color</label>
         <div className="flex flex-wrap gap-2">
-          {PROJECT_COLORS.map(c => (
+          {PROJECT_COLORS.map((c) => (
             <button
               key={c}
               onClick={() => setColor(c)}
               className={cn(
                 'h-7 w-7 rounded-full transition-all',
-                color === c ? 'ring-2 ring-offset-2 scale-110' : 'hover:scale-110'
+                color === c ? 'ring-2 ring-offset-2 scale-110' : 'hover:scale-110',
               )}
               style={{ backgroundColor: c, boxShadow: color === c ? `0 0 0 2px ${c}` : undefined }}
             />
@@ -643,8 +812,16 @@ function ProjectForm({
 }
 
 // ── Project Member Management Dialog ──
-function ProjectMemberDialog({ project, teamId, open, onClose }: {
-  project: Project; teamId: string; open: boolean; onClose: () => void;
+function ProjectMemberDialog({
+  project,
+  teamId,
+  open,
+  onClose,
+}: {
+  project: Project;
+  teamId: string;
+  open: boolean;
+  onClose: () => void;
 }) {
   const queryClient = useQueryClient();
 
@@ -656,7 +833,8 @@ function ProjectMemberDialog({ project, teamId, open, onClose }: {
 
   const { data: availableRes } = useQuery({
     queryKey: ['project-available-members', project.id],
-    queryFn: () => api.get<{ data: any[] }>(`/teams/${teamId}/projects/${project.id}/available-members`),
+    queryFn: () =>
+      api.get<{ data: any[] }>(`/teams/${teamId}/projects/${project.id}/available-members`),
     enabled: open,
   });
 
@@ -664,7 +842,8 @@ function ProjectMemberDialog({ project, teamId, open, onClose }: {
   const available = availableRes?.data || [];
 
   const addMemberMutation = useMutation({
-    mutationFn: (userId: string) => api.post(`/teams/${teamId}/projects/${project.id}/members`, { userId }),
+    mutationFn: (userId: string) =>
+      api.post(`/teams/${teamId}/projects/${project.id}/members`, { userId }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['project-members', project.id] });
       queryClient.invalidateQueries({ queryKey: ['project-available-members', project.id] });
@@ -685,7 +864,8 @@ function ProjectMemberDialog({ project, teamId, open, onClose }: {
   });
 
   const removeMemberMutation = useMutation({
-    mutationFn: (userId: string) => api.delete(`/teams/${teamId}/projects/${project.id}/members/${userId}`),
+    mutationFn: (userId: string) =>
+      api.delete(`/teams/${teamId}/projects/${project.id}/members/${userId}`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['project-members', project.id] });
       queryClient.invalidateQueries({ queryKey: ['project-available-members', project.id] });
@@ -702,16 +882,30 @@ function ProjectMemberDialog({ project, teamId, open, onClose }: {
   };
 
   return (
-    <Dialog open={open} onOpenChange={(v) => { if (!v) onClose(); }}>
+    <Dialog
+      open={open}
+      onOpenChange={(v) => {
+        if (!v) onClose();
+      }}
+    >
       <DialogContent className="max-w-lg">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <div className="h-8 w-8 rounded-lg flex items-center justify-center" style={{ backgroundColor: `${project.color}18` }}>
-              <ProjectIcon icon={project.icon} className="h-4 w-4" style={{ color: project.color }} />
+            <div
+              className="h-8 w-8 rounded-lg flex items-center justify-center"
+              style={{ backgroundColor: `${project.color}18` }}
+            >
+              <ProjectIcon
+                icon={project.icon}
+                className="h-4 w-4"
+                style={{ color: project.color }}
+              />
             </div>
             <div>
               <span>{project.name} — Team</span>
-              <p className="text-xs text-muted-foreground font-normal">Manage who has access to this project</p>
+              <p className="text-xs text-muted-foreground font-normal">
+                Manage who has access to this project
+              </p>
             </div>
           </DialogTitle>
         </DialogHeader>
@@ -724,24 +918,33 @@ function ProjectMemberDialog({ project, teamId, open, onClose }: {
             </h3>
             {loadingMembers ? (
               <div className="space-y-2">
-                {[1, 2].map(i => <div key={i} className="h-12 rounded-lg bg-muted animate-pulse" />)}
+                {[1, 2].map((i) => (
+                  <div key={i} className="h-12 rounded-lg bg-muted animate-pulse" />
+                ))}
               </div>
             ) : members.length === 0 ? (
               <p className="text-sm text-muted-foreground py-3 text-center">No members yet</p>
             ) : (
               <div className="space-y-1">
                 {members.map((m: any) => (
-                  <div key={m.user.id} className="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-muted/50 group">
+                  <div
+                    key={m.user.id}
+                    className="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-muted/50 group"
+                  >
                     <div className="h-8 w-8 rounded-full bg-muted flex items-center justify-center overflow-hidden shrink-0">
                       {m.user.avatarUrl ? (
                         <img src={m.user.avatarUrl} alt="" className="h-full w-full object-cover" />
                       ) : (
-                        <span className="text-xs font-bold text-muted-foreground">{m.user.name?.charAt(0)?.toUpperCase()}</span>
+                        <span className="text-xs font-bold text-muted-foreground">
+                          {m.user.name?.charAt(0)?.toUpperCase()}
+                        </span>
                       )}
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-1.5">
-                        <span className="text-sm font-medium text-foreground truncate">{m.user.name}</span>
+                        <span className="text-sm font-medium text-foreground truncate">
+                          {m.user.name}
+                        </span>
                         {roleIcon(m.role)}
                       </div>
                       <span className="text-[11px] text-muted-foreground">{m.user.email}</span>
@@ -753,15 +956,21 @@ function ProjectMemberDialog({ project, teamId, open, onClose }: {
                         </button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
-                        {['OWNER', 'ADMIN', 'MEMBER'].map(role => (
+                        {['OWNER', 'ADMIN', 'MEMBER'].map((role) => (
                           <DropdownMenuItem
                             key={role}
                             onClick={() => updateRoleMutation.mutate({ userId: m.user.id, role })}
                             className={m.role === role ? 'bg-accent' : ''}
                           >
-                            {role === 'OWNER' && <Crown className="h-3.5 w-3.5 mr-2 text-amber-500" />}
-                            {role === 'ADMIN' && <Shield className="h-3.5 w-3.5 mr-2 text-blue-500" />}
-                            {role === 'MEMBER' && <Users className="h-3.5 w-3.5 mr-2 text-muted-foreground" />}
+                            {role === 'OWNER' && (
+                              <Crown className="h-3.5 w-3.5 mr-2 text-amber-500" />
+                            )}
+                            {role === 'ADMIN' && (
+                              <Shield className="h-3.5 w-3.5 mr-2 text-blue-500" />
+                            )}
+                            {role === 'MEMBER' && (
+                              <Users className="h-3.5 w-3.5 mr-2 text-muted-foreground" />
+                            )}
                             {role}
                           </DropdownMenuItem>
                         ))}
@@ -788,16 +997,23 @@ function ProjectMemberDialog({ project, teamId, open, onClose }: {
               </h3>
               <div className="space-y-1">
                 {available.map((m: any) => (
-                  <div key={m.user.id} className="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-muted/50">
+                  <div
+                    key={m.user.id}
+                    className="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-muted/50"
+                  >
                     <div className="h-8 w-8 rounded-full bg-muted flex items-center justify-center overflow-hidden shrink-0">
                       {m.user.avatarUrl ? (
                         <img src={m.user.avatarUrl} alt="" className="h-full w-full object-cover" />
                       ) : (
-                        <span className="text-xs font-bold text-muted-foreground">{m.user.name?.charAt(0)?.toUpperCase()}</span>
+                        <span className="text-xs font-bold text-muted-foreground">
+                          {m.user.name?.charAt(0)?.toUpperCase()}
+                        </span>
                       )}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <span className="text-sm font-medium text-foreground truncate block">{m.user.name}</span>
+                      <span className="text-sm font-medium text-foreground truncate block">
+                        {m.user.name}
+                      </span>
                       <span className="text-[11px] text-muted-foreground">{m.user.email}</span>
                     </div>
                     <Button

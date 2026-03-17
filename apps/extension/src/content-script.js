@@ -70,30 +70,47 @@ function createPanel() {
   panel.innerHTML = `
     <div id="brainforge-panel-container">
       <div id="brainforge-header">
-        <h3>🧠 BrainForge Meet</h3>
+        <div class="brainforge-header-copy">
+          <div class="brainforge-eyebrow">BrainForge Extension</div>
+          <h3>Meeting Assistant</h3>
+          <p>Capture the call, generate an AI summary, and sync it back to BrainForge.</p>
+        </div>
         <button id="brainforge-close" aria-label="Close">✕</button>
       </div>
       
       <div id="brainforge-controls">
-        <button id="brainforge-record-btn" class="btn btn-primary">🎤 Start Recording</button>
-        <button id="brainforge-summarize-btn" class="btn btn-secondary" disabled>✨ Summarize</button>
+        <div class="brainforge-button-row">
+          <button id="brainforge-record-btn" class="btn btn-primary">Start Capture</button>
+          <button id="brainforge-summarize-btn" class="btn btn-secondary" disabled>Generate Summary</button>
+        </div>
+        <p class="brainforge-control-hint">Use this as your in-call assistant. The extension pushes transcripts and summaries back into the Meetings page.</p>
       </div>
 
-      <div id="brainforge-status"></div>
+      <div id="brainforge-status" class="status status-info">Ready to capture this meeting.</div>
 
       <div id="brainforge-transcript-section">
-        <h4>📝 Transcript</h4>
+        <div class="brainforge-section-head">
+          <div>
+            <h4>Transcript</h4>
+            <p>Live capture from the current meeting</p>
+          </div>
+        </div>
         <div id="brainforge-transcript-text" class="transcript-box"></div>
       </div>
 
       <div id="brainforge-summary-section" style="display: none;">
-        <h4>✨ AI Summary</h4>
+        <div class="brainforge-section-head">
+          <div>
+            <h4>AI Summary</h4>
+            <p>Generated highlights, decisions, and next actions</p>
+          </div>
+        </div>
         <div id="brainforge-summary-text" class="summary-box"></div>
-        <button id="brainforge-save-btn" class="btn btn-success">💾 Save to BrainForge</button>
+        <button id="brainforge-save-btn" class="btn btn-success">Open in BrainForge</button>
       </div>
     </div>
   `;
-  
+
   document.body.appendChild(panel);
   attachPanelEventListeners();
 }
@@ -132,12 +149,12 @@ async function toggleRecording() {
   if (isRecording) {
     transcript = '';
     recognition.start();
-    btn.textContent = '⏹️ Stop Recording';
+    btn.textContent = 'Stop Capture';
     btn.classList.add('recording');
     document.getElementById('brainforge-summarize-btn').disabled = false;
   } else {
     recognition.stop();
-    btn.textContent = '🎤 Start Recording';
+    btn.textContent = 'Start Capture';
     btn.classList.remove('recording');
   }
 }
@@ -162,7 +179,7 @@ async function summarizeTranscript() {
 
   const summarizeBtn = document.getElementById('brainforge-summarize-btn');
   summarizeBtn.disabled = true;
-  summarizeBtn.textContent = '⏳ Summarizing...';
+  summarizeBtn.textContent = 'Generating...';
   updatePanelStatus('Generating AI summary...', 'progress');
 
   try {
@@ -174,16 +191,18 @@ async function summarizeTranscript() {
     const authToken = settings.authToken;
 
     if (!authToken) {
-      alert('Please login to BrainForge extension first');
+      alert('Open BrainForge Meetings first so the website can sync this extension session.');
       summarizeBtn.disabled = false;
-      summarizeBtn.textContent = '✨ Summarize';
+      summarizeBtn.textContent = 'Generate Summary';
       return;
     }
 
     if (!teamId) {
-      alert('Please choose team in extension settings first');
+      alert(
+        'Reconnect the extension from the BrainForge Meetings page so it knows which team to use.',
+      );
       summarizeBtn.disabled = false;
-      summarizeBtn.textContent = '✨ Summarize';
+      summarizeBtn.textContent = 'Generate Summary';
       return;
     }
 
@@ -191,7 +210,7 @@ async function summarizeTranscript() {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${authToken}`,
+        Authorization: `Bearer ${authToken}`,
       },
       body: JSON.stringify({
         title: `Meet Recording - ${new Date().toLocaleString('id-ID')}`,
@@ -208,14 +227,17 @@ async function summarizeTranscript() {
     const meetData = await meetResponse.json();
     const meetingId = meetData.data.id;
 
-    const summaryResponse = await fetch(`${apiUrl}/teams/${teamId}/meetings/${meetingId}/summarize`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${authToken}`,
+    const summaryResponse = await fetch(
+      `${apiUrl}/teams/${teamId}/meetings/${meetingId}/summarize`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${authToken}`,
+        },
+        body: JSON.stringify({ provider, model }),
       },
-      body: JSON.stringify({ provider, model }),
-    });
+    );
 
     if (!summaryResponse.ok) {
       const err = await summaryResponse.json().catch(() => ({}));
@@ -228,15 +250,15 @@ async function summarizeTranscript() {
     document.getElementById('brainforge-summary-section').style.display = 'block';
     document.getElementById('brainforge-summary-text').textContent = summary;
     document.getElementById('brainforge-save-btn').dataset.meetingId = meetingId;
-    
+
     updatePanelStatus('Summary complete!', 'success');
     summarizeBtn.disabled = false;
-    summarizeBtn.textContent = '✨ Summarize';
+    summarizeBtn.textContent = 'Generate Summary';
   } catch (error) {
     console.error('Summary error:', error);
     updatePanelStatus(`Error: ${error?.message || 'Unknown error'}`, 'error');
     summarizeBtn.disabled = false;
-    summarizeBtn.textContent = '✨ Summarize';
+    summarizeBtn.textContent = 'Generate Summary';
   }
 }
 
@@ -246,7 +268,7 @@ async function saveToMeetingsPage() {
     alert('No meeting to save');
     return;
   }
-  
+
   // Message to open BrainForge meetings page
   chrome.runtime.sendMessage({
     action: 'openMeetingsPage',
@@ -260,6 +282,13 @@ function togglePanelVisibility() {
   const panel = document.getElementById('brainforge-panel');
   panelVisible = !panelVisible;
   panel.classList.toggle('hidden', !panelVisible);
+}
+
+function showPanelInitially() {
+  const panel = document.getElementById('brainforge-panel');
+  if (!panel) return;
+  panelVisible = true;
+  panel.classList.remove('hidden');
 }
 
 // Selectors to try for Google Meet toolbar injection
@@ -277,7 +306,7 @@ function createToggleButton() {
   btn.className = 'brainforge-meet-btn';
   btn.setAttribute('title', 'BrainForge Meet Assistant');
   btn.setAttribute('aria-label', 'BrainForge Meet Assistant');
-  btn.innerHTML = '🧠';
+  btn.innerHTML = '<span class="brainforge-meet-btn-mark">BF</span>';
   btn.addEventListener('click', () => {
     createPanel();
     togglePanelVisibility();
@@ -285,43 +314,58 @@ function createToggleButton() {
   return btn;
 }
 
-// Create a button to show/hide panel (injected to Meet call controls)
+function ensureFloatingToggleButton() {
+  const existing = document.getElementById('brainforge-toggle-meet');
+  if (existing) {
+    existing.classList.add('brainforge-meet-btn-float');
+    return existing;
+  }
+
+  const floatBtn = createToggleButton();
+  floatBtn.classList.add('brainforge-meet-btn-float');
+  document.body.appendChild(floatBtn);
+  return floatBtn;
+}
+
+function mountToggleButtonToToolbar() {
+  const toggleBtn = document.getElementById('brainforge-toggle-meet') || createToggleButton();
+
+  for (const selector of MEET_TOOLBAR_SELECTORS) {
+    const container = document.querySelector(selector);
+    if (!container) continue;
+
+    const refBtn =
+      container.querySelector('button[data-tooltip*="More"]') ||
+      container.querySelector('button[aria-label*="More"]') ||
+      container.querySelector('button:last-child');
+
+    toggleBtn.classList.remove('brainforge-meet-btn-float');
+
+    if (refBtn && refBtn.parentElement) {
+      refBtn.parentElement.insertBefore(toggleBtn, refBtn);
+    } else {
+      container.appendChild(toggleBtn);
+    }
+
+    return true;
+  }
+
+  return false;
+}
+
+// Create a button to show/hide panel and keep trying toolbar mount for Meet dynamic DOM
 function addPanelToggleButton() {
-  const interval = setInterval(() => {
-    if (document.getElementById('brainforge-toggle-meet')) {
-      clearInterval(interval);
-      return;
-    }
+  ensureFloatingToggleButton();
+  mountToggleButtonToToolbar();
 
-    for (const selector of MEET_TOOLBAR_SELECTORS) {
-      const container = document.querySelector(selector);
-      if (!container) continue;
+  const observer = new MutationObserver(() => {
+    mountToggleButtonToToolbar();
+  });
 
-      const toggleBtn = createToggleButton();
-      const refBtn =
-        container.querySelector('button[data-tooltip*="More"]') ||
-        container.querySelector('button[aria-label*="More"]') ||
-        container.querySelector('button:last-child');
-
-      if (refBtn && refBtn.parentElement) {
-        refBtn.parentElement.insertBefore(toggleBtn, refBtn);
-      } else {
-        container.appendChild(toggleBtn);
-      }
-      clearInterval(interval);
-      return;
-    }
-  }, 1000);
-
-  // Fallback: after 8 seconds use a persistent floating button
-  setTimeout(() => {
-    clearInterval(interval);
-    if (!document.getElementById('brainforge-toggle-meet')) {
-      const floatBtn = createToggleButton();
-      floatBtn.classList.add('brainforge-meet-btn-float');
-      document.body.appendChild(floatBtn);
-    }
-  }, 8000);
+  observer.observe(document.documentElement, {
+    childList: true,
+    subtree: true,
+  });
 }
 
 // Initialize when DOM is ready
@@ -333,5 +377,4 @@ if (document.readyState === 'loading') {
 
 // Create panel button in Meet call controls
 createPanel();
-document.getElementById('brainforge-panel').classList.add('hidden');
-
+showPanelInitially();

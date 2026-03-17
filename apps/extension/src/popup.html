@@ -1,110 +1,147 @@
-<!DOCTYPE html>
+<!doctype html>
 <html>
-<head>
-    <meta charset="UTF-8">
+  <head>
+    <meta charset="UTF-8" />
     <title>BrainForge Meet Assistant</title>
-    <link rel="stylesheet" href="popup.css">
-</head>
-<body>
+    <link rel="stylesheet" href="popup.css" />
+  </head>
+  <body>
     <div class="popup-container">
-        <div class="popup-header">
-            <h2>🧠 BrainForge Meet</h2>
-            <p>AI Meeting Assistant</p>
+      <div class="popup-header">
+        <div class="popup-eyebrow">BrainForge Extension</div>
+        <h2>Meet Assistant</h2>
+        <p>
+          Capture Google Meet conversations, generate an AI summary, and sync the result back into
+          BrainForge.
+        </p>
+        <div class="popup-header-grid">
+          <div class="popup-stat">
+            <span>Workflow</span>
+            <strong>Same-account sync</strong>
+          </div>
+          <div class="popup-stat">
+            <span>Best use</span>
+            <strong>Google Meet capture</strong>
+          </div>
+        </div>
+      </div>
+
+      <div class="popup-content">
+        <div class="section">
+          <h3>Workspace Sync</h3>
+          <p class="section-copy">
+            This extension follows your BrainForge website session automatically. Open the Meetings
+            page on the website whenever you want to connect or refresh the session.
+          </p>
+          <div id="accountState" class="account-state">
+            Open BrainForge Meetings to sync this extension
+          </div>
+
+          <div class="info-grid">
+            <div class="info-card">
+              <span>Account</span>
+              <strong id="accountEmail">Waiting for website sync</strong>
+            </div>
+            <div class="info-card">
+              <span>Team</span>
+              <strong id="teamName">No team selected</strong>
+            </div>
+            <div class="info-card">
+              <span>Session</span>
+              <strong id="connectionMode">Needs website sync</strong>
+            </div>
+          </div>
+
+          <div class="button-group compact-gap">
+            <button id="openMeetingsBtn" class="btn btn-primary">Open BrainForge Meetings</button>
+            <button id="refreshBtn" class="btn btn-secondary">Refresh Sync</button>
+          </div>
         </div>
 
-        <div class="popup-content">
-            <div class="section">
-                <h3>Account</h3>
-                <div id="accountState" class="account-state">Not logged in</div>
-
-                <div id="loginForm" class="login-form">
-                    <div class="form-group">
-                        <label for="loginEmail">Email</label>
-                        <input type="email" id="loginEmail" placeholder="you@brainforge.app" value="">
-                    </div>
-                    <div class="form-group">
-                        <label for="loginPassword">Password</label>
-                        <input type="password" id="loginPassword" placeholder="Your password" value="">
-                    </div>
-                    <div class="button-group">
-                        <button id="loginBtn" class="btn btn-primary">Login</button>
-                        <button id="logoutBtn" class="btn btn-secondary" disabled>Logout</button>
-                    </div>
-                </div>
+        <div class="section">
+          <h3>Connection Info</h3>
+          <p class="section-copy">
+            These values are synced from the website automatically and used by the extension under
+            the hood.
+          </p>
+          <div class="info-grid two-columns">
+            <div class="info-card">
+              <span>App URL</span>
+              <strong id="workspaceApp">http://localhost:3000</strong>
             </div>
-
-            <div class="section">
-                <h3>Configuration</h3>
-                
-                <div class="form-group">
-                    <label for="apiUrl">API URL</label>
-                    <input type="text" id="apiUrl" placeholder="http://localhost:4000/api" value="">
-                </div>
-
-                <div class="form-group">
-                    <label for="appUrl">App URL</label>
-                    <input type="text" id="appUrl" placeholder="http://localhost:3000" value="">
-                    <small>Untuk buka halaman Meetings setelah summarize.</small>
-                </div>
-
-                <div class="form-group">
-                    <label for="teamSelect">Team</label>
-                    <select id="teamSelect">
-                        <option value="">Login dulu untuk memuat team...</option>
-                    </select>
-                </div>
-
-                <div class="form-group">
-                    <label for="provider">AI Provider</label>
-                    <select id="provider">
-                        <option value="COPILOT">Copilot</option>
-                        <option value="OPENAI">OpenAI</option>
-                        <option value="CLAUDE">Claude</option>
-                        <option value="GEMINI">Gemini</option>
-                        <option value="OPENROUTER">OpenRouter</option>
-                        <option value="GROQ">Groq</option>
-                    </select>
-                </div>
-
-                <div class="form-group">
-                    <label for="model">Model</label>
-                    <input type="text" id="model" placeholder="gpt-4o" value="">
-                </div>
-
-                <div class="form-group">
-                    <label for="language">Language</label>
-                    <select id="language">
-                        <option value="id-ID">Indonesian (Bahasa Indonesia)</option>
-                        <option value="en-US">English</option>
-                        <option value="es-ES">Spanish</option>
-                        <option value="fr-FR">French</option>
-                        <option value="de-DE">German</option>
-                        <option value="ja-JP">Japanese</option>
-                        <option value="zh-CN">Chinese (Simplified)</option>
-                    </select>
-                </div>
+            <div class="info-card">
+              <span>API URL</span>
+              <strong id="workspaceApi">http://localhost:4000/api</strong>
             </div>
-
-            <div class="section">
-                <h3>Instructions</h3>
-                <ol>
-                    <li>Isi API URL dan App URL sesuai environment (local/production)</li>
-                    <li>Login pakai akun BrainForge di atas</li>
-                    <li>Pilih team, provider, model, dan language</li>
-                    <li>Klik "Save Settings"</li>
-                    <li>Buka Google Meet dan klik tombol 🧠</li>
-                </ol>
-            </div>
-
-            <div class="button-group">
-                <button id="saveBtn" class="btn btn-primary">💾 Save Settings</button>
-                <button id="clearBtn" class="btn btn-secondary">🗑️ Clear Settings</button>
-            </div>
-
-            <div id="message" class="message"></div>
+          </div>
         </div>
+
+        <div class="section">
+          <h3>Meeting Defaults</h3>
+          <p class="section-copy">
+            Keep only the settings that affect capture quality and summarization. Workspace and
+            account details come directly from the website.
+          </p>
+
+          <div class="form-group">
+            <label for="provider">AI Provider</label>
+            <select id="provider">
+              <option value="COPILOT">Copilot</option>
+              <option value="OPENAI">OpenAI</option>
+              <option value="CLAUDE">Claude</option>
+              <option value="GEMINI">Gemini</option>
+              <option value="OPENROUTER">OpenRouter</option>
+              <option value="GROQ">Groq</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label for="model">Model</label>
+            <input type="text" id="model" placeholder="gpt-4o" value="" />
+          </div>
+
+          <div class="form-group">
+            <label for="language">Language</label>
+            <select id="language">
+              <option value="id-ID">Indonesian (Bahasa Indonesia)</option>
+              <option value="en-US">English</option>
+              <option value="es-ES">Spanish</option>
+              <option value="fr-FR">French</option>
+              <option value="de-DE">German</option>
+              <option value="ja-JP">Japanese</option>
+              <option value="zh-CN">Chinese (Simplified)</option>
+            </select>
+          </div>
+
+          <div class="button-group compact-gap">
+            <button id="saveBtn" class="btn btn-primary">Save Defaults</button>
+            <button id="openMeetBtn" class="btn btn-secondary">Open Google Meet</button>
+          </div>
+        </div>
+
+        <div class="section">
+          <h3>Flow</h3>
+          <p class="section-copy">The intended flow is simple now:</p>
+          <ol>
+            <li>Open BrainForge Meetings on the website</li>
+            <li>Let the website sync the extension session automatically</li>
+            <li>Join Google Meet and launch the assistant from the call controls</li>
+            <li>Generate the summary and review the meeting back in BrainForge</li>
+          </ol>
+          <div class="section-note">
+            Tip: if the website shows an older extension version, reload the unpacked extension in
+            `chrome://extensions/`.
+          </div>
+        </div>
+
+        <div class="button-group compact-gap">
+          <button id="logoutBtn" class="btn btn-secondary" disabled>Disconnect Extension</button>
+        </div>
+
+        <div id="message" class="message"></div>
+      </div>
     </div>
 
     <script src="popup.js"></script>
-</body>
+  </body>
 </html>

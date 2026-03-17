@@ -1,26 +1,61 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
-  Video, Plus, Loader2, Search, ChevronRight, ArrowLeft,
-  Trash2, MoreVertical, Mic, MicOff, Clock, Calendar as CalendarIcon,
-  ExternalLink, Sparkles, Copy, Check, Link2, Play, Square,
-  FileText, ListChecks, ChevronDown, Eye,
+  Video,
+  Plus,
+  Loader2,
+  Search,
+  ChevronRight,
+  ArrowLeft,
+  Trash2,
+  MoreVertical,
+  Mic,
+  MicOff,
+  Clock,
+  Calendar as CalendarIcon,
+  ExternalLink,
+  Sparkles,
+  Copy,
+  Check,
+  Link2,
+  Play,
+  Square,
+  FileText,
+  ListChecks,
+  ChevronDown,
+  Eye,
+  Puzzle,
+  RefreshCw,
+  ShieldCheck,
+  Download,
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
 } from '@/components/ui/dialog';
 import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
 } from '@/components/ui/select';
 import {
-  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { useTeamStore } from '@/stores/team-store';
 import { useProjectStore } from '@/stores/project-store';
+import { useAuthStore } from '@/stores/auth-store';
 import { api } from '@/lib/api';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
@@ -28,6 +63,27 @@ import { DeleteConfirmDialog } from '@/components/shared/delete-confirm-dialog';
 
 const ACCENT = '#10b981'; // emerald-500
 const PROVIDERS = ['OPENROUTER', 'OPENAI', 'CLAUDE', 'GEMINI', 'GROQ', 'COPILOT'];
+const EXTENSION_PING_TIMEOUT_MS = 1200;
+const EXTENSION_CONNECT_TIMEOUT_MS = 2200;
+const LATEST_EXTENSION_VERSION = '1.0.6';
+
+type ExtensionInstallState = 'checking' | 'installed' | 'missing';
+type ExtensionConnectionState = 'syncing' | 'ready' | 'needs-connection';
+
+function compareSemver(a?: string | null, b?: string | null) {
+  const aParts = (a || '0.0.0').split('.').map((part) => Number(part) || 0);
+  const bParts = (b || '0.0.0').split('.').map((part) => Number(part) || 0);
+  const max = Math.max(aParts.length, bParts.length);
+
+  for (let i = 0; i < max; i += 1) {
+    const left = aParts[i] || 0;
+    const right = bParts[i] || 0;
+    if (left > right) return 1;
+    if (left < right) return -1;
+  }
+
+  return 0;
+}
 
 const STATUS_MAP: Record<string, { label: string; color: string; bg: string }> = {
   SCHEDULED: { label: 'Scheduled', color: '#3b82f6', bg: 'bg-blue-500/10' },
@@ -42,35 +98,80 @@ function renderMarkdown(text: string): string {
   const codeBlocks: string[] = [];
   let processed = text.replace(/```(\w*)\n([\s\S]*?)```/g, (_m, lang, code) => {
     const idx = codeBlocks.length;
-    const langLabel = lang ? '<div class="flex items-center justify-between px-4 py-1.5 bg-muted/40 border-b border-border text-[10px] font-mono text-muted-foreground uppercase tracking-wider"><span>' + lang + '</span></div>' : '';
+    const langLabel = lang
+      ? '<div class="flex items-center justify-between px-4 py-1.5 bg-muted/40 border-b border-border text-[10px] font-mono text-muted-foreground uppercase tracking-wider"><span>' +
+        lang +
+        '</span></div>'
+      : '';
     codeBlocks.push(
-      '<div class="rounded-lg border border-border my-4 overflow-hidden bg-muted/30">' + langLabel + '<pre class="p-4 overflow-x-auto"><code class="text-[13px] font-mono text-foreground leading-relaxed">' + code.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').trim() + '</code></pre></div>'
+      '<div class="rounded-lg border border-border my-4 overflow-hidden bg-muted/30">' +
+        langLabel +
+        '<pre class="p-4 overflow-x-auto"><code class="text-[13px] font-mono text-foreground leading-relaxed">' +
+        code.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').trim() +
+        '</code></pre></div>',
     );
     return '%%CB_' + idx + '%%';
   });
   const inlineCodes: string[] = [];
   processed = processed.replace(/`([^`]+)`/g, (_m, code) => {
     const idx = inlineCodes.length;
-    inlineCodes.push('<code class="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 px-1.5 py-0.5 rounded text-[13px] font-mono">' + code.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</code>');
+    inlineCodes.push(
+      '<code class="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 px-1.5 py-0.5 rounded text-[13px] font-mono">' +
+        code.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;') +
+        '</code>',
+    );
     return '%%IC_' + idx + '%%';
   });
   let html = processed
-    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-    .replace(/^#### (.+)$/gm, '<h4 class="text-[15px] font-semibold text-foreground mt-5 mb-2">$1</h4>')
-    .replace(/^### (.+)$/gm, '<h3 class="text-base font-semibold text-foreground mt-6 mb-2.5">$1</h3>')
-    .replace(/^## (.+)$/gm, '<h2 class="text-lg font-bold text-foreground mt-7 mb-3 pb-2 border-b border-border/60">$1</h2>')
-    .replace(/^# (.+)$/gm, '<h1 class="text-xl font-bold text-foreground mt-8 mb-4 pb-2.5 border-b-2 border-emerald-500/30">$1</h1>')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(
+      /^#### (.+)$/gm,
+      '<h4 class="text-[15px] font-semibold text-foreground mt-5 mb-2">$1</h4>',
+    )
+    .replace(
+      /^### (.+)$/gm,
+      '<h3 class="text-base font-semibold text-foreground mt-6 mb-2.5">$1</h3>',
+    )
+    .replace(
+      /^## (.+)$/gm,
+      '<h2 class="text-lg font-bold text-foreground mt-7 mb-3 pb-2 border-b border-border/60">$1</h2>',
+    )
+    .replace(
+      /^# (.+)$/gm,
+      '<h1 class="text-xl font-bold text-foreground mt-8 mb-4 pb-2.5 border-b-2 border-emerald-500/30">$1</h1>',
+    )
     .replace(/^---$/gm, '<hr class="border-border/60 my-8" />')
-    .replace(/^> (.+)$/gm, '<blockquote class="border-l-4 border-emerald-500 pl-4 py-2 my-3 bg-emerald-500/5 rounded-r-lg text-muted-foreground italic text-[14px]">$1</blockquote>')
+    .replace(
+      /^> (.+)$/gm,
+      '<blockquote class="border-l-4 border-emerald-500 pl-4 py-2 my-3 bg-emerald-500/5 rounded-r-lg text-muted-foreground italic text-[14px]">$1</blockquote>',
+    )
     .replace(/\*\*(.+?)\*\*/g, '<strong class="font-semibold text-foreground">$1</strong>')
     .replace(/\*(.+?)\*/g, '<em class="italic text-foreground/80">$1</em>')
     .replace(/^[-*] (.+)$/gm, '<li class="ml-5 list-disc my-1 text-[14px] leading-relaxed">$1</li>')
-    .replace(/^\d+\. (.+)$/gm, '<li class="ml-5 list-decimal my-1 text-[14px] leading-relaxed">$1</li>')
-    .replace(/((?:<li class="ml-5 list-disc[^>]*>.*<\/li>\n?)+)/g, '<ul class="my-3 space-y-0.5">$1</ul>')
-    .replace(/((?:<li class="ml-5 list-decimal[^>]*>.*<\/li>\n?)+)/g, '<ol class="my-3 space-y-0.5">$1</ol>')
-    .replace(/^(?!<[a-z/!]|%%CB|%%IC)(.+)$/gm, '<p class="my-2 leading-relaxed text-[14px] text-foreground/90">$1</p>');
-  codeBlocks.forEach((block, i) => { html = html.replace('%%CB_' + i + '%%', block); });
-  inlineCodes.forEach((code, i) => { html = html.replace('%%IC_' + i + '%%', code); });
+    .replace(
+      /^\d+\. (.+)$/gm,
+      '<li class="ml-5 list-decimal my-1 text-[14px] leading-relaxed">$1</li>',
+    )
+    .replace(
+      /((?:<li class="ml-5 list-disc[^>]*>.*<\/li>\n?)+)/g,
+      '<ul class="my-3 space-y-0.5">$1</ul>',
+    )
+    .replace(
+      /((?:<li class="ml-5 list-decimal[^>]*>.*<\/li>\n?)+)/g,
+      '<ol class="my-3 space-y-0.5">$1</ol>',
+    )
+    .replace(
+      /^(?!<[a-z/!]|%%CB|%%IC)(.+)$/gm,
+      '<p class="my-2 leading-relaxed text-[14px] text-foreground/90">$1</p>',
+    );
+  codeBlocks.forEach((block, i) => {
+    html = html.replace('%%CB_' + i + '%%', block);
+  });
+  inlineCodes.forEach((code, i) => {
+    html = html.replace('%%IC_' + i + '%%', code);
+  });
   return html;
 }
 
@@ -83,7 +184,17 @@ function MarkdownContent({ content }: { content: string }) {
   );
 }
 
-function DetailSection({ label, icon: Icon, color, content }: { label: string; icon: any; color: string; content: string }) {
+function DetailSection({
+  label,
+  icon: Icon,
+  color,
+  content,
+}: {
+  label: string;
+  icon: any;
+  color: string;
+  content: string;
+}) {
   const [copied, setCopied] = useState(false);
   function handleCopy() {
     navigator.clipboard.writeText(content || '');
@@ -95,7 +206,10 @@ function DetailSection({ label, icon: Icon, color, content }: { label: string; i
   return (
     <div className="bg-card border border-border rounded-2xl p-6 group/section">
       <div className="flex items-center gap-2 mb-4">
-        <div className="h-7 w-7 rounded-lg flex items-center justify-center" style={{ background: `${color}15` }}>
+        <div
+          className="h-7 w-7 rounded-lg flex items-center justify-center"
+          style={{ background: `${color}15` }}
+        >
           <Icon className="h-3.5 w-3.5" style={{ color }} />
         </div>
         <h2 className="text-sm font-semibold text-foreground">{label}</h2>
@@ -116,6 +230,8 @@ function DetailSection({ label, icon: Icon, color, content }: { label: string; i
 export default function MeetingsPage() {
   const { activeTeam } = useTeamStore();
   const activeProject = useProjectStore((s) => s.activeProject);
+  const authUser = useAuthStore((s) => s.user);
+  const authTokens = useAuthStore((s) => s.tokens);
   const teamId = activeTeam?.id;
   const queryClient = useQueryClient();
 
@@ -146,11 +262,28 @@ export default function MeetingsPage() {
   const [sumProvider, setSumProvider] = useState('COPILOT');
   const [sumModel, setSumModel] = useState('gpt-4o');
   const [summarizing, setSummarizing] = useState(false);
+  const [extensionState, setExtensionState] = useState<ExtensionInstallState>('checking');
+  const [extensionInfo, setExtensionInfo] = useState<{
+    version?: string;
+    hasAuthToken?: boolean;
+    hasTeamId?: boolean;
+    userId?: string | null;
+    email?: string | null;
+    teamId?: string | null;
+  } | null>(null);
+  const [extensionConnectionState, setExtensionConnectionState] =
+    useState<ExtensionConnectionState>('needs-connection');
+  const [extensionMessage, setExtensionMessage] = useState<string | null>(null);
+  const [manualReconnectPending, setManualReconnectPending] = useState(false);
+  const autoConnectKeyRef = useRef<string | null>(null);
 
   // ── Queries ──
   const { data: meetingsRes } = useQuery({
     queryKey: ['meetings', teamId, activeProject?.id],
-    queryFn: () => api.get<{ data: any[] }>(`/teams/${teamId}/meetings${activeProject?.id ? `?projectId=${activeProject.id}` : ''}`),
+    queryFn: () =>
+      api.get<{ data: any[] }>(
+        `/teams/${teamId}/meetings${activeProject?.id ? `?projectId=${activeProject.id}` : ''}`,
+      ),
     enabled: !!teamId,
   });
 
@@ -168,12 +301,16 @@ export default function MeetingsPage() {
   const meetings = meetingsRes?.data || [];
   const providerModels = models?.data?.[sumProvider] || [];
 
-  const connectedProviders = new Set((keysData?.data || []).filter((k: any) => k.isActive).map((k: any) => k.provider.toUpperCase()));
+  const connectedProviders = new Set(
+    (keysData?.data || []).filter((k: any) => k.isActive).map((k: any) => k.provider.toUpperCase()),
+  );
 
   useEffect(() => {
     if (models?.data && connectedProviders.size > 0 && !connectedProviders.has(sumProvider)) {
-      const first = ['COPILOT', 'OPENAI', 'GEMINI', 'CLAUDE', 'OPENROUTER', 'GROQ'].find(p => connectedProviders.has(p))
-        || Array.from(connectedProviders)[0];
+      const first =
+        ['COPILOT', 'OPENAI', 'GEMINI', 'CLAUDE', 'OPENROUTER', 'GROQ'].find((p) =>
+          connectedProviders.has(p),
+        ) || Array.from(connectedProviders)[0];
       if (first) {
         setSumProvider(first);
         const firstModel = models.data[first]?.[0];
@@ -187,6 +324,230 @@ export default function MeetingsPage() {
       setSumModel(providerModels[0].id);
     }
   }, [sumProvider, models]);
+
+  const sendExtensionRequest = useCallback(
+    (type: string, payload?: Record<string, any>, timeout = EXTENSION_PING_TIMEOUT_MS) =>
+      new Promise<any>((resolve, reject) => {
+        if (typeof window === 'undefined') {
+          reject(new Error('Window is not available'));
+          return;
+        }
+
+        const requestId = `brainforge-ext-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+
+        const handleMessage = (event: MessageEvent) => {
+          if (event.source !== window) return;
+
+          const data = event.data;
+          if (!data || data.source !== 'brainforge-extension' || data.target !== 'brainforge-web') {
+            return;
+          }
+          if (data.requestId !== requestId) return;
+
+          window.clearTimeout(timeoutId);
+          window.removeEventListener('message', handleMessage);
+          resolve(data.payload || null);
+        };
+
+        const timeoutId = window.setTimeout(() => {
+          window.removeEventListener('message', handleMessage);
+          reject(new Error('Extension did not respond in time'));
+        }, timeout);
+
+        window.addEventListener('message', handleMessage);
+        window.postMessage(
+          {
+            source: 'brainforge-web',
+            target: 'brainforge-extension',
+            type,
+            requestId,
+            payload,
+          },
+          '*',
+        );
+      }),
+    [],
+  );
+
+  const readExtensionMarker = useCallback(() => {
+    if (typeof document === 'undefined') return null;
+
+    const root = document.documentElement.dataset;
+    if (root.brainforgeExtensionInstalled !== 'true') return null;
+
+    return {
+      installed: true,
+      version: root.brainforgeExtensionVersion || undefined,
+    };
+  }, []);
+
+  const detectExtension = useCallback(() => {
+    setExtensionState('checking');
+    setExtensionMessage(null);
+
+    const marker = readExtensionMarker();
+    if (marker) {
+      setExtensionInfo((current) => ({ ...current, ...marker }));
+      setExtensionState('installed');
+    }
+
+    sendExtensionRequest('BRAINFORGE_EXTENSION_PING')
+      .then((payload) => {
+        setExtensionInfo(payload || null);
+        setExtensionState('installed');
+      })
+      .catch(() => {
+        const fallbackMarker = readExtensionMarker();
+        if (fallbackMarker) {
+          setExtensionInfo((current) => ({ ...current, ...fallbackMarker }));
+          setExtensionState('installed');
+          setExtensionConnectionState('needs-connection');
+          setExtensionMessage(
+            'Extension bridge detected, but the handshake failed. Reload the extension and refresh this page.',
+          );
+          return;
+        }
+
+        setExtensionInfo(null);
+        setExtensionState('missing');
+        setExtensionConnectionState('needs-connection');
+      });
+  }, [readExtensionMarker, sendExtensionRequest]);
+
+  const connectExtension = useCallback(
+    async (options?: { manual?: boolean }) => {
+      if (!authUser || !authTokens) {
+        setExtensionConnectionState('needs-connection');
+        setExtensionMessage('Log in to BrainForge before connecting the extension.');
+        return;
+      }
+
+      if (!teamId) {
+        setExtensionConnectionState('needs-connection');
+        setExtensionMessage('Select a team before connecting the extension.');
+        return;
+      }
+
+      const preserveCurrentView = Boolean(options?.manual && extensionConnectionState === 'ready');
+
+      if (preserveCurrentView) {
+        setManualReconnectPending(true);
+      } else {
+        setExtensionConnectionState('syncing');
+      }
+      setExtensionMessage(null);
+
+      try {
+        const payload = await sendExtensionRequest(
+          'BRAINFORGE_EXTENSION_CONNECT',
+          {
+            authToken: authTokens.accessToken,
+            refreshToken: authTokens.refreshToken,
+            teamId,
+            user: authUser,
+            appUrl:
+              typeof window !== 'undefined'
+                ? window.location.origin
+                : process.env.NEXT_PUBLIC_APP_URL,
+            apiUrl: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api',
+          },
+          EXTENSION_CONNECT_TIMEOUT_MS,
+        );
+
+        setExtensionInfo(payload || null);
+        setExtensionConnectionState('ready');
+        setExtensionMessage(null);
+      } catch (error: any) {
+        if (!preserveCurrentView) {
+          setExtensionConnectionState('needs-connection');
+        }
+        setExtensionMessage(error?.message || 'Failed to connect the extension.');
+      } finally {
+        if (preserveCurrentView) {
+          setManualReconnectPending(false);
+        }
+      }
+    },
+    [authTokens, authUser, extensionConnectionState, sendExtensionRequest, teamId],
+  );
+
+  useEffect(() => {
+    detectExtension();
+
+    const handleFocus = () => detectExtension();
+    window.addEventListener('focus', handleFocus);
+
+    return () => {
+      window.removeEventListener('focus', handleFocus);
+    };
+  }, [detectExtension]);
+
+  useEffect(() => {
+    if (extensionState !== 'installed') return;
+
+    const isConnected = Boolean(
+      extensionInfo?.hasAuthToken &&
+      extensionInfo?.hasTeamId &&
+      extensionInfo?.userId &&
+      authUser?.id &&
+      extensionInfo.userId === authUser.id &&
+      extensionInfo.teamId === teamId,
+    );
+
+    if (isConnected) {
+      setExtensionConnectionState('ready');
+      setExtensionMessage(null);
+      return;
+    }
+
+    setExtensionConnectionState('needs-connection');
+
+    if (extensionInfo?.userId && authUser?.id && extensionInfo.userId !== authUser.id) {
+      setExtensionMessage('The extension is signed in with a different BrainForge account.');
+      return;
+    }
+
+    if (
+      extensionInfo?.hasAuthToken &&
+      extensionInfo?.teamId &&
+      teamId &&
+      extensionInfo.teamId !== teamId
+    ) {
+      setExtensionMessage('The extension is connected to a different team.');
+      return;
+    }
+
+    if (!authUser || !authTokens) {
+      setExtensionMessage('Log in to BrainForge to finish connecting the extension.');
+      return;
+    }
+
+    if (!teamId) {
+      setExtensionMessage('Select a team to finish connecting the extension.');
+      return;
+    }
+
+    setExtensionMessage('Extension detected. Connect it to your current BrainForge account.');
+  }, [extensionState, extensionInfo, authUser, authTokens, teamId]);
+
+  useEffect(() => {
+    if (extensionState !== 'installed' || !authUser || !authTokens || !teamId) return;
+
+    const isConnected = Boolean(
+      extensionInfo?.hasAuthToken &&
+      extensionInfo?.hasTeamId &&
+      extensionInfo?.userId === authUser.id &&
+      extensionInfo?.teamId === teamId,
+    );
+
+    if (isConnected) return;
+
+    const connectKey = `${authUser.id}:${teamId}:${authTokens.accessToken}`;
+    if (autoConnectKeyRef.current === connectKey) return;
+
+    autoConnectKeyRef.current = connectKey;
+    void connectExtension();
+  }, [extensionState, extensionInfo, authTokens, authUser, connectExtension, teamId]);
 
   // ── Mutations ──
   const createMutation = useMutation({
@@ -205,7 +566,8 @@ export default function MeetingsPage() {
   });
 
   const updateMutation = useMutation({
-    mutationFn: ({ id, data }: { id: string; data: any }) => api.patch(`/teams/${teamId}/meetings/${id}`, data),
+    mutationFn: ({ id, data }: { id: string; data: any }) =>
+      api.patch(`/teams/${teamId}/meetings/${id}`, data),
     onSuccess: (res: any) => {
       queryClient.invalidateQueries({ queryKey: ['meetings', teamId] });
       if (selectedMeeting) setSelectedMeeting(res.data);
@@ -227,10 +589,11 @@ export default function MeetingsPage() {
   });
 
   const summarizeMutation = useMutation({
-    mutationFn: (id: string) => api.post(`/teams/${teamId}/meetings/${id}/summarize`, {
-      provider: sumProvider,
-      model: sumModel,
-    }),
+    mutationFn: (id: string) =>
+      api.post(`/teams/${teamId}/meetings/${id}/summarize`, {
+        provider: sumProvider,
+        model: sumModel,
+      }),
     onSuccess: (res: any) => {
       queryClient.invalidateQueries({ queryKey: ['meetings', teamId] });
       setSelectedMeeting(res.data);
@@ -247,7 +610,8 @@ export default function MeetingsPage() {
   // ── Voice Recording ──
   async function startRecording() {
     try {
-      const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+      const SpeechRecognition =
+        (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
       if (SpeechRecognition) {
         const recognition = new SpeechRecognition();
         recognition.continuous = true;
@@ -266,7 +630,9 @@ export default function MeetingsPage() {
             }
           }
         };
-        recognition.onerror = () => { /* silently continue */ };
+        recognition.onerror = () => {
+          /* silently continue */
+        };
         recognition.start();
         recognitionRef.current = recognition;
       }
@@ -283,7 +649,7 @@ export default function MeetingsPage() {
 
       setIsRecording(true);
       setRecordingTime(0);
-      timerRef.current = setInterval(() => setRecordingTime(t => t + 1), 1000);
+      timerRef.current = setInterval(() => setRecordingTime((t) => t + 1), 1000);
     } catch {
       toast.error('Microphone access denied');
     }
@@ -296,7 +662,7 @@ export default function MeetingsPage() {
     }
     if (mediaRecorderRef.current) {
       mediaRecorderRef.current.stop();
-      mediaRecorderRef.current.stream.getTracks().forEach(t => t.stop());
+      mediaRecorderRef.current.stream.getTracks().forEach((t) => t.stop());
       mediaRecorderRef.current = null;
     }
     if (timerRef.current) {
@@ -320,16 +686,17 @@ export default function MeetingsPage() {
       if (recognitionRef.current) recognitionRef.current.stop();
       if (mediaRecorderRef.current) {
         mediaRecorderRef.current.stop();
-        mediaRecorderRef.current.stream.getTracks().forEach(t => t.stop());
+        mediaRecorderRef.current.stream.getTracks().forEach((t) => t.stop());
       }
       if (timerRef.current) clearInterval(timerRef.current);
     };
   }, []);
 
   // ── Filtered ──
-  const filtered = meetings.filter((m: any) =>
-    m.title.toLowerCase().includes(search.toLowerCase()) ||
-    m.description?.toLowerCase().includes(search.toLowerCase())
+  const filtered = meetings.filter(
+    (m: any) =>
+      m.title.toLowerCase().includes(search.toLowerCase()) ||
+      m.description?.toLowerCase().includes(search.toLowerCase()),
   );
 
   function formatTime(s: number) {
@@ -339,11 +706,219 @@ export default function MeetingsPage() {
   }
 
   function formatDate(d: string) {
-    return new Date(d).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' });
+    return new Date(d).toLocaleDateString('id-ID', {
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric',
+    });
   }
 
   function formatDateTime(d: string) {
-    return new Date(d).toLocaleString('id-ID', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+    return new Date(d).toLocaleString('id-ID', {
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  }
+
+  const extensionAccountLabel = extensionInfo?.email || authUser?.email || 'Connected workspace';
+  const extensionVersionLabel = extensionInfo?.version || 'Unknown';
+  const isExtensionOutdated =
+    !!extensionInfo?.version && compareSemver(extensionInfo.version, LATEST_EXTENSION_VERSION) < 0;
+
+  if (extensionState !== 'installed' || extensionConnectionState !== 'ready') {
+    const extensionDetected = extensionState === 'installed';
+    const isChecking = extensionState === 'checking';
+    const isSyncing = extensionDetected && extensionConnectionState === 'syncing';
+    const gateTitle = extensionDetected
+      ? 'Connect the BrainForge extension to this workspace'
+      : 'Install the BrainForge extension to use Meetings';
+    const gateDescription = extensionDetected
+      ? 'The extension is installed, but this website session is not linked yet. Connect it with the same BrainForge account so meeting transcripts and AI summaries can sync here automatically.'
+      : 'Meeting transcripts, AI recordings, and discussion summaries now flow through the BrainForge browser extension. Install it first to continue.';
+    const statusLabel = isChecking
+      ? 'Checking extension...'
+      : isSyncing
+        ? 'Extension detected, syncing account...'
+        : extensionDetected
+          ? 'Extension detected, connection required'
+          : 'Extension not detected';
+
+    return (
+      <div className="flex-1 flex items-center justify-center overflow-y-auto px-6 py-10">
+        <div className="w-full max-w-4xl rounded-[28px] border border-border bg-card overflow-hidden shadow-[0_24px_70px_rgba(16,185,129,0.08)]">
+          <div className="relative border-b border-border px-8 py-8 bg-[radial-gradient(circle_at_top_left,rgba(16,185,129,0.16),transparent_35%),linear-gradient(180deg,rgba(16,185,129,0.06),transparent)]">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+              <div className="max-w-2xl">
+                <div className="inline-flex items-center gap-2 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-emerald-600">
+                  <Puzzle className="h-3.5 w-3.5" />
+                  {extensionDetected ? 'Extension Setup' : 'Extension Required'}
+                </div>
+                <h1 className="mt-4 text-2xl sm:text-3xl font-semibold text-foreground">
+                  {gateTitle}
+                </h1>
+                <p className="mt-3 max-w-xl text-sm leading-6 text-muted-foreground">
+                  {gateDescription}
+                </p>
+              </div>
+              <div className="rounded-2xl border border-white/40 bg-background/80 px-4 py-3 backdrop-blur-sm">
+                <div className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
+                  Status
+                </div>
+                <div className="mt-2 flex items-center gap-2 text-sm font-medium text-foreground">
+                  {isChecking || isSyncing ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin text-emerald-500" />
+                      {statusLabel}
+                    </>
+                  ) : (
+                    <>
+                      <RefreshCw className="h-4 w-4 text-amber-500" />
+                      {statusLabel}
+                    </>
+                  )}
+                </div>
+                {extensionInfo?.version && (
+                  <div className="mt-2 text-xs text-muted-foreground">
+                    Version {extensionInfo.version}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          <div className="grid gap-6 px-8 py-8 lg:grid-cols-[1.4fr_0.9fr]">
+            <div className="space-y-5">
+              <div className="rounded-2xl border border-border bg-background/70 p-5">
+                <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
+                  <ShieldCheck className="h-4 w-4 text-emerald-500" />
+                  Install locally
+                </div>
+                <ol className="mt-4 space-y-3 text-sm text-muted-foreground">
+                  <li>1. Download the extension `.zip` from the button on the right.</li>
+                  <li>
+                    2. Extract the zip into a normal folder such as `brainforge-meet-assistant`.
+                  </li>
+                  <li>3. Open `chrome://extensions/` in your Chromium browser.</li>
+                  <li>4. Turn on `Developer mode` in the top-right corner.</li>
+                  <li>5. Click `Load unpacked` and select the extracted folder.</li>
+                  <li>6. If the extension was already loaded before, click `Reload` on it.</li>
+                  <li>7. Return to this page and click `Check again`.</li>
+                </ol>
+                <div className="mt-4 rounded-xl border border-dashed border-border px-4 py-3 text-xs leading-5 text-muted-foreground">
+                  Chrome does not install local extensions directly from a `.zip` file. The archive
+                  is only for download convenience; you still need to extract it and use `Load
+                  unpacked`.
+                </div>
+              </div>
+
+              <div className="rounded-2xl border border-border bg-background/70 p-5">
+                <div className="text-sm font-semibold text-foreground">Why this setup matters</div>
+                <div className="mt-3 grid gap-3 sm:grid-cols-3">
+                  <div className="rounded-xl border border-border bg-card px-4 py-3">
+                    <div className="text-xs font-semibold text-foreground">
+                      Automatic transcript sync
+                    </div>
+                    <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                      Meetings recorded in the extension flow straight into BrainForge as structured
+                      data.
+                    </p>
+                  </div>
+                  <div className="rounded-xl border border-border bg-card px-4 py-3">
+                    <div className="text-xs font-semibold text-foreground">
+                      AI summaries stay linked
+                    </div>
+                    <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                      Summaries, action items, and follow-ups land back on this page automatically.
+                    </p>
+                  </div>
+                  <div className="rounded-xl border border-border bg-card px-4 py-3">
+                    <div className="text-xs font-semibold text-foreground">
+                      Same-account workflow
+                    </div>
+                    <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                      The extension now needs to use the same BrainForge account and team as this
+                      site.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="rounded-2xl border border-border bg-background/70 p-5">
+              <div className="text-sm font-semibold text-foreground">
+                {extensionDetected ? 'Connection status' : 'Next steps'}
+              </div>
+              <div className="mt-3 space-y-3 text-sm text-muted-foreground">
+                <p>- Refresh the BrainForge tab after installing or reloading the extension.</p>
+                <p>
+                  - Make sure `BrainForge Meet Assistant` is enabled in the same browser profile.
+                </p>
+                <p>
+                  - Once the extension is detected and synced, this gate disappears automatically.
+                </p>
+              </div>
+
+              {extensionMessage && (
+                <div className="mt-4 rounded-xl border border-border bg-card px-4 py-3 text-sm text-foreground">
+                  {extensionMessage}
+                </div>
+              )}
+
+              {extensionDetected && extensionInfo?.email && (
+                <div className="mt-4 rounded-xl border border-border bg-card px-4 py-3 text-xs leading-5 text-muted-foreground">
+                  Extension account:{' '}
+                  <span className="font-medium text-foreground">{extensionInfo.email}</span>
+                  {extensionInfo.teamId ? (
+                    <>
+                      {' '}
+                      • Team{' '}
+                      <span className="font-medium text-foreground">{extensionInfo.teamId}</span>
+                    </>
+                  ) : null}
+                </div>
+              )}
+
+              <a
+                href="/downloads/brainforge-meet-assistant.zip"
+                download
+                className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-xl border border-border bg-card px-4 py-3 text-sm font-medium text-foreground transition-all hover:bg-muted"
+              >
+                <Download className="h-4 w-4" />
+                Download Extension (.zip)
+              </a>
+
+              <button
+                onClick={extensionDetected ? () => connectExtension() : detectExtension}
+                disabled={isChecking || isSyncing}
+                className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-medium text-white transition-all hover:opacity-90 disabled:opacity-60"
+                style={{ background: ACCENT }}
+              >
+                {isChecking || isSyncing ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <RefreshCw className="h-4 w-4" />
+                )}
+                {isChecking
+                  ? 'Checking extension...'
+                  : isSyncing
+                    ? 'Connecting extension...'
+                    : extensionDetected
+                      ? 'Connect current account'
+                      : 'Check again'}
+              </button>
+
+              <div className="mt-4 rounded-xl border border-dashed border-border px-4 py-3 text-xs leading-5 text-muted-foreground">
+                If detection still fails, reload the extension in `chrome://extensions/` and then do
+                a hard refresh here with `Ctrl+Shift+R`.
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   // ── DETAIL VIEW ──
@@ -355,7 +930,11 @@ export default function MeetingsPage() {
         {/* Header */}
         <div className="shrink-0 flex items-center gap-3 px-6 py-4 border-b border-border bg-background/80 backdrop-blur-sm">
           <button
-            onClick={() => { setSelectedMeeting(null); setTranscript(''); setIsRecording(false); }}
+            onClick={() => {
+              setSelectedMeeting(null);
+              setTranscript('');
+              setIsRecording(false);
+            }}
             className="h-8 w-8 rounded-lg flex items-center justify-center hover:bg-muted transition-colors"
           >
             <ArrowLeft className="h-4 w-4" />
@@ -367,7 +946,10 @@ export default function MeetingsPage() {
                 <Clock className="h-3 w-3" />
                 {formatDate(m.createdAt)}
               </span>
-              <span className={cn('px-2 py-0.5 rounded-full text-[11px] font-medium', status.bg)} style={{ color: status.color }}>
+              <span
+                className={cn('px-2 py-0.5 rounded-full text-[11px] font-medium', status.bg)}
+                style={{ color: status.color }}
+              >
                 {status.label}
               </span>
               {m.project && (
@@ -386,7 +968,9 @@ export default function MeetingsPage() {
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
               {m.meetLink && (
-                <DropdownMenuItem onClick={() => window.open(m.meetLink, '_blank', 'noopener,noreferrer')}>
+                <DropdownMenuItem
+                  onClick={() => window.open(m.meetLink, '_blank', 'noopener,noreferrer')}
+                >
                   <ExternalLink className="h-4 w-4 mr-2" />
                   Open Meet Link
                 </DropdownMenuItem>
@@ -444,13 +1028,66 @@ export default function MeetingsPage() {
             )}
           </div>
 
+          <div className="rounded-2xl border border-border bg-card p-5">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+              <div className="max-w-2xl">
+                <div className="inline-flex items-center gap-2 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-emerald-600">
+                  <ShieldCheck className="h-3.5 w-3.5" />
+                  Extension Capture Preferred
+                </div>
+                <h2 className="mt-3 text-base font-semibold text-foreground">
+                  Use the BrainForge extension in Google Meet for the cleanest workflow
+                </h2>
+                <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                  The extension is the primary capture path now. It pushes transcripts, AI
+                  summaries, and follow-up items back into this page automatically. The browser
+                  recorder below stays available only as a fallback.
+                </p>
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2 lg:w-[320px]">
+                <div className="rounded-xl border border-border bg-background px-4 py-3">
+                  <div className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground">
+                    Account
+                  </div>
+                  <div className="mt-1 truncate text-sm font-medium text-foreground">
+                    {extensionAccountLabel}
+                  </div>
+                </div>
+                <div className="rounded-xl border border-border bg-background px-4 py-3">
+                  <div className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground">
+                    Extension
+                  </div>
+                  <div className="mt-1 text-sm font-medium text-foreground">
+                    v{extensionVersionLabel}
+                  </div>
+                </div>
+              </div>
+            </div>
+            {m.meetLink && (
+              <div className="mt-4 flex flex-wrap items-center gap-3">
+                <button
+                  onClick={() => window.open(m.meetLink, '_blank', 'noopener,noreferrer')}
+                  className="inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-medium text-white transition-opacity hover:opacity-90"
+                  style={{ background: ACCENT }}
+                >
+                  <Video className="h-4 w-4" />
+                  Open Google Meet
+                </button>
+                <span className="text-xs text-muted-foreground">
+                  Launch the meeting, open the BrainForge assistant inside Meet, and let it sync the
+                  transcript here.
+                </span>
+              </div>
+            )}
+          </div>
+
           {/* Voice Recorder */}
           <div className="bg-card border border-border rounded-2xl p-5">
             <div className="flex items-center gap-2 mb-4">
               <div className="h-7 w-7 rounded-lg bg-emerald-500/10 flex items-center justify-center">
                 <Mic className="h-3.5 w-3.5 text-emerald-500" />
               </div>
-              <h2 className="text-sm font-semibold text-foreground">Voice Recorder</h2>
+              <h2 className="text-sm font-semibold text-foreground">Browser Recorder Fallback</h2>
               {isRecording && (
                 <span className="flex items-center gap-1.5 ml-auto text-xs text-red-500 font-medium">
                   <span className="h-2 w-2 rounded-full bg-red-500 animate-pulse" />
@@ -459,7 +1096,9 @@ export default function MeetingsPage() {
               )}
             </div>
             <p className="text-xs text-muted-foreground mb-4">
-              Record audio during your meeting. Speech will be transcribed in real-time using your browser&apos;s speech recognition.
+              Use this only when the Meet extension cannot capture the session. It relies on your
+              browser&apos;s speech recognition, so transcript quality may be lower than the
+              extension flow.
             </p>
             <div className="flex items-center gap-3">
               {!isRecording ? (
@@ -486,7 +1125,11 @@ export default function MeetingsPage() {
                   disabled={updateMutation.isPending}
                   className="flex items-center gap-2 px-4 py-2 rounded-xl border border-border text-sm font-medium hover:bg-muted transition-colors"
                 >
-                  {updateMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileText className="h-4 w-4" />}
+                  {updateMutation.isPending ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <FileText className="h-4 w-4" />
+                  )}
                   Save Transcript
                 </button>
               )}
@@ -516,12 +1159,7 @@ export default function MeetingsPage() {
 
           {/* AI Summary */}
           {m.summary && (
-            <DetailSection
-              label="AI Summary"
-              icon={Sparkles}
-              color="#8b5cf6"
-              content={m.summary}
-            />
+            <DetailSection label="AI Summary" icon={Sparkles} color="#8b5cf6" content={m.summary} />
           )}
 
           {/* Action Items */}
@@ -580,9 +1218,11 @@ export default function MeetingsPage() {
               <div>
                 <label className="text-sm font-medium text-foreground mb-1.5 block">Provider</label>
                 <Select value={sumProvider} onValueChange={setSumProvider}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
                   <SelectContent>
-                    {PROVIDERS.map(p => (
+                    {PROVIDERS.map((p) => (
                       <SelectItem key={p} value={p} disabled={!connectedProviders.has(p)}>
                         {p} {!connectedProviders.has(p) && '(no key)'}
                       </SelectItem>
@@ -593,10 +1233,14 @@ export default function MeetingsPage() {
               <div>
                 <label className="text-sm font-medium text-foreground mb-1.5 block">Model</label>
                 <Select value={sumModel} onValueChange={setSumModel}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
                   <SelectContent>
                     {providerModels.map((m: any) => (
-                      <SelectItem key={m.id} value={m.id}>{m.name || m.id}</SelectItem>
+                      <SelectItem key={m.id} value={m.id}>
+                        {m.name || m.id}
+                      </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
@@ -618,7 +1262,11 @@ export default function MeetingsPage() {
                 className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-white transition-colors"
                 style={{ background: '#8b5cf6' }}
               >
-                {summarizing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+                {summarizing ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Sparkles className="h-4 w-4" />
+                )}
                 {summarizing ? 'Summarizing...' : 'Summarize'}
               </button>
             </DialogFooter>
@@ -667,9 +1315,101 @@ export default function MeetingsPage() {
         </button>
       </div>
 
+      <div className="px-6 pt-5">
+        <div className="relative overflow-hidden rounded-[26px] border border-border bg-card">
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(16,185,129,0.14),transparent_35%),linear-gradient(180deg,rgba(16,185,129,0.05),transparent)]" />
+          <div className="relative grid gap-5 px-5 py-5 lg:grid-cols-[1.5fr_0.95fr] lg:px-6">
+            <div>
+              <div className="inline-flex items-center gap-2 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-emerald-600">
+                <ShieldCheck className="h-3.5 w-3.5" />
+                Extension Synced
+              </div>
+              <h2 className="mt-3 text-xl font-semibold text-foreground">
+                Meetings are ready to sync from your browser extension
+              </h2>
+              <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
+                Open Google Meet, launch the BrainForge assistant from the call controls, and your
+                transcript, AI summary, and follow-up items will flow back into this workspace.
+              </p>
+              {isExtensionOutdated && (
+                <div className="mt-4 rounded-2xl border border-amber-500/20 bg-amber-500/10 px-4 py-3 text-sm text-amber-100">
+                  You are still running extension v{extensionVersionLabel}. The latest package is
+                  v{LATEST_EXTENSION_VERSION}, which includes the new UI and reconnect fixes.
+                </div>
+              )}
+              {extensionMessage && (
+                <div className="mt-4 rounded-2xl border border-border bg-background/80 px-4 py-3 text-sm text-foreground">
+                  {extensionMessage}
+                </div>
+              )}
+              <div className="mt-4 flex flex-wrap items-center gap-3">
+                <a
+                  href="https://meet.google.com"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-medium text-white transition-opacity hover:opacity-90"
+                  style={{ background: ACCENT }}
+                >
+                  <Video className="h-4 w-4" />
+                  Open Google Meet
+                </a>
+                <button
+                  onClick={() => connectExtension({ manual: true })}
+                  disabled={manualReconnectPending}
+                  className="inline-flex items-center gap-2 rounded-xl border border-border bg-background px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-muted disabled:opacity-60"
+                >
+                  {manualReconnectPending ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <RefreshCw className="h-4 w-4" />
+                  )}
+                  {manualReconnectPending ? 'Reconnecting...' : 'Reconnect Extension'}
+                </button>
+                {isExtensionOutdated && (
+                  <a
+                    href="/downloads/brainforge-meet-assistant.zip"
+                    download
+                    className="inline-flex items-center gap-2 rounded-xl border border-amber-500/20 bg-amber-500/10 px-4 py-2 text-sm font-medium text-amber-100 transition-colors hover:bg-amber-500/15"
+                  >
+                    <Download className="h-4 w-4" />
+                    Download Latest Extension
+                  </a>
+                )}
+              </div>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-1">
+              <div className="rounded-2xl border border-border bg-background/90 px-4 py-3">
+                <div className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground">
+                  Connected account
+                </div>
+                <div className="mt-1 truncate text-sm font-medium text-foreground">
+                  {extensionAccountLabel}
+                </div>
+              </div>
+              <div className="rounded-2xl border border-border bg-background/90 px-4 py-3">
+                <div className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground">
+                  Active team
+                </div>
+                <div className="mt-1 truncate text-sm font-medium text-foreground">
+                  {activeTeam?.name || 'No team selected'}
+                </div>
+              </div>
+              <div className="rounded-2xl border border-border bg-background/90 px-4 py-3">
+                <div className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground">
+                  Extension version
+                </div>
+                <div className="mt-1 text-sm font-medium text-foreground">
+                  v{extensionVersionLabel}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
       {/* Search */}
       {meetings.length > 0 && (
-        <div className="px-6 py-3 border-b border-border">
+        <div className="mt-4 px-6 py-3 border-b border-border">
           <div className="relative max-w-md">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
@@ -699,7 +1439,9 @@ export default function MeetingsPage() {
               {search ? 'No meetings found' : 'No meetings yet'}
             </h3>
             <p className="text-sm text-muted-foreground mb-4 max-w-sm">
-              {search ? 'Try a different search term.' : 'Create a meeting to record voice conversations and let AI summarize them for you.'}
+              {search
+                ? 'Try a different search term.'
+                : 'Create a meeting shell or start from Google Meet with the BrainForge extension to capture transcripts and AI summaries.'}
             </p>
             {!search && (
               <button
@@ -721,19 +1463,30 @@ export default function MeetingsPage() {
               return (
                 <button
                   key={m.id}
-                  onClick={() => { setSelectedMeeting(m); setTranscript(m.transcript || ''); }}
+                  onClick={() => {
+                    setSelectedMeeting(m);
+                    setTranscript(m.transcript || '');
+                  }}
                   className="bg-card border border-border rounded-2xl p-5 text-left hover:shadow-md hover:border-emerald-500/20 hover:-translate-y-0.5 transition-all group"
                 >
                   <div className="flex items-start justify-between mb-3">
                     <h3 className="text-sm font-semibold text-foreground line-clamp-2 group-hover:text-emerald-500 transition-colors">
                       {m.title}
                     </h3>
-                    <span className={cn('px-2 py-0.5 rounded-full text-[10px] font-medium shrink-0 ml-2', status.bg)} style={{ color: status.color }}>
+                    <span
+                      className={cn(
+                        'px-2 py-0.5 rounded-full text-[10px] font-medium shrink-0 ml-2',
+                        status.bg,
+                      )}
+                      style={{ color: status.color }}
+                    >
                       {status.label}
                     </span>
                   </div>
                   {m.description && (
-                    <p className="text-xs text-muted-foreground line-clamp-2 mb-3">{m.description}</p>
+                    <p className="text-xs text-muted-foreground line-clamp-2 mb-3">
+                      {m.description}
+                    </p>
                   )}
                   <div className="flex items-center gap-3 text-[11px] text-muted-foreground">
                     <span className="flex items-center gap-1">
@@ -755,7 +1508,10 @@ export default function MeetingsPage() {
                   </div>
                   {m.project && (
                     <div className="flex items-center gap-1.5 mt-2 text-[11px] text-muted-foreground">
-                      <div className="h-2 w-2 rounded-full" style={{ background: m.project.color }} />
+                      <div
+                        className="h-2 w-2 rounded-full"
+                        style={{ background: m.project.color }}
+                      />
                       {m.project.name}
                     </div>
                   )}
@@ -785,7 +1541,9 @@ export default function MeetingsPage() {
               />
             </div>
             <div>
-              <label className="text-sm font-medium text-foreground mb-1.5 block">Description</label>
+              <label className="text-sm font-medium text-foreground mb-1.5 block">
+                Description
+              </label>
               <Textarea
                 value={createDesc}
                 onChange={(e) => setCreateDesc(e.target.value)}
@@ -804,7 +1562,9 @@ export default function MeetingsPage() {
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="text-sm font-medium text-foreground mb-1.5 block">Start Time</label>
+                <label className="text-sm font-medium text-foreground mb-1.5 block">
+                  Start Time
+                </label>
                 <Input
                   type="datetime-local"
                   value={createStartTime}
@@ -830,7 +1590,10 @@ export default function MeetingsPage() {
             </button>
             <button
               onClick={() => {
-                if (!createTitle.trim()) { toast.error('Title is required'); return; }
+                if (!createTitle.trim()) {
+                  toast.error('Title is required');
+                  return;
+                }
                 createMutation.mutate({
                   title: createTitle.trim(),
                   description: createDesc.trim() || undefined,
@@ -844,7 +1607,11 @@ export default function MeetingsPage() {
               className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-white transition-colors disabled:opacity-50"
               style={{ background: ACCENT }}
             >
-              {createMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
+              {createMutation.isPending ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Plus className="h-4 w-4" />
+              )}
               Create Meeting
             </button>
           </DialogFooter>

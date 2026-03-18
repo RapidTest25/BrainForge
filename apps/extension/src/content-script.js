@@ -7,10 +7,101 @@ let isRecording = false;
 let recognition = null;
 let transcript = '';
 let panelVisible = false;
+let activeMeetingId = null;
+let syncIntervalId = null;
+let lastSyncedTranscript = '';
 const API_URL = 'http://localhost:4000/api';
 
 async function getSettings(keys) {
   return chrome.storage.sync.get(keys);
+}
+
+function clearSyncLoop() {
+  if (syncIntervalId) {
+    clearInterval(syncIntervalId);
+    syncIntervalId = null;
+  }
+}
+
+function getApiConfig(settings) {
+  return {
+    apiUrl: settings.apiUrl || API_URL,
+    teamId: settings.teamId,
+    authToken: settings.authToken,
+  };
+}
+
+async function createMeetingForRecording(settings) {
+  const { apiUrl, teamId, authToken } = getApiConfig(settings);
+
+  if (!authToken || !teamId) {
+    throw new Error('Connect extension to BrainForge Meetings first');
+  }
+
+  const meetResponse = await fetch(`${apiUrl}/teams/${teamId}/meetings`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${authToken}`,
+    },
+    body: JSON.stringify({
+      title: `Meet Recording - ${new Date().toLocaleString('id-ID')}`,
+      description: 'Live recording from Google Meet via BrainForge extension',
+      meetLink: window.location.href,
+      transcript: '',
+      status: 'IN_PROGRESS',
+    }),
+  });
+
+  if (!meetResponse.ok) {
+    const err = await meetResponse.json().catch(() => ({}));
+    throw new Error(err?.error?.message || 'Failed to create live meeting');
+  }
+
+  const meetData = await meetResponse.json();
+  activeMeetingId = meetData?.data?.id || null;
+  return activeMeetingId;
+}
+
+async function syncTranscriptToMeeting({ final = false } = {}) {
+  if (!activeMeetingId || !transcript.trim()) return;
+
+  if (!final && transcript.trim() === lastSyncedTranscript) {
+    return;
+  }
+
+  const settings = await getSettings(['apiUrl', 'teamId', 'authToken']);
+  const { apiUrl, teamId, authToken } = getApiConfig(settings);
+
+  if (!authToken || !teamId) return;
+
+  const response = await fetch(`${apiUrl}/teams/${teamId}/meetings/${activeMeetingId}`, {
+    method: 'PATCH',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${authToken}`,
+    },
+    body: JSON.stringify({
+      transcript: transcript.trim(),
+      status: final ? 'COMPLETED' : 'IN_PROGRESS',
+    }),
+  });
+
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({}));
+    throw new Error(err?.error?.message || 'Failed to sync transcript');
+  }
+
+  lastSyncedTranscript = transcript.trim();
+}
+
+function startSyncLoop() {
+  clearSyncLoop();
+  syncIntervalId = setInterval(() => {
+    syncTranscriptToMeeting().catch((error) => {
+      console.error('Transcript sync error:', error);
+    });
+  }, 8000);
 }
 
 // Initialize Speech Recognition
@@ -138,7 +229,7 @@ async function toggleRecording() {
     }
   }
 
-  const settings = await getSettings(['language']);
+  const settings = await getSettings(['language', 'apiUrl', 'teamId', 'authToken']);
   if (settings.language) {
     recognition.lang = settings.language;
   }
@@ -147,15 +238,32 @@ async function toggleRecording() {
   const btn = document.getElementById('brainforge-record-btn');
 
   if (isRecording) {
-    transcript = '';
+    try {
+      transcript = '';
+      lastSyncedTranscript = '';
+      await createMeetingForRecording(settings);
+      startSyncLoop();
+      updatePanelStatus('Recording live and syncing transcript...', 'recording');
+    } catch (error) {
+      isRecording = false;
+      updatePanelStatus(`Error: ${error?.message || 'Failed to start recording'}`, 'error');
+      alert('Open BrainForge Meetings first so extension can sync this recording.');
+      return;
+    }
+
     recognition.start();
     btn.textContent = 'Stop Capture';
     btn.classList.add('recording');
     document.getElementById('brainforge-summarize-btn').disabled = false;
   } else {
+    clearSyncLoop();
     recognition.stop();
+    syncTranscriptToMeeting({ final: true }).catch((error) => {
+      console.error('Final transcript sync error:', error);
+    });
     btn.textContent = 'Start Capture';
     btn.classList.remove('recording');
+    updatePanelStatus('Recording stopped. Transcript synced.', 'success');
   }
 }
 
@@ -206,26 +314,34 @@ async function summarizeTranscript() {
       return;
     }
 
-    const meetResponse = await fetch(`${apiUrl}/teams/${teamId}/meetings`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${authToken}`,
-      },
-      body: JSON.stringify({
-        title: `Meet Recording - ${new Date().toLocaleString('id-ID')}`,
-        description: 'Recording from Google Meet via BrainForge extension',
-        transcript: transcript.trim(),
-        status: 'COMPLETED',
-      }),
-    });
+    let meetingId = activeMeetingId;
 
-    if (!meetResponse.ok) {
-      const err = await meetResponse.json().catch(() => ({}));
-      throw new Error(err?.error?.message || 'Failed to create meeting');
+    if (meetingId) {
+      await syncTranscriptToMeeting({ final: true });
+    } else {
+      const meetResponse = await fetch(`${apiUrl}/teams/${teamId}/meetings`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${authToken}`,
+        },
+        body: JSON.stringify({
+          title: `Meet Recording - ${new Date().toLocaleString('id-ID')}`,
+          description: 'Recording from Google Meet via BrainForge extension',
+          meetLink: window.location.href,
+          transcript: transcript.trim(),
+          status: 'COMPLETED',
+        }),
+      });
+
+      if (!meetResponse.ok) {
+        const err = await meetResponse.json().catch(() => ({}));
+        throw new Error(err?.error?.message || 'Failed to create meeting');
+      }
+      const meetData = await meetResponse.json();
+      meetingId = meetData.data.id;
+      activeMeetingId = meetingId;
     }
-    const meetData = await meetResponse.json();
-    const meetingId = meetData.data.id;
 
     const summaryResponse = await fetch(
       `${apiUrl}/teams/${teamId}/meetings/${meetingId}/summarize`,

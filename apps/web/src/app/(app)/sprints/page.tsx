@@ -6,7 +6,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   Plus, Zap, Target, AlertTriangle, Calendar, CheckCircle2, Clock, ListChecks,
   ArrowRight, ArrowLeft, Trash2, Search, ChevronDown, Edit2, BarChart3,
-  Users, Play, Archive, CircleDot, Circle, Loader2, X,
+  Users, Play, Archive, CircleDot, Circle, Loader2, X, Check,
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -30,6 +30,9 @@ import {
 
 const PROVIDERS = ['OPENROUTER', 'OPENAI', 'CLAUDE', 'GEMINI', 'GROQ', 'COPILOT'];
 const TASK_STATUS_CYCLE = ['TODO', 'IN_PROGRESS', 'IN_REVIEW', 'DONE'] as const;
+const SPRINT_STATUS_OPTIONS = ['DRAFT', 'ACTIVE', 'COMPLETED', 'ARCHIVED'] as const;
+
+type SprintStatusType = (typeof SPRINT_STATUS_OPTIONS)[number];
 
 export default function SprintsPage() {
   const { activeTeam } = useTeamStore();
@@ -58,6 +61,19 @@ export default function SprintsPage() {
 
   const [editForm, setEditForm] = useState({ title: '', goal: '', deadline: '', teamSize: 3 });
   const [searchQuery, setSearchQuery] = useState('');
+  const [statusContextMenu, setStatusContextMenu] = useState<{
+    open: boolean;
+    x: number;
+    y: number;
+    sprint: any | null;
+  }>({ open: false, x: 0, y: 0, sprint: null });
+  const [taskStatusContextMenu, setTaskStatusContextMenu] = useState<{
+    open: boolean;
+    x: number;
+    y: number;
+    task: any | null;
+  }>({ open: false, x: 0, y: 0, task: null });
+  const [contextMenuReady, setContextMenuReady] = useState(false);
 
   // AI progress modal state
   const [aiProgressOpen, setAiProgressOpen] = useState(false);
@@ -134,10 +150,106 @@ export default function SprintsPage() {
       api.patch(`/teams/${teamId}/sprints/${sprintId}`, { status }),
     onSuccess: (res: any) => {
       queryClient.invalidateQueries({ queryKey: ['sprints', teamId] });
-      setSelectedSprint(res.data);
+      if (selectedSprint?.id === res.data.id) {
+        setSelectedSprint(res.data);
+      }
       toast.success('Sprint status updated');
     },
   });
+
+  useEffect(() => {
+    setContextMenuReady(true);
+  }, []);
+
+  useEffect(() => {
+    if (!statusContextMenu.open && !taskStatusContextMenu.open) return;
+
+    const closeMenu = () => {
+      setStatusContextMenu(prev => ({ ...prev, open: false, sprint: null }));
+      setTaskStatusContextMenu(prev => ({ ...prev, open: false, task: null }));
+    };
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') closeMenu();
+    };
+
+    const onPointerDown = (event: PointerEvent) => {
+      const target = event.target as HTMLElement | null;
+      if (target?.closest('[data-sprint-context-menu="true"]')) return;
+      if (target?.closest('[data-task-context-menu="true"]')) return;
+      closeMenu();
+    };
+
+    window.addEventListener('pointerdown', onPointerDown);
+    window.addEventListener('scroll', closeMenu, true);
+    window.addEventListener('resize', closeMenu);
+    window.addEventListener('keydown', onKeyDown);
+
+    return () => {
+      window.removeEventListener('pointerdown', onPointerDown);
+      window.removeEventListener('scroll', closeMenu, true);
+      window.removeEventListener('resize', closeMenu);
+      window.removeEventListener('keydown', onKeyDown);
+    };
+  }, [statusContextMenu.open, taskStatusContextMenu.open]);
+
+  useEffect(() => {
+    if (selectedSprint) return;
+    setTaskStatusContextMenu(prev => ({ ...prev, open: false, task: null }));
+  }, [selectedSprint]);
+
+  const isDesktopMode = () => {
+    if (typeof window === 'undefined') return false;
+    const wideEnough = window.matchMedia('(min-width: 768px)').matches;
+    const finePointer = window.matchMedia('(hover: hover) and (pointer: fine)').matches;
+    return wideEnough && finePointer;
+  };
+
+  const openStatusContextMenu = (event: any, sprint: any) => {
+    if (!contextMenuReady || !isDesktopMode()) return;
+    event.preventDefault();
+    event.stopPropagation();
+
+    const menuWidth = 220;
+    const menuHeight = 220;
+    const maxX = Math.max(12, window.innerWidth - menuWidth - 12);
+    const maxY = Math.max(12, window.innerHeight - menuHeight - 12);
+
+    setStatusContextMenu({
+      open: true,
+      x: Math.min(event.clientX, maxX),
+      y: Math.min(event.clientY, maxY),
+      sprint,
+    });
+  };
+
+  const openTaskStatusContextMenu = (event: any, task: any) => {
+    if (!contextMenuReady || !isDesktopMode()) return;
+    event.preventDefault();
+    event.stopPropagation();
+
+    const menuWidth = 220;
+    const menuHeight = 220;
+    const maxX = Math.max(12, window.innerWidth - menuWidth - 12);
+    const maxY = Math.max(12, window.innerHeight - menuHeight - 12);
+
+    setTaskStatusContextMenu({
+      open: true,
+      x: Math.min(event.clientX, maxX),
+      y: Math.min(event.clientY, maxY),
+      task,
+    });
+  };
+
+  const statusOptionLabel = (status: SprintStatusType) => {
+    switch (status) {
+      case 'DRAFT': return 'Draft';
+      case 'ACTIVE': return 'Active';
+      case 'COMPLETED': return 'Completed';
+      case 'ARCHIVED': return 'Archived';
+      default: return status;
+    }
+  };
 
   const updateTaskMutation = useMutation({
     mutationFn: ({ taskId, data }: { taskId: string; data: any }) =>
@@ -445,7 +557,7 @@ export default function SprintsPage() {
           <div className="space-y-2">
             {totalRealTasks > 0 && (
               <div className="bg-[#7b68ee]/8 border border-[#7b68ee]/20 rounded-xl p-3 text-xs text-[#6c5ce7]">
-                Klik badge status pada task untuk mengganti status dengan cepat. Klik card untuk lihat detail.
+                Klik kanan card task (desktop) untuk ganti status cepat, atau klik badge status. Klik card untuk lihat detail.
               </div>
             )}
             {/* Show real DB tasks if sprint has been converted */}
@@ -464,6 +576,13 @@ export default function SprintsPage() {
                       key={task.id}
                       className="bg-card border border-border rounded-xl p-3 sm:p-4 cursor-pointer hover:border-[#7b68ee]/30 hover:shadow-sm transition-all"
                       onClick={() => setSelectedTask(task)}
+                      onMouseDown={(event) => {
+                        if (event.button === 2) {
+                          event.preventDefault();
+                          event.stopPropagation();
+                        }
+                      }}
+                      onContextMenu={(event) => openTaskStatusContextMenu(event, task)}
                     >
                       <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-2">
                         <div className="flex-1 min-w-0">
@@ -745,6 +864,52 @@ export default function SprintsPage() {
           </SheetContent>
         </Sheet>
 
+        {taskStatusContextMenu.open && taskStatusContextMenu.task && (
+          <div
+            data-task-context-menu="true"
+            className="fixed z-50 w-[220px] rounded-xl border border-border bg-card shadow-2xl p-1.5"
+            style={{ left: taskStatusContextMenu.x, top: taskStatusContextMenu.y }}
+            onClick={(event) => event.stopPropagation()}
+            onContextMenu={(event) => event.preventDefault()}
+          >
+            <div className="px-2 py-1.5 border-b border-border/70">
+              <p className="text-[11px] uppercase tracking-[0.12em] text-muted-foreground">Update Task Status</p>
+              <p className="text-xs text-foreground truncate mt-0.5">{taskStatusContextMenu.task.title}</p>
+            </div>
+            <div className="py-1">
+              {TASK_STATUS_CYCLE.map((option) => {
+                const active = taskStatusContextMenu.task.status === option;
+                const optionLabel = option.replace('_', ' ');
+
+                return (
+                  <button
+                    key={option}
+                    type="button"
+                    disabled={active || updateTaskMutation.isPending}
+                    onClick={() => {
+                      updateTaskMutation.mutate({
+                        taskId: taskStatusContextMenu.task.id,
+                        data: { status: option },
+                      });
+                      setTaskStatusContextMenu(prev => ({ ...prev, open: false, task: null }));
+                    }}
+                    className={cn(
+                      'w-full flex items-center justify-between rounded-lg px-2.5 py-2 text-sm transition-colors',
+                      active
+                        ? 'bg-[#7b68ee]/12 text-[#7b68ee]'
+                        : 'text-foreground hover:bg-accent',
+                      (active || updateTaskMutation.isPending) && 'cursor-not-allowed opacity-70'
+                    )}
+                  >
+                    <span>{optionLabel}</span>
+                    {active ? <Check className="h-3.5 w-3.5" /> : null}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
         <Sheet open={!!detailItem} onOpenChange={(open) => { if (!open) setDetailItem(null); }}>
           <SheetContent side="right" className="w-full sm:w-105 md:w-120 p-0 border-l border-border">
             <div className="flex flex-col h-full bg-card">
@@ -915,6 +1080,13 @@ export default function SprintsPage() {
             key={sprint.id}
             className="bg-card border border-border rounded-xl p-4 cursor-pointer hover:shadow-md hover:border-[#7b68ee]/20 hover:-translate-y-0.5 transition-all group"
             onClick={() => setSelectedSprint(sprint)}
+            onMouseDown={(event) => {
+              if (event.button === 2) {
+                event.preventDefault();
+                event.stopPropagation();
+              }
+            }}
+            onContextMenu={(event) => openStatusContextMenu(event, sprint)}
           >
             <div className="flex items-start justify-between gap-2">
               <div className="flex-1 min-w-0">
@@ -942,11 +1114,55 @@ export default function SprintsPage() {
               {sprint.data?.tasks?.length > 0 && (
                 <span className="flex items-center gap-1"><ListChecks className="h-3 w-3" />{sprint.data.tasks.length} tasks</span>
               )}
+              <span className="hidden lg:inline-flex items-center gap-1 text-[11px] text-[#7b68ee]">
+                <CircleDot className="h-3 w-3" /> Right-click to update progress
+              </span>
               <span className="ml-auto">{new Date(sprint.createdAt).toLocaleDateString()}</span>
             </div>
           </div>
         ))}
       </div>}
+
+      {statusContextMenu.open && statusContextMenu.sprint && (
+        <div
+          data-sprint-context-menu="true"
+          className="fixed z-50 w-[220px] rounded-xl border border-border bg-card shadow-2xl p-1.5"
+          style={{ left: statusContextMenu.x, top: statusContextMenu.y }}
+          onClick={(event) => event.stopPropagation()}
+          onContextMenu={(event) => event.preventDefault()}
+        >
+          <div className="px-2 py-1.5 border-b border-border/70">
+            <p className="text-[11px] uppercase tracking-[0.12em] text-muted-foreground">Update Sprint Progress</p>
+            <p className="text-xs text-foreground truncate mt-0.5">{statusContextMenu.sprint.title || statusContextMenu.sprint.goal}</p>
+          </div>
+          <div className="py-1">
+            {SPRINT_STATUS_OPTIONS.map((option) => {
+              const active = statusContextMenu.sprint.status === option;
+              return (
+                <button
+                  key={option}
+                  type="button"
+                  disabled={active || statusMutation.isPending}
+                  onClick={() => {
+                    statusMutation.mutate({ sprintId: statusContextMenu.sprint.id, status: option });
+                    setStatusContextMenu(prev => ({ ...prev, open: false, sprint: null }));
+                  }}
+                  className={cn(
+                    'w-full flex items-center justify-between rounded-lg px-2.5 py-2 text-sm transition-colors',
+                    active
+                      ? 'bg-[#7b68ee]/12 text-[#7b68ee]'
+                      : 'text-foreground hover:bg-accent',
+                    (active || statusMutation.isPending) && 'cursor-not-allowed opacity-70'
+                  )}
+                >
+                  <span>{statusOptionLabel(option)}</span>
+                  {active ? <Check className="h-3.5 w-3.5" /> : null}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Empty State */}
       {sprints && sprints.data.length === 0 && (

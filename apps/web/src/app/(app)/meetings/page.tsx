@@ -31,6 +31,7 @@ import {
   ShieldCheck,
   Download,
 } from 'lucide-react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import {
@@ -70,6 +71,9 @@ const LATEST_EXTENSION_VERSION = '1.0.6';
 type ExtensionInstallState = 'checking' | 'installed' | 'missing';
 type ExtensionConnectionState = 'syncing' | 'ready' | 'needs-connection';
 
+const MEETINGS_REFETCH_INTERVAL_MS = 8000;
+const LIVE_SYNC_WINDOW_MS = 2 * 60 * 1000;
+
 function compareSemver(a?: string | null, b?: string | null) {
   const aParts = (a || '0.0.0').split('.').map((part) => Number(part) || 0);
   const bParts = (b || '0.0.0').split('.').map((part) => Number(part) || 0);
@@ -83,6 +87,146 @@ function compareSemver(a?: string | null, b?: string | null) {
   }
 
   return 0;
+}
+
+function normalizeMeetLink(input: string): string {
+  const trimmed = input.trim();
+  if (!trimmed) return '';
+  if (/^https?:\/\//i.test(trimmed)) return trimmed;
+  if (/^meet\.google\.com\//i.test(trimmed)) return `https://${trimmed}`;
+  return trimmed;
+}
+
+function extractNextGoals(summary?: string | null, actionItems?: any): string[] {
+  const goals = new Set<string>();
+
+  if (Array.isArray(actionItems)) {
+    actionItems
+      .map((item) => String(item || '').trim())
+      .filter(Boolean)
+      .slice(0, 4)
+      .forEach((item) => goals.add(item));
+  }
+
+  if (summary) {
+    const lines = summary.split('\n').map((line) => line.trim());
+    let nextSectionStart = -1;
+
+    for (let i = 0; i < lines.length; i += 1) {
+      const line = lines[i].toLowerCase();
+      if (
+        line.includes('next step') ||
+        line.includes('next action') ||
+        line.includes('tujuan selanjutnya') ||
+        line.includes('langkah selanjutnya')
+      ) {
+        nextSectionStart = i;
+        break;
+      }
+    }
+
+    if (nextSectionStart >= 0) {
+      for (let i = nextSectionStart + 1; i < lines.length; i += 1) {
+        const line = lines[i];
+        if (!line) {
+          if (goals.size > 0) break;
+          continue;
+        }
+
+        if (/^#{1,6}\s/.test(line)) break;
+
+        const bullet = line.match(/^[-*]\s+(.+)$/);
+        if (bullet?.[1]) {
+          goals.add(bullet[1].trim());
+        } else if (goals.size < 4 && !line.startsWith('>')) {
+          goals.add(line.replace(/^\d+\.\s+/, '').trim());
+        }
+
+        if (goals.size >= 4) break;
+      }
+    }
+  }
+
+  return Array.from(goals).slice(0, 4);
+}
+
+function isRecentlyUpdated(timestamp?: string | null): boolean {
+  if (!timestamp) return false;
+  const updatedAt = new Date(timestamp).getTime();
+  if (Number.isNaN(updatedAt)) return false;
+  return Date.now() - updatedAt <= LIVE_SYNC_WINDOW_MS;
+}
+
+function compactText(input?: string | null): string {
+  return (input || '').replace(/\s+/g, ' ').trim();
+}
+
+function stripMarkdownForPreview(input?: string | null): string {
+  return compactText(input)
+    .replace(/^#{1,6}\s*/g, '')
+    .replace(/\*\*/g, '')
+    .replace(/`/g, '')
+    .replace(/[-*]\s+/g, '');
+}
+
+function isExtensionMeeting(meeting: any): boolean {
+  const description = String(meeting?.description || '').toLowerCase();
+  const title = String(meeting?.title || '').toLowerCase();
+  const meetLink = String(meeting?.meetLink || '').toLowerCase();
+
+  return (
+    description.includes('brainforge extension') ||
+    description.includes('google meet') ||
+    title.startsWith('meet recording -') ||
+    meetLink.includes('meet.google.com')
+  );
+}
+
+function getSmartMeetingTitle(meeting: any): string {
+  const title = compactText(meeting?.title);
+  if (!title) return 'Untitled meeting';
+
+  if (!/^meet\s+recording\s*-\s*/i.test(title) || !meeting?.summary) {
+    return title;
+  }
+
+  const firstLine = meeting.summary
+    .split('\n')
+    .map((line: string) => stripMarkdownForPreview(line))
+    .find((line: string) => line.length >= 12 && !/^summary:?$/i.test(line) && !/^ringkasan:?$/i.test(line));
+
+  if (!firstLine) return title;
+  return firstLine.length > 84 ? `${firstLine.slice(0, 81).trimEnd()}...` : firstLine;
+}
+
+function getMeetingPreview(meeting: any): string {
+  const summaryLine = stripMarkdownForPreview(meeting?.summary)
+    .split(/\.(\s+|$)/)
+    .map((part) => part.trim())
+    .find((part) => part.length > 24);
+  if (summaryLine) {
+    return summaryLine.length > 170 ? `${summaryLine.slice(0, 167).trimEnd()}...` : summaryLine;
+  }
+
+  const desc = compactText(meeting?.description);
+  if (desc) {
+    return desc.length > 170 ? `${desc.slice(0, 167).trimEnd()}...` : desc;
+  }
+
+  const transcriptSnippet = compactText(meeting?.transcript);
+  if (transcriptSnippet) {
+    return transcriptSnippet.length > 170
+      ? `${transcriptSnippet.slice(0, 167).trimEnd()}...`
+      : transcriptSnippet;
+  }
+
+  return 'No detailed notes yet. Start recording from extension or add meeting notes.';
+}
+
+function getTranscriptWordCount(transcript?: string | null): number {
+  const clean = compactText(transcript);
+  if (!clean) return 0;
+  return clean.split(' ').filter(Boolean).length;
 }
 
 const STATUS_MAP: Record<string, { label: string; color: string; bg: string }> = {
@@ -232,6 +376,8 @@ export default function MeetingsPage() {
   const activeProject = useProjectStore((s) => s.activeProject);
   const authUser = useAuthStore((s) => s.user);
   const authTokens = useAuthStore((s) => s.tokens);
+  const searchParams = useSearchParams();
+  const router = useRouter();
   const teamId = activeTeam?.id;
   const queryClient = useQueryClient();
 
@@ -245,6 +391,7 @@ export default function MeetingsPage() {
   const [createTitle, setCreateTitle] = useState('');
   const [createDesc, setCreateDesc] = useState('');
   const [createMeetLink, setCreateMeetLink] = useState('');
+  const [createAndOpenLink, setCreateAndOpenLink] = useState(true);
   const [createStartTime, setCreateStartTime] = useState('');
   const [createEndTime, setCreateEndTime] = useState('');
 
@@ -275,7 +422,13 @@ export default function MeetingsPage() {
     useState<ExtensionConnectionState>('needs-connection');
   const [extensionMessage, setExtensionMessage] = useState<string | null>(null);
   const [manualReconnectPending, setManualReconnectPending] = useState(false);
+  const [lastMeetingSyncAt, setLastMeetingSyncAt] = useState<Date | null>(null);
+  const [highlightSummary, setHighlightSummary] = useState(false);
   const autoConnectKeyRef = useRef<string | null>(null);
+  const meetingSnapshotRef = useRef<
+    Record<string, { updatedAt?: string; hasTranscript: boolean; hasSummary: boolean }>
+  >({});
+  const hasInitializedMeetingSnapshotRef = useRef(false);
 
   // ── Queries ──
   const { data: meetingsRes } = useQuery({
@@ -285,6 +438,8 @@ export default function MeetingsPage() {
         `/teams/${teamId}/meetings${activeProject?.id ? `?projectId=${activeProject.id}` : ''}`,
       ),
     enabled: !!teamId,
+    refetchInterval: extensionConnectionState === 'ready' ? MEETINGS_REFETCH_INTERVAL_MS : false,
+    refetchOnWindowFocus: true,
   });
 
   const { data: models } = useQuery({
@@ -304,6 +459,67 @@ export default function MeetingsPage() {
   const connectedProviders = new Set(
     (keysData?.data || []).filter((k: any) => k.isActive).map((k: any) => k.provider.toUpperCase()),
   );
+
+  useEffect(() => {
+    if (meetingsRes?.data) {
+      setLastMeetingSyncAt(new Date());
+    }
+  }, [meetingsRes]);
+
+  useEffect(() => {
+    if (!meetings.length) return;
+
+    const currentSnapshot: Record<
+      string,
+      { updatedAt?: string; hasTranscript: boolean; hasSummary: boolean }
+    > = {};
+
+    meetings.forEach((meeting: any) => {
+      currentSnapshot[meeting.id] = {
+        updatedAt: meeting.updatedAt,
+        hasTranscript: Boolean(meeting.transcript),
+        hasSummary: Boolean(meeting.summary),
+      };
+    });
+
+    if (!hasInitializedMeetingSnapshotRef.current) {
+      meetingSnapshotRef.current = currentSnapshot;
+      hasInitializedMeetingSnapshotRef.current = true;
+      return;
+    }
+
+    let transcriptToastShown = false;
+    let summaryToastShown = false;
+
+    meetings.forEach((meeting: any) => {
+      const previous = meetingSnapshotRef.current[meeting.id];
+      if (!previous) return;
+
+      const transcriptJustSynced = !previous.hasTranscript && Boolean(meeting.transcript);
+      const summaryJustSynced = !previous.hasSummary && Boolean(meeting.summary);
+
+      if (transcriptJustSynced && !transcriptToastShown) {
+        transcriptToastShown = true;
+        toast.success(`Transcript synced: ${meeting.title}`);
+      }
+
+      if (summaryJustSynced && !summaryToastShown) {
+        summaryToastShown = true;
+        toast.success(`AI summary ready: ${meeting.title}`);
+      }
+
+      if (selectedMeeting?.id === meeting.id && previous.updatedAt !== meeting.updatedAt) {
+        if (!previous.hasSummary && Boolean(meeting.summary)) {
+          setHighlightSummary(true);
+          window.setTimeout(() => setHighlightSummary(false), 2600);
+        }
+        setSelectedMeeting(meeting);
+        setTranscript(meeting.transcript || '');
+      }
+    });
+
+    meetingSnapshotRef.current = currentSnapshot;
+  }, [meetings, selectedMeeting?.id]);
 
   useEffect(() => {
     if (models?.data && connectedProviders.size > 0 && !connectedProviders.has(sumProvider)) {
@@ -483,6 +699,28 @@ export default function MeetingsPage() {
   }, [detectExtension]);
 
   useEffect(() => {
+    const handleBridgeMessage = (event: MessageEvent) => {
+      if (event.source !== window) return;
+
+      const payload = event.data;
+      if (!payload || payload.source !== 'brainforge-extension' || payload.target !== 'brainforge-web') {
+        return;
+      }
+
+      if (
+        payload.type === 'BRAINFORGE_MEETING_SYNCED' ||
+        payload.type === 'BRAINFORGE_MEETING_UPDATED' ||
+        payload.type === 'BRAINFORGE_EXTENSION_CONNECTED'
+      ) {
+        queryClient.invalidateQueries({ queryKey: ['meetings', teamId] });
+      }
+    };
+
+    window.addEventListener('message', handleBridgeMessage);
+    return () => window.removeEventListener('message', handleBridgeMessage);
+  }, [queryClient, teamId]);
+
+  useEffect(() => {
     if (extensionState !== 'installed') return;
 
     const isConnected = Boolean(
@@ -549,17 +787,47 @@ export default function MeetingsPage() {
     void connectExtension();
   }, [extensionState, extensionInfo, authTokens, authUser, connectExtension, teamId]);
 
+  useEffect(() => {
+    if (!meetings.length) return;
+
+    const meetingId = searchParams.get('meetingId');
+    if (!meetingId) return;
+
+    const target = meetings.find((meeting: any) => meeting.id === meetingId);
+    if (!target) return;
+
+    setSelectedMeeting(target);
+    setTranscript(target.transcript || '');
+
+    const params = new URLSearchParams(searchParams.toString());
+    params.delete('meetingId');
+    const nextQuery = params.toString();
+    router.replace(nextQuery ? `/meetings?${nextQuery}` : '/meetings');
+  }, [meetings, router, searchParams]);
+
   // ── Mutations ──
   const createMutation = useMutation({
     mutationFn: (data: any) => api.post(`/teams/${teamId}/meetings`, data),
-    onSuccess: () => {
+    onSuccess: (res: any, variables: any) => {
       queryClient.invalidateQueries({ queryKey: ['meetings', teamId] });
       setShowCreate(false);
       setCreateTitle('');
       setCreateDesc('');
       setCreateMeetLink('');
+      setCreateAndOpenLink(true);
       setCreateStartTime('');
       setCreateEndTime('');
+
+      const shouldOpenAfterCreate = Boolean(variables?.openNow) || Boolean(variables?.autoOpen);
+      if (shouldOpenAfterCreate && variables?.meetLink) {
+        window.open(variables.meetLink, '_blank', 'noopener,noreferrer');
+      }
+
+      if (res?.data?.id) {
+        setSelectedMeeting(res.data);
+        setTranscript(res.data.transcript || '');
+      }
+
       toast.success('Meeting created');
     },
     onError: (e: any) => toast.error(e.message || 'Failed to create meeting'),
@@ -925,6 +1193,9 @@ export default function MeetingsPage() {
   if (selectedMeeting) {
     const m = selectedMeeting;
     const status = STATUS_MAP[m.status] || STATUS_MAP.SCHEDULED;
+    const nextGoals = extractNextGoals(m.summary, m.actionItems);
+    const smartTitle = getSmartMeetingTitle(m);
+    const extensionOrigin = isExtensionMeeting(m);
     return (
       <div className="flex-1 flex flex-col h-full overflow-hidden">
         {/* Header */}
@@ -940,7 +1211,7 @@ export default function MeetingsPage() {
             <ArrowLeft className="h-4 w-4" />
           </button>
           <div className="flex-1 min-w-0">
-            <h1 className="text-lg font-semibold text-foreground truncate">{m.title}</h1>
+            <h1 className="text-lg font-semibold text-foreground truncate">{smartTitle}</h1>
             <div className="flex items-center gap-3 text-xs text-muted-foreground mt-0.5">
               <span className="flex items-center gap-1">
                 <Clock className="h-3 w-3" />
@@ -956,6 +1227,11 @@ export default function MeetingsPage() {
                 <span className="flex items-center gap-1">
                   <div className="h-2 w-2 rounded-full" style={{ background: m.project.color }} />
                   {m.project.name}
+                </span>
+              )}
+              {extensionOrigin && (
+                <span className="inline-flex items-center gap-1 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-emerald-500">
+                  Extension
                 </span>
               )}
             </div>
@@ -1023,6 +1299,17 @@ export default function MeetingsPage() {
                 <div>
                   <p className="text-xs text-muted-foreground">Schedule</p>
                   <p className="text-sm text-foreground">{formatDateTime(m.startTime)}</p>
+                </div>
+              </div>
+            )}
+            {m.updatedAt && (
+              <div className="bg-card border border-border rounded-xl p-4 flex items-center gap-3">
+                <div className="h-9 w-9 rounded-lg bg-indigo-500/10 flex items-center justify-center">
+                  <RefreshCw className="h-4 w-4 text-indigo-500" />
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Last Sync</p>
+                  <p className="text-sm text-foreground">{formatDateTime(m.updatedAt)}</p>
                 </div>
               </div>
             )}
@@ -1159,7 +1446,19 @@ export default function MeetingsPage() {
 
           {/* AI Summary */}
           {m.summary && (
-            <DetailSection label="AI Summary" icon={Sparkles} color="#8b5cf6" content={m.summary} />
+            <div
+              className={cn(
+                'rounded-2xl transition-all',
+                highlightSummary && 'ring-2 ring-[#8b5cf6]/50 shadow-[0_0_0_6px_rgba(139,92,246,0.12)]',
+              )}
+            >
+              <DetailSection
+                label="AI Summary"
+                icon={Sparkles}
+                color="#8b5cf6"
+                content={m.summary}
+              />
+            </div>
           )}
 
           {/* Action Items */}
@@ -1178,6 +1477,27 @@ export default function MeetingsPage() {
                       <span className="text-[10px] font-medium text-muted-foreground">{i + 1}</span>
                     </div>
                     {item}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {nextGoals.length > 0 && (
+            <div className="bg-card border border-border rounded-2xl p-6">
+              <div className="flex items-center gap-2 mb-4">
+                <div className="h-7 w-7 rounded-lg bg-indigo-500/10 flex items-center justify-center">
+                  <ChevronRight className="h-3.5 w-3.5 text-indigo-500" />
+                </div>
+                <h2 className="text-sm font-semibold text-foreground">Tujuan Selanjutnya (AI)</h2>
+              </div>
+              <ul className="space-y-2">
+                {nextGoals.map((goal, i) => (
+                  <li key={`${goal}-${i}`} className="flex items-start gap-2 text-sm text-foreground/80">
+                    <div className="h-5 w-5 rounded-md border border-border flex items-center justify-center mt-0.5 shrink-0">
+                      <span className="text-[10px] font-medium text-muted-foreground">{i + 1}</span>
+                    </div>
+                    {goal}
                   </li>
                 ))}
               </ul>
@@ -1402,6 +1722,14 @@ export default function MeetingsPage() {
                   v{extensionVersionLabel}
                 </div>
               </div>
+              <div className="rounded-2xl border border-border bg-background/90 px-4 py-3">
+                <div className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground">
+                  Last sync
+                </div>
+                <div className="mt-1 text-sm font-medium text-foreground">
+                  {lastMeetingSyncAt ? formatDateTime(lastMeetingSyncAt.toISOString()) : 'Waiting...'}
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -1460,49 +1788,99 @@ export default function MeetingsPage() {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {filtered.map((m: any) => {
               const status = STATUS_MAP[m.status] || STATUS_MAP.SCHEDULED;
+              const extensionOrigin = isExtensionMeeting(m);
+              const smartTitle = getSmartMeetingTitle(m);
+              const preview = getMeetingPreview(m);
+              const wordCount = getTranscriptWordCount(m.transcript);
+              const actionCount = Array.isArray(m.actionItems) ? m.actionItems.length : 0;
               return (
-                <button
+                <div
                   key={m.id}
+                  role="button"
+                  tabIndex={0}
                   onClick={() => {
                     setSelectedMeeting(m);
                     setTranscript(m.transcript || '');
                   }}
-                  className="bg-card border border-border rounded-2xl p-5 text-left hover:shadow-md hover:border-emerald-500/20 hover:-translate-y-0.5 transition-all group"
-                >
-                  <div className="flex items-start justify-between mb-3">
-                    <h3 className="text-sm font-semibold text-foreground line-clamp-2 group-hover:text-emerald-500 transition-colors">
-                      {m.title}
-                    </h3>
-                    <span
-                      className={cn(
-                        'px-2 py-0.5 rounded-full text-[10px] font-medium shrink-0 ml-2',
-                        status.bg,
-                      )}
-                      style={{ color: status.color }}
-                    >
-                      {status.label}
-                    </span>
-                  </div>
-                  {m.description && (
-                    <p className="text-xs text-muted-foreground line-clamp-2 mb-3">
-                      {m.description}
-                    </p>
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter' || event.key === ' ') {
+                      event.preventDefault();
+                      setSelectedMeeting(m);
+                      setTranscript(m.transcript || '');
+                    }
+                  }}
+                  className={cn(
+                    'bg-card border border-border rounded-2xl p-5 text-left hover:shadow-md hover:-translate-y-0.5 transition-all group',
+                    extensionOrigin
+                      ? 'bg-[linear-gradient(165deg,rgba(16,185,129,0.12),rgba(16,185,129,0.02)_38%,rgba(0,0,0,0)_55%)] border-emerald-500/30 hover:border-emerald-500/50'
+                      : 'hover:border-emerald-500/20',
                   )}
+                >
+                  <div className="flex items-start justify-between gap-3 mb-3">
+                    <div className="min-w-0">
+                      <h3 className="text-sm font-semibold text-foreground line-clamp-2 group-hover:text-emerald-500 transition-colors">
+                        {smartTitle}
+                      </h3>
+                      {extensionOrigin && (
+                        <span className="mt-1.5 inline-flex items-center gap-1 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-emerald-500">
+                          Extension Capture
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex flex-col items-end gap-1.5 shrink-0">
+                      <span
+                        className={cn(
+                          'px-2 py-0.5 rounded-full text-[10px] font-medium',
+                          status.bg,
+                        )}
+                        style={{ color: status.color }}
+                      >
+                        {status.label}
+                      </span>
+                      {m.summary && (
+                        <span className="inline-flex items-center gap-1 rounded-full border border-fuchsia-500/25 bg-fuchsia-500/10 px-2 py-0.5 text-[10px] font-medium text-fuchsia-300">
+                          <Sparkles className="h-3 w-3" />
+                          AI ready
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  <p className="text-xs text-muted-foreground/95 line-clamp-3 mb-3 leading-relaxed">
+                    {preview}
+                  </p>
+
+                  <div className="mb-3 grid grid-cols-3 gap-2 text-[11px]">
+                    <div className="rounded-lg border border-border/70 bg-background/50 px-2 py-1.5">
+                      <div className="text-[10px] uppercase tracking-wide text-muted-foreground">Words</div>
+                      <div className="mt-0.5 font-medium text-foreground">{wordCount || '-'}</div>
+                    </div>
+                    <div className="rounded-lg border border-border/70 bg-background/50 px-2 py-1.5">
+                      <div className="text-[10px] uppercase tracking-wide text-muted-foreground">Actions</div>
+                      <div className="mt-0.5 font-medium text-foreground">{actionCount || '-'}</div>
+                    </div>
+                    <div className="rounded-lg border border-border/70 bg-background/50 px-2 py-1.5">
+                      <div className="text-[10px] uppercase tracking-wide text-muted-foreground">Sync</div>
+                      <div className="mt-0.5 font-medium text-foreground">
+                        {isRecentlyUpdated(m.updatedAt) ? 'Live' : 'Saved'}
+                      </div>
+                    </div>
+                  </div>
+
                   <div className="flex items-center gap-3 text-[11px] text-muted-foreground">
                     <span className="flex items-center gap-1">
                       <Clock className="h-3 w-3" />
                       {formatDate(m.createdAt)}
                     </span>
-                    {m.summary && (
-                      <span className="flex items-center gap-1 text-[#8b5cf6]">
-                        <Sparkles className="h-3 w-3" />
-                        Summarized
-                      </span>
-                    )}
                     {m.transcript && !m.summary && (
                       <span className="flex items-center gap-1 text-emerald-500">
                         <FileText className="h-3 w-3" />
                         Has transcript
+                      </span>
+                    )}
+                    {isRecentlyUpdated(m.updatedAt) && (
+                      <span className="flex items-center gap-1 text-indigo-400">
+                        <RefreshCw className="h-3 w-3" />
+                        Live synced
                       </span>
                     )}
                   </div>
@@ -1515,7 +1893,22 @@ export default function MeetingsPage() {
                       {m.project.name}
                     </div>
                   )}
-                </button>
+                  {m.meetLink && (
+                    <div className="mt-3 flex items-center gap-2">
+                      <button
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          window.open(m.meetLink, '_blank', 'noopener,noreferrer');
+                        }}
+                        className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-background px-2.5 py-1.5 text-[11px] font-medium text-foreground hover:bg-muted"
+                      >
+                        <ExternalLink className="h-3 w-3" />
+                        Open Meet
+                      </button>
+                      <span className="text-[11px] text-muted-foreground">Tap card for full details</span>
+                    </div>
+                  )}
+                </div>
               );
             })}
           </div>
@@ -1559,6 +1952,15 @@ export default function MeetingsPage() {
                 onChange={(e) => setCreateMeetLink(e.target.value)}
                 placeholder="https://meet.google.com/..."
               />
+              <label className="mt-2 inline-flex items-center gap-2 text-xs text-muted-foreground">
+                <input
+                  type="checkbox"
+                  checked={createAndOpenLink}
+                  onChange={(e) => setCreateAndOpenLink(e.target.checked)}
+                  className="h-3.5 w-3.5 rounded border-border"
+                />
+                Buka link meeting otomatis setelah dibuat
+              </label>
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
@@ -1597,10 +1999,40 @@ export default function MeetingsPage() {
                 createMutation.mutate({
                   title: createTitle.trim(),
                   description: createDesc.trim() || undefined,
-                  meetLink: createMeetLink.trim() || undefined,
+                  meetLink: normalizeMeetLink(createMeetLink) || undefined,
                   startTime: createStartTime || undefined,
                   endTime: createEndTime || undefined,
                   projectId: activeProject?.id || undefined,
+                  openNow: true,
+                  autoOpen: true,
+                });
+              }}
+              disabled={createMutation.isPending || !createTitle.trim() || !createMeetLink.trim()}
+              className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-white transition-colors disabled:opacity-50"
+              style={{ background: '#0f766e' }}
+            >
+              {createMutation.isPending ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Play className="h-4 w-4" />
+              )}
+              Create & Join
+            </button>
+            <button
+              onClick={() => {
+                if (!createTitle.trim()) {
+                  toast.error('Title is required');
+                  return;
+                }
+                createMutation.mutate({
+                  title: createTitle.trim(),
+                  description: createDesc.trim() || undefined,
+                  meetLink: normalizeMeetLink(createMeetLink) || undefined,
+                  startTime: createStartTime || undefined,
+                  endTime: createEndTime || undefined,
+                  projectId: activeProject?.id || undefined,
+                  openNow: false,
+                  autoOpen: createAndOpenLink,
                 });
               }}
               disabled={createMutation.isPending || !createTitle.trim()}

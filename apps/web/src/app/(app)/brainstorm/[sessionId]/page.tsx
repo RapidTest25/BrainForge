@@ -37,6 +37,10 @@ const MODES = [
 
 const DRAW_COLORS = ['#1a1a2e', '#ef4444', '#3b82f6', '#22c55e', '#f59e0b', '#8b5cf6', '#ec4899', '#06b6d4'];
 const DRAW_SIZES = [2, 4, 6, 8];
+const WHITEBOARD_AUTOSAVE_DEBOUNCE_MS = 2500;
+const CHAT_INITIAL_RENDER_COUNT = 120;
+const CHAT_LOAD_BATCH = 80;
+const REPLY_PREFIX = '[[reply]]';
 
 // ===== TYPES =====
 type DrawTool = 'select' | 'pen' | 'line' | 'rect' | 'circle' | 'diamond' | 'text' | 'eraser' | 'arrow';
@@ -68,6 +72,16 @@ export default function BrainstormSessionPage() {
   // Chat state
   const [message, setMessage] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const chatListRef = useRef<HTMLDivElement>(null);
+  const skipNextAutoScrollRef = useRef(false);
+  const hasInitialChatScrollRef = useRef(false);
+  const [visibleMessageCount, setVisibleMessageCount] = useState(CHAT_INITIAL_RENDER_COUNT);
+  const [replyTarget, setReplyTarget] = useState<{ id: string; sender: string; content: string } | null>(null);
+  const [messageContextMenu, setMessageContextMenu] = useState<{
+    x: number;
+    y: number;
+    msg: any;
+  } | null>(null);
   const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
   const [editingContent, setEditingContent] = useState('');
   const [showEmbedDialog, setShowEmbedDialog] = useState(false);
@@ -106,6 +120,8 @@ export default function BrainstormSessionPage() {
 
 
   const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const drawRafRef = useRef<number | null>(null);
+  const lastSavedCanvasSnapshotRef = useRef('[]');
   const [msgDeleteConfirm, setMsgDeleteConfirm] = useState<{ id: string } | null>(null);
   const canvasLoadedRef = useRef(false);
 
@@ -267,12 +283,43 @@ export default function BrainstormSessionPage() {
     ...teamMembers.map((m: any) => ({ ...m, isAI: false })),
   ];
 
+  const getMentionHandle = useCallback((candidate: any) => {
+    if (candidate?.isAI) return 'ai';
+
+    const username = String(candidate?.username || '').trim();
+    if (username) return username.toLowerCase();
+
+    const email = String(candidate?.email || '').trim();
+    if (email.includes('@')) {
+      return email.split('@')[0].toLowerCase().replace(/[^a-z0-9._-]/g, '');
+    }
+
+    const normalizedName = String(candidate?.name || '')
+      .toLowerCase()
+      .trim()
+      .replace(/\s+/g, '_')
+      .replace(/[^a-z0-9._-]/g, '');
+
+    return normalizedName || 'member';
+  }, []);
+
   const filteredMentions = mentionQuery !== null
-    ? mentionCandidates.filter((c) =>
-        c.name.toLowerCase().includes(mentionQuery.toLowerCase()) ||
-        (c.isAI && 'ai'.includes(mentionQuery.toLowerCase()))
-      )
+    ? mentionCandidates.filter((c) => {
+        const q = mentionQuery.toLowerCase();
+        const handle = getMentionHandle(c);
+        return (
+          c.name.toLowerCase().includes(q) ||
+          String(c.email || '').toLowerCase().includes(q) ||
+          handle.includes(q) ||
+          (c.isAI && 'ai'.includes(q))
+        );
+      })
     : [];
+
+  const allMessages = session?.data?.messages || [];
+  const hiddenMessageCount = Math.max(allMessages.length - visibleMessageCount, 0);
+  const renderedMessages =
+    hiddenMessageCount > 0 ? allMessages.slice(-visibleMessageCount) : allMessages;
 
   // ===== LOAD SAVED DATA =====
   useEffect(() => {
@@ -281,22 +328,39 @@ export default function BrainstormSessionPage() {
       const wb = session.data.whiteboardData;
       if (wb && Array.isArray(wb)) {
         setElements(wb);
+        lastSavedCanvasSnapshotRef.current = JSON.stringify(wb);
       } else {
         setElements([]);
+        lastSavedCanvasSnapshotRef.current = '[]';
       }
       setTimeout(() => { canvasLoadedRef.current = true; }, 500);
     }
   }, [session?.data?.id]);
 
+  useEffect(() => {
+    setVisibleMessageCount(CHAT_INITIAL_RENDER_COUNT);
+    hasInitialChatScrollRef.current = false;
+    setReplyTarget(null);
+    setMessageContextMenu(null);
+  }, [sessionId]);
+
   // ===== AUTO-SAVE =====
   useEffect(() => {
     if (!sessionId || !teamId || !canvasLoadedRef.current) return;
+
+    const snapshot = JSON.stringify(elements);
+    if (snapshot === lastSavedCanvasSnapshotRef.current) return;
+
     if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
     autoSaveTimerRef.current = setTimeout(() => {
       api.patch(`/teams/${teamId}/brainstorm/${sessionId}/canvas`, {
         whiteboardData: elements,
-      }).catch(() => {});
-    }, 1500);
+      })
+        .then(() => {
+          lastSavedCanvasSnapshotRef.current = snapshot;
+        })
+        .catch(() => {});
+    }, WHITEBOARD_AUTOSAVE_DEBOUNCE_MS);
     return () => {
       if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
     };
@@ -378,14 +442,59 @@ export default function BrainstormSessionPage() {
   });
 
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [session?.data?.messages, aiTyping]);
+    if (!hasInitialChatScrollRef.current && allMessages.length > 0 && activeTab === 'chat') {
+      hasInitialChatScrollRef.current = true;
+      requestAnimationFrame(() => {
+        messagesEndRef.current?.scrollIntoView({ behavior: 'auto' });
+      });
+      return;
+    }
+
+    if (skipNextAutoScrollRef.current) {
+      skipNextAutoScrollRef.current = false;
+      return;
+    }
+
+    const list = chatListRef.current;
+    if (!list) return;
+
+    const distanceFromBottom = list.scrollHeight - list.scrollTop - list.clientHeight;
+    const shouldStickToBottom = distanceFromBottom < 180 || aiTyping;
+
+    if (shouldStickToBottom) {
+      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [allMessages, aiTyping, activeTab]);
+
+  useEffect(() => {
+    const onCloseContextMenu = () => setMessageContextMenu(null);
+    const onEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setMessageContextMenu(null);
+      }
+    };
+
+    window.addEventListener('click', onCloseContextMenu);
+    window.addEventListener('keydown', onEscape);
+
+    return () => {
+      window.removeEventListener('click', onCloseContextMenu);
+      window.removeEventListener('keydown', onEscape);
+    };
+  }, []);
 
   const handleSend = () => {
     if (!message.trim()) return;
     // Check if @ai is mentioned
-    const hasAiMention = /@ai\b/i.test(message);
-    const payload: any = { content: message };
+    const hasAiMention = /@ai\b/i.test(message) || /@ai_assistant\b/i.test(message);
+    const finalContent = replyTarget
+      ? `${REPLY_PREFIX}${JSON.stringify({
+          messageId: replyTarget.id,
+          sender: replyTarget.sender,
+          preview: replyTarget.content,
+        })}\n${message}`
+      : message;
+    const payload: any = { content: finalContent };
     if (hasAiMention) {
       // Use the selected provider/model from the AI picker
       if (!aiProvider || !aiModel) {
@@ -403,6 +512,7 @@ export default function BrainstormSessionPage() {
     setMessage('');
     setMentionQuery(null);
     setShowAiPicker(false);
+    setReplyTarget(null);
     // Optimistically show AI typing indicator for client who sent the message
     if (hasAiMention) {
       setAiTyping(true);
@@ -474,6 +584,34 @@ export default function BrainstormSessionPage() {
 
   const embedToMessage = (embed: any) => `[[embed]]${JSON.stringify(embed)}`;
 
+  const parseReply = (content: string) => {
+    if (content.startsWith(REPLY_PREFIX)) {
+      const lineEnd = content.indexOf('\n');
+      const header = lineEnd >= 0 ? content.slice(REPLY_PREFIX.length, lineEnd) : content.slice(REPLY_PREFIX.length);
+      const body = lineEnd >= 0 ? content.slice(lineEnd + 1) : '';
+
+      try {
+        return { text: body, reply: JSON.parse(header) };
+      } catch {
+        return { text: content, reply: null };
+      }
+    }
+
+    // Backward compatibility for older quoted reply format.
+    const legacyReplyMatch = content.match(/^\s*>\s*Reply to\s+@?(.+?)\s*\r?\n\s*>\s*(.+?)\s*(?:\r?\n\r?\n|\r?\n)([\s\S]*)$/);
+    if (legacyReplyMatch) {
+      return {
+        text: legacyReplyMatch[3] || '',
+        reply: {
+          sender: legacyReplyMatch[1].trim(),
+          preview: legacyReplyMatch[2].trim(),
+        },
+      };
+    }
+
+    return { text: content, reply: null };
+  };
+
   // @mention helpers
   const handleMessageChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const val = e.target.value;
@@ -499,7 +637,7 @@ export default function BrainstormSessionPage() {
   };
 
   const insertMention = (candidate: { id: string; name: string; isAI: boolean }) => {
-    const mentionText = candidate.isAI ? '@ai' : `@${candidate.name}`;
+    const mentionText = candidate.isAI ? '@ai' : `@${getMentionHandle(candidate)}`;
     const before = message.slice(0, mentionStart);
     const after = message.slice((textareaRef.current?.selectionStart || mentionStart + (mentionQuery?.length || 0) + 1));
     setMessage(before + mentionText + ' ' + after);
@@ -548,7 +686,7 @@ export default function BrainstormSessionPage() {
       );
     }
 
-    const mentionRegex = /@(\w+)/g;
+    const mentionRegex = /@([a-zA-Z0-9._-]+)/g;
     const parts: React.ReactNode[] = [];
     let lastIndex = 0;
     let match;
@@ -648,6 +786,14 @@ export default function BrainstormSessionPage() {
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
+
+  const getReplyPreview = (content: string) => {
+    const { text: withoutReply } = parseReply(content || '');
+    const { text } = parseEmbed(withoutReply || '');
+    const compact = String(text || '').replace(/\s+/g, ' ').trim();
+    if (!compact) return 'Attachment or embedded content';
+    return compact.length > 80 ? `${compact.slice(0, 77)}...` : compact;
+  };
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -828,7 +974,22 @@ export default function BrainstormSessionPage() {
     }
   }, [elements, currentElement]);
 
-  useEffect(() => { redrawCanvas(); }, [redrawCanvas]);
+  useEffect(() => {
+    if (drawRafRef.current) {
+      cancelAnimationFrame(drawRafRef.current);
+    }
+    drawRafRef.current = requestAnimationFrame(() => {
+      redrawCanvas();
+      drawRafRef.current = null;
+    });
+
+    return () => {
+      if (drawRafRef.current) {
+        cancelAnimationFrame(drawRafRef.current);
+        drawRafRef.current = null;
+      }
+    };
+  }, [redrawCanvas]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -1000,12 +1161,29 @@ export default function BrainstormSessionPage() {
       {/* ===== CHAT TAB ===== */}
       {activeTab === 'chat' && (
         <>
-          <div className="flex-1 overflow-y-auto py-4 space-y-3">
-            {session?.data?.messages?.map((msg: any) => {
+          <div ref={chatListRef} className="flex-1 overflow-y-auto py-4 space-y-3">
+            <div className="rounded-xl border border-border bg-muted/40 px-3 py-2 text-[11px] text-muted-foreground">
+              Tip: klik kanan pada bubble chat untuk Reply, Copy, Edit, atau Delete. Gunakan tombol @ di bawah untuk mention teammate.
+            </div>
+            {hiddenMessageCount > 0 && (
+              <div className="flex justify-center">
+                <button
+                  onClick={() => {
+                    skipNextAutoScrollRef.current = true;
+                    setVisibleMessageCount((prev) => Math.min(prev + CHAT_LOAD_BATCH, allMessages.length));
+                  }}
+                  className="px-3 py-1.5 rounded-lg border border-border text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                >
+                  Load older messages ({hiddenMessageCount})
+                </button>
+              </div>
+            )}
+            {renderedMessages.map((msg: any) => {
               const isOwn = msg.userId === user?.id;
               const isAI = msg.role === 'ASSISTANT';
               const isDeleted = msg.content === '___MESSAGE_DELETED___';
-              const { text: msgText, embed } = parseEmbed(msg.content || '');
+              const { text: withoutReplyText, reply } = parseReply(msg.content || '');
+              const { text: msgText, embed } = parseEmbed(withoutReplyText || '');
               const senderName = msg.user?.name || (isAI ? 'AI Assistant' : 'Unknown');
               const senderInitial = isAI ? '' : senderName.charAt(0).toUpperCase();
               const isEditing = editingMessageId === msg.id;
@@ -1031,7 +1209,16 @@ export default function BrainstormSessionPage() {
                     isDeleted ? 'bg-muted/50 border border-border/50' :
                     isAI ? 'bg-gradient-to-r from-[#7b68ee]/10 to-[#a855f7]/10 text-foreground border border-[#7b68ee]/20' :
                     isOwn ? 'bg-gradient-to-r from-[#7b68ee] to-[#6c5ce7] text-white' : 'bg-muted text-foreground border border-border'
-                  )}>
+                  )}
+                  onContextMenu={(event) => {
+                    event.preventDefault();
+                    setMessageContextMenu({
+                      x: event.clientX,
+                      y: event.clientY,
+                      msg,
+                    });
+                  }}
+                  >
                     {/* Sender name */}
                     {!isDeleted && (
                       <p className={cn('text-[11px] font-semibold mb-1', isAI ? 'text-[#7b68ee]' : isOwn ? 'text-white/80' : 'text-muted-foreground')}>
@@ -1066,6 +1253,23 @@ export default function BrainstormSessionPage() {
                       </div>
                     ) : (
                       <>
+                        {reply && (
+                          <div
+                            className={cn(
+                              'mb-2 rounded-xl border px-2.5 py-2 text-[11px] leading-relaxed',
+                              isOwn
+                                ? 'border-white/35 bg-white/12 text-white/90'
+                                : 'border-[#7b68ee]/25 bg-[#7b68ee]/8 text-foreground/90',
+                            )}
+                          >
+                            <p className={cn('font-semibold', isOwn ? 'text-white' : 'text-[#7b68ee]')}>
+                              Reply to @{reply.sender || 'member'}
+                            </p>
+                            <p className={cn('mt-0.5 truncate', isOwn ? 'text-white/80' : 'text-muted-foreground')}>
+                              {reply.preview || 'Message'}
+                            </p>
+                          </div>
+                        )}
                         {msgText && <p className="text-sm whitespace-pre-wrap leading-relaxed">{renderMessageContent(msgText, isOwn, isAI)}</p>}
                         {embed && renderEmbedCard(embed, isOwn)}
                         {msg.fileUrl && (() => {
@@ -1161,7 +1365,7 @@ export default function BrainstormSessionPage() {
                 </div>
               );
             })}
-            {!session?.data?.messages?.length && (
+            {!allMessages.length && (
               <div className="flex flex-col items-center justify-center h-full text-center py-16">
                 <div className="h-16 w-16 rounded-2xl bg-gradient-to-br from-[#7b68ee]/10 to-[#6c5ce7]/5 flex items-center justify-center mb-4">
                   <MessageSquare className="h-8 w-8 text-[#7b68ee]" />
@@ -1194,6 +1398,70 @@ export default function BrainstormSessionPage() {
             )}
             <div ref={messagesEndRef} />
           </div>
+
+          {messageContextMenu && (
+            <div
+              className="fixed z-[120] w-44 rounded-xl border border-border bg-card shadow-2xl py-1"
+              style={{
+                left: Math.min(messageContextMenu.x, window.innerWidth - 192),
+                top: Math.min(messageContextMenu.y, window.innerHeight - 220),
+              }}
+              onClick={(event) => event.stopPropagation()}
+            >
+              <button
+                className="w-full text-left px-3 py-2 text-xs hover:bg-accent"
+                onClick={() => {
+                  const msg = messageContextMenu.msg;
+                  const sender = msg.user?.name || (msg.role === 'ASSISTANT' ? 'ai' : 'member');
+                  setReplyTarget({
+                    id: msg.id,
+                    sender,
+                    content: getReplyPreview(msg.content || ''),
+                  });
+                  setMessageContextMenu(null);
+                  textareaRef.current?.focus();
+                }}
+              >
+                Reply
+              </button>
+              <button
+                className="w-full text-left px-3 py-2 text-xs hover:bg-accent"
+                onClick={() => {
+                  navigator.clipboard.writeText(String(messageContextMenu.msg.content || ''));
+                  toast.success('Message copied');
+                  setMessageContextMenu(null);
+                }}
+              >
+                Copy text
+              </button>
+              {messageContextMenu.msg.userId === user?.id && messageContextMenu.msg.content !== '___MESSAGE_DELETED___' && (
+                <>
+                  <button
+                    className="w-full text-left px-3 py-2 text-xs hover:bg-accent"
+                    onClick={() => {
+                      const msg = messageContextMenu.msg;
+                      setEditingMessageId(msg.id);
+                      setEditingContent(msg.content || '');
+                      setMessageContextMenu(null);
+                    }}
+                  >
+                    Edit
+                  </button>
+                  <button
+                    className="w-full text-left px-3 py-2 text-xs text-red-500 hover:bg-red-500/10"
+                    onClick={() => {
+                      const msg = messageContextMenu.msg;
+                      setMsgDeleteConfirm({ id: msg.id });
+                      setMessageContextMenu(null);
+                    }}
+                  >
+                    Delete
+                  </button>
+                </>
+              )}
+            </div>
+          )}
+
           <div className="flex gap-2 pt-3 border-t border-border">
             <input
               type="file"
@@ -1202,6 +1470,19 @@ export default function BrainstormSessionPage() {
               accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.sql,.txt,.csv,.json,.xml,.zip,.rar"
               onChange={handleFileUpload}
             />
+            <button
+              onClick={() => {
+                const currentCursor = textareaRef.current?.selectionStart || message.length;
+                setMentionStart(currentCursor);
+                setMentionQuery('');
+                setMentionIndex(0);
+                textareaRef.current?.focus();
+              }}
+              className="shrink-0 h-11 w-11 flex items-center justify-center rounded-xl border border-border hover:bg-accent text-muted-foreground hover:text-[#7b68ee] transition-all"
+              title="Mention teammate"
+            >
+              @
+            </button>
             <button
               onClick={() => {
                 setShowEmbedDialog(true);
@@ -1222,6 +1503,20 @@ export default function BrainstormSessionPage() {
               {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Paperclip className="h-4 w-4" />}
             </button>
             <div className="flex-1 relative">
+              {replyTarget && (
+                <div className="absolute bottom-full mb-1 left-0 right-0 rounded-xl border border-border bg-card px-3 py-2 flex items-start gap-2 z-40">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[11px] font-semibold text-[#7b68ee]">Replying to @{replyTarget.sender}</p>
+                    <p className="text-[11px] text-muted-foreground truncate">{replyTarget.content}</p>
+                  </div>
+                  <button
+                    onClick={() => setReplyTarget(null)}
+                    className="h-5 w-5 rounded flex items-center justify-center text-muted-foreground hover:bg-accent"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                </div>
+              )}
               {/* AI Model Picker Panel */}
               {showAiPicker && (
                 <div className="absolute bottom-full mb-1 left-0 w-80 bg-card border border-border rounded-xl shadow-xl z-50 overflow-hidden">
@@ -1350,7 +1645,10 @@ export default function BrainstormSessionPage() {
                         )}
                         <div className="text-left min-w-0">
                           <div className="text-[13px] font-medium truncate">{c.isAI ? 'AI Assistant' : c.name}</div>
-                          <div className="text-[10px] text-muted-foreground">{c.isAI ? 'Ask AI a question' : c.email || ''}</div>
+                          <div className="text-[10px] text-muted-foreground">
+                            {c.isAI ? '@ai' : `@${getMentionHandle(c)}`}
+                            {!c.isAI && c.email ? ` • ${c.email}` : ''}
+                          </div>
                         </div>
                       </button>
                     ))}

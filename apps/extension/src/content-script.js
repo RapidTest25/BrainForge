@@ -10,7 +10,15 @@ let panelVisible = false;
 let activeMeetingId = null;
 let syncIntervalId = null;
 let lastSyncedTranscript = '';
+let transcriptRenderTimeoutId = null;
+let latestTranscriptPreview = '';
+let lastRenderedTranscript = '';
+let mountRetryIntervalId = null;
+let mountVisibilityHandlerAttached = false;
 const API_URL = 'http://localhost:4000/api';
+const TRANSCRIPT_RENDER_INTERVAL_MS = 450;
+const TOOLBAR_MOUNT_RETRY_MS = 1500;
+const TOOLBAR_MOUNT_MAX_ATTEMPTS = 40;
 
 async function getSettings(keys) {
   return chrome.storage.sync.get(keys);
@@ -104,8 +112,37 @@ function startSyncLoop() {
   }, 8000);
 }
 
+function flushTranscriptPreview() {
+  transcriptRenderTimeoutId = null;
+  const transcriptEl = document.getElementById('brainforge-transcript-text');
+  if (!transcriptEl) return;
+
+  if (latestTranscriptPreview === lastRenderedTranscript) {
+    return;
+  }
+
+  const nearBottom =
+    transcriptEl.scrollHeight - transcriptEl.scrollTop - transcriptEl.clientHeight < 28;
+
+  transcriptEl.textContent = latestTranscriptPreview;
+  lastRenderedTranscript = latestTranscriptPreview;
+
+  if (nearBottom) {
+    transcriptEl.scrollTop = transcriptEl.scrollHeight;
+  }
+}
+
+function queueTranscriptPreview(nextText) {
+  latestTranscriptPreview = nextText;
+  if (transcriptRenderTimeoutId) return;
+
+  transcriptRenderTimeoutId = setTimeout(() => {
+    flushTranscriptPreview();
+  }, TRANSCRIPT_RENDER_INTERVAL_MS);
+}
+
 // Initialize Speech Recognition
-function initRecognition() {
+function initRecognition(options = {}) {
   const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
   if (!SpeechRecognition) {
     console.error('Speech Recognition not supported');
@@ -114,8 +151,8 @@ function initRecognition() {
 
   const rec = new SpeechRecognition();
   rec.continuous = true;
-  rec.interimResults = true;
-  rec.lang = 'id-ID';
+  rec.interimResults = options.interimResults !== false;
+  rec.lang = options.language || 'id-ID';
 
   rec.onstart = () => {
     console.log('[🎤] Recording started');
@@ -132,7 +169,7 @@ function initRecognition() {
         interimTranscript += t;
       }
     }
-    updatePanelTranscript(transcript + interimTranscript);
+    queueTranscriptPreview(transcript + interimTranscript);
   };
 
   rec.onerror = (event) => {
@@ -154,7 +191,8 @@ function initRecognition() {
 
 // Create and inject the panel UI
 function createPanel() {
-  if (document.getElementById('brainforge-panel')) return;
+  const existingPanel = document.getElementById('brainforge-panel');
+  if (existingPanel) return existingPanel;
 
   const panel = document.createElement('div');
   panel.id = 'brainforge-panel';
@@ -203,7 +241,10 @@ function createPanel() {
   `;
 
   document.body.appendChild(panel);
+  panel.classList.add('hidden');
+  panelVisible = false;
   attachPanelEventListeners();
+  return panel;
 }
 
 function attachPanelEventListeners() {
@@ -221,18 +262,30 @@ function attachPanelEventListeners() {
 }
 
 async function toggleRecording() {
+  const settings = await getSettings([
+    'language',
+    'apiUrl',
+    'teamId',
+    'authToken',
+    'performanceMode',
+  ]);
+  const useInterimTranscript = (settings.performanceMode || 'LIGHTWEIGHT') !== 'LIGHTWEIGHT';
+
   if (!recognition) {
-    recognition = initRecognition();
+    recognition = initRecognition({
+      language: settings.language,
+      interimResults: useInterimTranscript,
+    });
     if (!recognition) {
       alert('Speech Recognition not supported in this browser');
       return;
     }
   }
 
-  const settings = await getSettings(['language', 'apiUrl', 'teamId', 'authToken']);
   if (settings.language) {
     recognition.lang = settings.language;
   }
+  recognition.interimResults = useInterimTranscript;
 
   isRecording = !isRecording;
   const btn = document.getElementById('brainforge-record-btn');
@@ -241,6 +294,9 @@ async function toggleRecording() {
     try {
       transcript = '';
       lastSyncedTranscript = '';
+      latestTranscriptPreview = '';
+      lastRenderedTranscript = '';
+      queueTranscriptPreview('');
       await createMeetingForRecording(settings);
       startSyncLoop();
       updatePanelStatus('Recording live and syncing transcript...', 'recording');
@@ -258,6 +314,7 @@ async function toggleRecording() {
   } else {
     clearSyncLoop();
     recognition.stop();
+    queueTranscriptPreview(transcript);
     syncTranscriptToMeeting({ final: true }).catch((error) => {
       console.error('Final transcript sync error:', error);
     });
@@ -269,14 +326,13 @@ async function toggleRecording() {
 
 function updatePanelStatus(status, type = 'info') {
   const statusEl = document.getElementById('brainforge-status');
+  if (!statusEl) return;
   statusEl.textContent = status;
   statusEl.className = `status status-${type}`;
 }
 
 function updatePanelTranscript(text) {
-  const transcriptEl = document.getElementById('brainforge-transcript-text');
-  transcriptEl.textContent = text;
-  transcriptEl.scrollTop = transcriptEl.scrollHeight;
+  queueTranscriptPreview(text);
 }
 
 async function summarizeTranscript() {
@@ -395,7 +451,8 @@ async function saveToMeetingsPage() {
 }
 
 function togglePanelVisibility() {
-  const panel = document.getElementById('brainforge-panel');
+  const panel = createPanel();
+  if (!panel) return;
   panelVisible = !panelVisible;
   panel.classList.toggle('hidden', !panelVisible);
 }
@@ -472,16 +529,33 @@ function mountToggleButtonToToolbar() {
 // Create a button to show/hide panel and keep trying toolbar mount for Meet dynamic DOM
 function addPanelToggleButton() {
   ensureFloatingToggleButton();
-  mountToggleButtonToToolbar();
+  let attempts = 0;
 
-  const observer = new MutationObserver(() => {
-    mountToggleButtonToToolbar();
-  });
+  const tryMount = () => {
+    attempts += 1;
+    const mounted = mountToggleButtonToToolbar();
+    if (mounted || attempts >= TOOLBAR_MOUNT_MAX_ATTEMPTS) {
+      if (mountRetryIntervalId) {
+        clearInterval(mountRetryIntervalId);
+        mountRetryIntervalId = null;
+      }
+    }
+  };
 
-  observer.observe(document.documentElement, {
-    childList: true,
-    subtree: true,
-  });
+  tryMount();
+
+  if (!mountRetryIntervalId) {
+    mountRetryIntervalId = setInterval(tryMount, TOOLBAR_MOUNT_RETRY_MS);
+  }
+
+  if (!mountVisibilityHandlerAttached) {
+    document.addEventListener('visibilitychange', () => {
+      if (!document.hidden) {
+        mountToggleButtonToToolbar();
+      }
+    });
+    mountVisibilityHandlerAttached = true;
+  }
 }
 
 // Initialize when DOM is ready
@@ -492,5 +566,4 @@ if (document.readyState === 'loading') {
 }
 
 // Create panel button in Meet call controls
-createPanel();
-showPanelInitially();
+// Panel is created lazily on first button click.

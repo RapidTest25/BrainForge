@@ -39,6 +39,7 @@ async function init() {
     'provider',
     'model',
     'language',
+    'performanceMode',
     'authToken',
     'refreshToken',
     'user',
@@ -47,6 +48,7 @@ async function init() {
   el('provider').value = stored.provider || 'COPILOT';
   el('model').value = stored.model || 'gpt-4o';
   el('language').value = stored.language || 'id-ID';
+  el('performanceMode').value = stored.performanceMode || 'LIGHTWEIGHT';
 
   el('openMeetingsBtn').addEventListener('click', openMeetingsPage);
   el('openMeetBtn').addEventListener('click', openGoogleMeet);
@@ -154,6 +156,7 @@ async function saveDefaults() {
     provider: el('provider').value,
     model: el('model').value.trim() || 'gpt-4o',
     language: el('language').value,
+    performanceMode: el('performanceMode').value || 'LIGHTWEIGHT',
   });
 
   showMessage('Meeting defaults saved', 'success');

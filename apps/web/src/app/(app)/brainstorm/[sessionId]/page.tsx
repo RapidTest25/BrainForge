@@ -1,224 +1,329 @@
 'use client';
 
-import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   MessageSquare, Send, Swords, BarChart3,
   Sparkles, Loader2, ArrowLeft, Pencil, Trash2,
   Circle, Square, Type, Minus, Eraser, Download,
-          <div className="flex-1 min-h-0 flex gap-3">
-            <div ref={chatListRef} className="flex-1 overflow-y-auto py-4 space-y-3 min-w-0">
-              <div className="rounded-xl border border-border bg-muted/40 px-3 py-2 text-[11px] text-muted-foreground">
-                Tip: klik kanan pada bubble chat untuk Reply, Copy, Edit, atau Delete. Gunakan tombol @ di bawah untuk mention teammate.
-              </div>
-              {!!focusedThreadRootId && (
-                <div className="flex items-center justify-between rounded-xl border border-border bg-card px-3 py-2">
-                  <div className="text-xs text-muted-foreground">Thread view: showing message + replies</div>
-                  <button onClick={() => setFocusedThreadRootId(null)} className="text-xs font-medium text-[#7b68ee] hover:underline">
-                    Back to all messages
-                  </button>
-                </div>
-              )}
-              {hiddenMessageCount > 0 && !focusedThreadRootId && (
-                <div className="flex justify-center">
-                  <button
-                    onClick={() => {
-                      skipNextAutoScrollRef.current = true;
-                      setVisibleMessageCount((prev) => Math.min(prev + CHAT_LOAD_BATCH, allMessages.length));
-                    }}
-                    className="px-3 py-1.5 rounded-lg border border-border text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-                  >
-                    Load older messages ({hiddenMessageCount})
-                  </button>
-                </div>
-              )}
-              {threadMessages.map((msg: any) => {
-                const isOwn = msg.userId === user?.id;
-                const isAI = msg.role === 'ASSISTANT';
-                const isDeleted = msg.content === '___MESSAGE_DELETED___';
-                const { text: withoutReplyText, reply } = parseReply(msg.content || '');
-                const { text: msgText, embed } = parseEmbed(withoutReplyText || '');
-                const replyCount = repliesByMessageId.get(msg.id)?.length || 0;
-                const senderName = msg.user?.name || (isAI ? 'AI Assistant' : 'Unknown');
-                const senderInitial = isAI ? '' : senderName.charAt(0).toUpperCase();
-                const isEditing = editingMessageId === msg.id;
+  ArrowRight, Diamond, RotateCcw, CheckCircle2,
+  Users, FileText, Check, X, Paperclip, Image as ImageIcon, File as FileIcon,
+  MoreVertical, Edit2, Brain, ChevronDown, Search, Ban, Link2, Target, Calendar as CalendarIcon, Zap,
+} from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription,
+} from '@/components/ui/dialog';
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from '@/components/ui/select';
+import { useTeamStore } from '@/stores/team-store';
+import { useAuthStore } from '@/stores/auth-store';
+import { api } from '@/lib/api';
+import { cn } from '@/lib/utils';
+import { toast } from 'sonner';
+import { useBrainstormSocket } from '@/hooks/use-brainstorm-socket';
+import { DeleteConfirmDialog } from '@/components/shared/delete-confirm-dialog';
 
-                return (
-                  <div
-                    key={msg.id}
-                    id={`brain-msg-${msg.id}`}
-                    className={cn(
-                      'flex gap-3 max-w-[85%] rounded-xl transition-all',
-                      isOwn ? 'ml-auto flex-row-reverse' : '',
-                      highlightedMessageId === msg.id && 'ring-2 ring-[#7b68ee]/45 shadow-[0_0_0_4px_rgba(123,104,238,0.14)]'
-                    )}
-                  >
-                    <div className={cn(
-                      'h-7 w-7 rounded-full flex items-center justify-center shrink-0 mt-1 text-[10px] font-bold text-white',
-                      isDeleted ? 'bg-muted' :
-                      isAI ? 'bg-gradient-to-br from-[#7b68ee] to-[#a855f7]' :
-                      isOwn ? 'bg-gradient-to-br from-[#7b68ee] to-[#6c5ce7]' : 'bg-gradient-to-br from-gray-400 to-gray-500'
-                    )}>
-                      {isDeleted ? (
-                        <Ban className="h-3 w-3 text-muted-foreground" />
-                      ) : isAI ? (
-                        <Brain className="h-3.5 w-3.5 text-white" />
-                      ) : msg.user?.avatarUrl ? (
-                        <img src={msg.user.avatarUrl} alt={senderName} className="h-7 w-7 rounded-full object-cover" />
-                      ) : senderInitial}
-                    </div>
+// ===== CONSTANTS =====
+const MODES = [
+  { value: 'BRAINSTORM', label: 'Brainstorm', icon: Brain, color: '#22c55e' },
+  { value: 'DEBATE', label: 'Debate', icon: Swords, color: '#ef4444' },
+  { value: 'ANALYSIS', label: 'Analysis', icon: BarChart3, color: '#3b82f6' },
+  { value: 'FREEFORM', label: 'Freeform', icon: Sparkles, color: '#8b5cf6' },
+];
 
-                    <div
-                      className={cn(
-                        'rounded-2xl px-4 py-3 group relative',
-                        isDeleted ? 'bg-muted/50 border border-border/50' :
-                        isAI ? 'bg-gradient-to-r from-[#7b68ee]/10 to-[#a855f7]/10 text-foreground border border-[#7b68ee]/20' :
-                        isOwn ? 'bg-gradient-to-r from-[#7b68ee] to-[#6c5ce7] text-white' : 'bg-muted text-foreground border border-border'
-                      )}
-                      onContextMenu={(event) => {
-                        event.preventDefault();
-                        setMessageContextMenu({ x: event.clientX, y: event.clientY, msg });
-                      }}
-                    >
-                      {!isDeleted && (
-                        <p className={cn('text-[11px] font-semibold mb-1', isAI ? 'text-[#7b68ee]' : isOwn ? 'text-white/80' : 'text-muted-foreground')}>
-                          {isAI && <Brain className="h-3 w-3 inline mr-1 -mt-0.5" />}
-                          {senderName}
-                        </p>
-                      )}
+const DRAW_COLORS = ['#1a1a2e', '#ef4444', '#3b82f6', '#22c55e', '#f59e0b', '#8b5cf6', '#ec4899', '#06b6d4'];
+const DRAW_SIZES = [2, 4, 6, 8];
+const WHITEBOARD_AUTOSAVE_DEBOUNCE_MS = 2500;
+const CHAT_INITIAL_RENDER_COUNT = 120;
+const CHAT_LOAD_BATCH = 80;
+const REPLY_PREFIX = '[[reply]]';
 
-                      {isEditing ? (
-                        <div className="space-y-2">
-                          <Textarea
-                            value={editingContent}
-                            onChange={(e) => setEditingContent(e.target.value)}
-                            onKeyDown={(e) => {
-                              if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); editMutation.mutate({ messageId: msg.id, content: editingContent }); }
-                              if (e.key === 'Escape') { setEditingMessageId(null); setEditingContent(''); }
-                            }}
-                            className="min-h-[60px] text-sm bg-card/20 border-background/30 text-inherit rounded-xl"
-                            autoFocus
-                          />
-                          <div className="flex gap-1.5 justify-end">
-                            <button onClick={() => { setEditingMessageId(null); setEditingContent(''); }} className="px-2.5 py-1 text-[11px] rounded-lg hover:bg-card/20">Cancel</button>
-                            <button
-                              onClick={() => editMutation.mutate({ messageId: msg.id, content: editingContent })}
-                              disabled={!editingContent.trim() || editMutation.isPending}
-                              className="px-2.5 py-1 text-[11px] rounded-lg bg-card/20 hover:bg-card/30 font-medium disabled:opacity-50"
-                            >
-                              {editMutation.isPending ? 'Saving...' : 'Save'}
-                            </button>
-                          </div>
-                        </div>
-                      ) : (
-                        <>
-                          {reply && (
-                            <div className={cn('mb-2 rounded-xl border px-2.5 py-2 text-[11px] leading-relaxed', isOwn ? 'border-white/35 bg-white/12 text-white/90' : 'border-[#7b68ee]/25 bg-[#7b68ee]/8 text-foreground/90')}>
-                              <p className={cn('font-semibold', isOwn ? 'text-white' : 'text-[#7b68ee]')}>Reply to @{reply.sender || 'member'}</p>
-                              <p className={cn('mt-0.5 truncate', isOwn ? 'text-white/80' : 'text-muted-foreground')}>{reply.preview || 'Message'}</p>
-                              {reply.messageId && (
-                                <button onClick={() => jumpToMessage(reply.messageId)} className={cn('mt-1 text-[10px] font-medium hover:underline', isOwn ? 'text-white/85' : 'text-[#7b68ee]')}>
-                                  Go to original
-                                </button>
-                              )}
-                            </div>
-                          )}
-                          {msgText && <p className="text-sm whitespace-pre-wrap leading-relaxed">{renderMessageContent(msgText, isOwn, isAI)}</p>}
-                          {embed && renderEmbedCard(embed, isOwn)}
-                        </>
-                      )}
+// ===== TYPES =====
+type DrawTool = 'select' | 'pen' | 'line' | 'rect' | 'circle' | 'diamond' | 'text' | 'eraser' | 'arrow';
 
-                      {!isEditing && !isDeleted && (
-                        <div className="flex items-center gap-2 mt-2">
-                          <span className={cn('text-[10px]', isOwn ? 'text-white/60' : 'text-muted-foreground')}>
-                            {new Date(msg.createdAt).toLocaleTimeString()}
-                          </span>
-                          {replyCount > 0 && (
-                            <button onClick={() => setFocusedThreadRootId(msg.id)} className={cn('text-[10px] font-medium hover:underline', isOwn ? 'text-white/75' : 'text-[#7b68ee]')}>
-                              {replyCount} repl{replyCount > 1 ? 'ies' : 'y'}
-                            </button>
-                          )}
-                          {msg.isEdited && <span className={cn('text-[10px] italic', isOwn ? 'text-white/50' : 'text-muted-foreground')}>(edited)</span>}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
+interface DrawElement {
+  id: string;
+  tool: DrawTool;
+  points?: number[];
+  x?: number; y?: number; w?: number; h?: number;
+  color: string;
+  size: number;
+  text?: string;
+}
 
-              {!allMessages.length && (
-                <div className="flex flex-col items-center justify-center h-full text-center py-16">
-                  <div className="h-16 w-16 rounded-2xl bg-gradient-to-br from-[#7b68ee]/10 to-[#6c5ce7]/5 flex items-center justify-center mb-4">
-                    <MessageSquare className="h-8 w-8 text-[#7b68ee]" />
-                  </div>
-                  <h3 className="text-sm font-semibold text-foreground mb-1">Start the conversation</h3>
-                  <p className="text-xs text-muted-foreground max-w-xs">Share ideas and discuss with your team</p>
-                </div>
-              )}
-              <div ref={messagesEndRef} />
-            </div>
 
-            {!!focusedThreadRootId && (
-              <aside className="hidden lg:flex w-72 shrink-0 rounded-2xl border border-border bg-card flex-col overflow-hidden">
-                <div className="px-3 py-2 border-b border-border bg-muted/40 flex items-center justify-between">
-                  <div>
-                    <p className="text-[11px] font-semibold text-[#7b68ee]">Thread</p>
-                    <p className="text-[10px] text-muted-foreground">Focused discussion</p>
-                  </div>
-                  <button onClick={() => setFocusedThreadRootId(null)} className="h-6 w-6 rounded-md hover:bg-accent flex items-center justify-center text-muted-foreground" title="Close thread">
-                    <X className="h-3.5 w-3.5" />
-                  </button>
-                </div>
-                <div className="flex-1 overflow-y-auto p-3 space-y-3">
-                  {focusedThreadRootMessage ? (
-                    <div className="rounded-xl border border-[#7b68ee]/20 bg-[#7b68ee]/5 p-2.5">
-                      <p className="text-[10px] font-semibold text-[#7b68ee] mb-1">Root message</p>
-                      <p className="text-xs text-foreground leading-relaxed line-clamp-4">{parseReply(focusedThreadRootMessage.content || '').text || 'Message'}</p>
-                      <div className="flex items-center gap-2 mt-2">
-                        <button onClick={() => jumpToMessage(focusedThreadRootMessage.id)} className="text-[10px] font-medium text-[#7b68ee] hover:underline">Jump to message</button>
-                        <button
-                          onClick={() => {
-                            setReplyTarget({
-                              id: focusedThreadRootMessage.id,
-                              sender: focusedThreadRootMessage.user?.name || (focusedThreadRootMessage.role === 'ASSISTANT' ? 'ai' : 'member'),
-                              content: getReplyPreview(focusedThreadRootMessage.content || ''),
-                            });
-                            textareaRef.current?.focus();
-                          }}
-                          className="text-[10px] font-medium text-muted-foreground hover:text-foreground"
-                        >
-                          Reply in composer
-                        </button>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="rounded-xl border border-border bg-muted/30 p-2.5 text-[11px] text-muted-foreground">Root message not found.</div>
-                  )}
 
-                  <div>
-                    <p className="text-[10px] uppercase tracking-wide text-muted-foreground font-semibold mb-2">Replies ({focusedThreadReplies.length})</p>
-                    {focusedThreadReplies.length === 0 ? (
-                      <div className="rounded-xl border border-border bg-muted/30 p-2.5 text-[11px] text-muted-foreground">Belum ada reply pada thread ini.</div>
-                    ) : (
-                      <div className="space-y-1.5">
-                        {focusedThreadReplies.map((replyMsg: any) => {
-                          const sender = replyMsg.user?.name || (replyMsg.role === 'ASSISTANT' ? 'AI Assistant' : 'Member');
-                          const parsed = parseReply(replyMsg.content || '').text;
-                          return (
-                            <button key={replyMsg.id} onClick={() => jumpToMessage(replyMsg.id)} className="w-full text-left rounded-xl border border-border bg-muted/30 hover:bg-muted px-2.5 py-2 transition-colors">
-                              <p className="text-[10px] text-muted-foreground">{sender}</p>
-                              <p className="text-xs text-foreground truncate">{parsed || 'Message'}</p>
-                            </button>
-                          );
-                        })}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </aside>
-            )}
-          </div>
+// ===== MAIN COMPONENT =====
+export default function BrainstormSessionPage() {
+  const params = useParams();
+  const router = useRouter();
+  const sessionId = params.sessionId as string;
+  const { activeTeam } = useTeamStore();
+  const { user } = useAuthStore();
+  const teamId = activeTeam?.id;
+  const queryClient = useQueryClient();
+
+  const [activeTab, setActiveTab] = useState<'chat' | 'whiteboard'>('chat');
+
+  // Chat state
+  const [message, setMessage] = useState('');
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const chatListRef = useRef<HTMLDivElement>(null);
+  const skipNextAutoScrollRef = useRef(false);
+  const hasInitialChatScrollRef = useRef(false);
+  const [visibleMessageCount, setVisibleMessageCount] = useState(CHAT_INITIAL_RENDER_COUNT);
+  const [replyTarget, setReplyTarget] = useState<{ id: string; sender: string; content: string } | null>(null);
+  const [messageContextMenu, setMessageContextMenu] = useState<{
+    x: number;
+    y: number;
+    msg: any;
+  } | null>(null);
+  const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
+  const [editingContent, setEditingContent] = useState('');
+  const [showEmbedDialog, setShowEmbedDialog] = useState(false);
+  const [embedType, setEmbedType] = useState<'task' | 'note' | 'sprint' | 'calendar' | 'diagram' | 'goal'>('note');
+  const [embedSearch, setEmbedSearch] = useState('');
+  const [selectedEmbed, setSelectedEmbed] = useState<any>(null);
+
+  // @mention state
+  const [mentionQuery, setMentionQuery] = useState<string | null>(null);
+  const [mentionIndex, setMentionIndex] = useState(0);
+  const [mentionStart, setMentionStart] = useState(0);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  // AI typing indicator
+  const [aiTyping, setAiTyping] = useState(false);
+  const aiTypingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // AI Model picker for @ai
+  const [showAiPicker, setShowAiPicker] = useState(false);
+  const [aiProvider, setAiProvider] = useState('');
+  const [aiModel, setAiModel] = useState('');
+  const [aiModelSearch, setAiModelSearch] = useState('');
+
+  // Title editing
+  const [editingTitle, setEditingTitle] = useState(false);
+  const [titleDraft, setTitleDraft] = useState('');
+
+  // Whiteboard state
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const [drawTool, setDrawTool] = useState<DrawTool>('pen');
+  const [drawColor, setDrawColor] = useState('#1a1a2e');
+  const [drawSize, setDrawSize] = useState(3);
+  const [isDrawing, setIsDrawing] = useState(false);
+  const [elements, setElements] = useState<DrawElement[]>([]);
+  const [currentElement, setCurrentElement] = useState<DrawElement | null>(null);
+
+
+  const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const drawRafRef = useRef<number | null>(null);
+  const lastSavedCanvasSnapshotRef = useRef('[]');
+  const [msgDeleteConfirm, setMsgDeleteConfirm] = useState<{ id: string } | null>(null);
+  const canvasLoadedRef = useRef(false);
+
+  // Socket for realtime
+  const { emit: socketEmit, on: socketOn, members } = useBrainstormSocket(
+    sessionId,
+    user ? { id: user.id, name: user.name, avatarUrl: user.avatar } : undefined,
+  );
+
+  // ===== REALTIME LISTENERS =====
+  useEffect(() => {
+    if (!sessionId) return;
+    const unsubs: (() => void)[] = [];
+    unsubs.push(socketOn('whiteboard:draw', (element: DrawElement) => {
+      setElements(prev => [...prev, element]);
+    }));
+    unsubs.push(socketOn('whiteboard:undo', () => {
+      setElements(prev => prev.slice(0, -1));
+    }));
+    unsubs.push(socketOn('whiteboard:clear', () => {
+      setElements([]);
+      setCurrentElement(null);
+    }));
+
+    // Real-time chat: new message
+    unsubs.push(socketOn('chat:message', (newMsg: any) => {
+      // If we receive an AI message, hide typing indicator
+      if (newMsg.role === 'ASSISTANT') {
+        setAiTyping(false);
+        if (aiTypingTimeoutRef.current) {
+          clearTimeout(aiTypingTimeoutRef.current);
+          aiTypingTimeoutRef.current = null;
+        }
+      }
+      queryClient.setQueryData(['brainstorm-session', sessionId], (old: any) => {
+        if (!old?.data?.messages) return old;
+        // Avoid duplicates (sender already sees their own message via mutation)
+        const exists = old.data.messages.some((m: any) => m.id === newMsg.id);
+        if (exists) return old;
+        return {
+          ...old,
+          data: {
+            ...old.data,
+            messages: [...old.data.messages, newMsg],
+          },
+        };
+      });
+    }));
+
+    // AI typing indicator from server
+    unsubs.push(socketOn('ai:typing', (data: { isTyping: boolean }) => {
+      setAiTyping(data.isTyping);
+      // Auto-clear typing indicator after 60s safety net
+      if (data.isTyping) {
+        if (aiTypingTimeoutRef.current) clearTimeout(aiTypingTimeoutRef.current);
+        aiTypingTimeoutRef.current = setTimeout(() => {
+          setAiTyping(false);
+          // Refetch to get any missed messages
+          queryClient.invalidateQueries({ queryKey: ['brainstorm-session', sessionId] });
+        }, 60000);
+      } else {
+        if (aiTypingTimeoutRef.current) {
+          clearTimeout(aiTypingTimeoutRef.current);
+          aiTypingTimeoutRef.current = null;
+        }
+      }
+    }));
+
+    // Real-time chat: message edited
+    unsubs.push(socketOn('chat:edit', (editedMsg: any) => {
+      queryClient.setQueryData(['brainstorm-session', sessionId], (old: any) => {
+        if (!old?.data?.messages) return old;
+        return {
+          ...old,
+          data: {
+            ...old.data,
+            messages: old.data.messages.map((m: any) =>
+              m.id === editedMsg.id ? { ...m, content: editedMsg.content, isEdited: true } : m
+            ),
+          },
+        };
+      });
+    }));
+
+    // Real-time chat: message deleted (soft delete — WhatsApp style)
+    unsubs.push(socketOn('chat:delete', (data: { messageId: string; message?: any }) => {
+      queryClient.setQueryData(['brainstorm-session', sessionId], (old: any) => {
+        if (!old?.data?.messages) return old;
+        return {
+          ...old,
+          data: {
+            ...old.data,
+            messages: old.data.messages.map((m: any) =>
+              m.id === data.messageId ? { ...m, content: '___MESSAGE_DELETED___' } : m
+            ),
+          },
+        };
+      });
+    }));
+
+    return () => unsubs.forEach(fn => fn());
+  }, [sessionId, socketOn, queryClient]);
+
+  // ===== QUERIES =====
+  const { data: session, refetch: refetchSession } = useQuery({
+    queryKey: ['brainstorm-session', sessionId],
+    queryFn: () => api.get<{ data: any }>(`/teams/${teamId}/brainstorm/${sessionId}`),
+    enabled: !!sessionId && !!teamId,
+  });
+
+  // Team members for @mention autocomplete
+  const { data: teamMembersRes } = useQuery({
+    queryKey: ['brainstorm-members', teamId],
+    queryFn: () => api.get<{ data: any[] }>(`/teams/${teamId}/brainstorm/members`),
+    enabled: !!teamId,
+    staleTime: 5 * 60_000,
+  });
+
+  // AI models for @ai
+  const { data: aiModelsRes } = useQuery({
+    queryKey: ['ai-models'],
+    queryFn: () => api.get<{ data: Record<string, any[]> }>('/ai/models'),
+    staleTime: 5 * 60_000,
+  });
+
+  // User's AI keys for provider selection
+  const { data: aiKeysRes } = useQuery({
+    queryKey: ['ai-keys'],
+    queryFn: () => api.get<{ data: any[] }>('/ai/keys'),
+    staleTime: 5 * 60_000,
+  });
+
+  // Get user's active providers from their AI keys
+  const userActiveProviders = (aiKeysRes?.data || [])
+    .filter((k: any) => k.isActive)
+    .map((k: any) => k.provider);
+
+  // Initialize AI provider/model from user's keys
+  useEffect(() => {
+    if (userActiveProviders.length > 0 && !aiProvider) {
+      const providerPriority = ['OPENROUTER', 'OPENAI', 'CLAUDE', 'GEMINI', 'GROQ', 'COPILOT'];
+      const firstProvider = providerPriority.find(p => userActiveProviders.includes(p)) || userActiveProviders[0];
+      setAiProvider(firstProvider);
+      const models = aiModelsRes?.data?.[firstProvider] || [];
+      if (models.length > 0) {
+        const preferred = models.find((m: any) => /gpt-4|claude-3|gemini-2|llama-3\.3/i.test(m.id || ''));
+        setAiModel(preferred?.id || models[0]?.id || models[0] || '');
+      }
+    }
+  }, [userActiveProviders.length, aiModelsRes?.data]);
+
+  const teamMembers = teamMembersRes?.data || [];
+
+  const projectId = session?.data?.projectId as string | undefined;
+
+  // Mention candidates: AI + team members
+  const mentionCandidates = [
+    { id: '__ai__', name: 'AI Assistant', avatarUrl: null, isAI: true },
+    ...teamMembers.map((m: any) => ({ ...m, isAI: false })),
+  ];
+
+  const getMentionHandle = useCallback((candidate: any) => {
+    if (candidate?.isAI) return 'ai';
+
+    const username = String(candidate?.username || '').trim();
+    if (username) return username.toLowerCase();
+
+    const email = String(candidate?.email || '').trim();
+    if (email.includes('@')) {
+      return email.split('@')[0].toLowerCase().replace(/[^a-z0-9._-]/g, '');
+    }
+
+    const normalizedName = String(candidate?.name || '')
+      .toLowerCase()
+      .trim()
+      .replace(/\s+/g, '_')
+      .replace(/[^a-z0-9._-]/g, '');
+
+    return normalizedName || 'member';
+  }, []);
+
+  const filteredMentions = mentionQuery !== null
+    ? mentionCandidates.filter((c) => {
+        const q = mentionQuery.toLowerCase();
+        const handle = getMentionHandle(c);
+        return (
+          c.name.toLowerCase().includes(q) ||
+          String(c.email || '').toLowerCase().includes(q) ||
+          handle.includes(q) ||
+          (c.isAI && 'ai'.includes(q))
+        );
+      })
+    : [];
+
+  const allMessages = session?.data?.messages || [];
+  const hiddenMessageCount = Math.max(allMessages.length - visibleMessageCount, 0);
+  const renderedMessages =
+    hiddenMessageCount > 0 ? allMessages.slice(-visibleMessageCount) : allMessages;
+
+  // ===== LOAD SAVED DATA =====
+  useEffect(() => {
+    if (session?.data) {
       canvasLoadedRef.current = false;
       const wb = session.data.whiteboardData;
       if (wb && Array.isArray(wb)) {
@@ -236,18 +341,8 @@ import {
     setVisibleMessageCount(CHAT_INITIAL_RENDER_COUNT);
     hasInitialChatScrollRef.current = false;
     setReplyTarget(null);
-    setFocusedThreadRootId(null);
-    setHighlightedMessageId(null);
     setMessageContextMenu(null);
   }, [sessionId]);
-
-  useEffect(() => {
-    return () => {
-      if (highlightTimerRef.current) {
-        clearTimeout(highlightTimerRef.current);
-      }
-    };
-  }, []);
 
   // ===== AUTO-SAVE =====
   useEffect(() => {
@@ -430,25 +525,6 @@ import {
     }
   };
 
-  const jumpToMessage = (messageId: string) => {
-    if (!messageId) return;
-    setFocusedThreadRootId(null);
-    setVisibleMessageCount(allMessages.length || CHAT_INITIAL_RENDER_COUNT);
-
-    requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
-        const target = document.getElementById(`brain-msg-${messageId}`);
-        if (!target) return;
-        target.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        setHighlightedMessageId(messageId);
-        if (highlightTimerRef.current) clearTimeout(highlightTimerRef.current);
-        highlightTimerRef.current = setTimeout(() => {
-          setHighlightedMessageId(null);
-        }, 2200);
-      });
-    });
-  };
-
   const buildEmbedPayload = (item: any, type: string) => {
     const base = {
       kind: type,
@@ -508,7 +584,7 @@ import {
 
   const embedToMessage = (embed: any) => `[[embed]]${JSON.stringify(embed)}`;
 
-  function parseReply(content: string) {
+  const parseReply = (content: string) => {
     if (content.startsWith(REPLY_PREFIX)) {
       const lineEnd = content.indexOf('\n');
       const header = lineEnd >= 0 ? content.slice(REPLY_PREFIX.length, lineEnd) : content.slice(REPLY_PREFIX.length);
@@ -534,7 +610,7 @@ import {
     }
 
     return { text: content, reply: null };
-  }
+  };
 
   // @mention helpers
   const handleMessageChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
@@ -1085,58 +1161,35 @@ import {
       {/* ===== CHAT TAB ===== */}
       {activeTab === 'chat' && (
         <>
-          <div className="flex-1 min-h-0 flex gap-3">
-            <div ref={chatListRef} className="flex-1 overflow-y-auto py-4 space-y-3 min-w-0">
-              <div className="rounded-xl border border-border bg-muted/40 px-3 py-2 text-[11px] text-muted-foreground">
-                Tip: klik kanan pada bubble chat untuk Reply, Copy, Edit, atau Delete. Gunakan tombol @ di bawah untuk mention teammate.
+          <div ref={chatListRef} className="flex-1 overflow-y-auto py-4 space-y-3">
+            <div className="rounded-xl border border-border bg-muted/40 px-3 py-2 text-[11px] text-muted-foreground">
+              Tip: klik kanan pada bubble chat untuk Reply, Copy, Edit, atau Delete. Gunakan tombol @ di bawah untuk mention teammate.
+            </div>
+            {hiddenMessageCount > 0 && (
+              <div className="flex justify-center">
+                <button
+                  onClick={() => {
+                    skipNextAutoScrollRef.current = true;
+                    setVisibleMessageCount((prev) => Math.min(prev + CHAT_LOAD_BATCH, allMessages.length));
+                  }}
+                  className="px-3 py-1.5 rounded-lg border border-border text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                >
+                  Load older messages ({hiddenMessageCount})
+                </button>
               </div>
-              {!!focusedThreadRootId && (
-                <div className="flex items-center justify-between rounded-xl border border-border bg-card px-3 py-2">
-                  <div className="text-xs text-muted-foreground">
-                    Thread view: showing message + replies
-                  </div>
-                  <button
-                    onClick={() => setFocusedThreadRootId(null)}
-                    className="text-xs font-medium text-[#7b68ee] hover:underline"
-                  >
-                    Back to all messages
-                  </button>
-                </div>
-              )}
-              {hiddenMessageCount > 0 && !focusedThreadRootId && (
-                <div className="flex justify-center">
-                  <button
-                    onClick={() => {
-                      skipNextAutoScrollRef.current = true;
-                      setVisibleMessageCount((prev) => Math.min(prev + CHAT_LOAD_BATCH, allMessages.length));
-                    }}
-                    className="px-3 py-1.5 rounded-lg border border-border text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-                  >
-                    Load older messages ({hiddenMessageCount})
-                  </button>
-                </div>
-              )}
-              {threadMessages.map((msg: any) => {
+            )}
+            {renderedMessages.map((msg: any) => {
               const isOwn = msg.userId === user?.id;
               const isAI = msg.role === 'ASSISTANT';
               const isDeleted = msg.content === '___MESSAGE_DELETED___';
               const { text: withoutReplyText, reply } = parseReply(msg.content || '');
               const { text: msgText, embed } = parseEmbed(withoutReplyText || '');
-              const replyCount = repliesByMessageId.get(msg.id)?.length || 0;
               const senderName = msg.user?.name || (isAI ? 'AI Assistant' : 'Unknown');
               const senderInitial = isAI ? '' : senderName.charAt(0).toUpperCase();
               const isEditing = editingMessageId === msg.id;
 
               return (
-                <div
-                  key={msg.id}
-                  id={`brain-msg-${msg.id}`}
-                  className={cn(
-                    'flex gap-3 max-w-[85%] rounded-xl transition-all',
-                    isOwn ? 'ml-auto flex-row-reverse' : '',
-                    highlightedMessageId === msg.id && 'ring-2 ring-[#7b68ee]/45 shadow-[0_0_0_4px_rgba(123,104,238,0.14)]',
-                  )}
-                >
+                <div key={msg.id} className={cn('flex gap-3 max-w-[85%]', isOwn ? 'ml-auto flex-row-reverse' : '')}>
                   <div className={cn(
                     'h-7 w-7 rounded-full flex items-center justify-center shrink-0 mt-1 text-[10px] font-bold text-white',
                     isDeleted ? 'bg-muted' :
@@ -1215,14 +1268,6 @@ import {
                             <p className={cn('mt-0.5 truncate', isOwn ? 'text-white/80' : 'text-muted-foreground')}>
                               {reply.preview || 'Message'}
                             </p>
-                            {reply.messageId && (
-                              <button
-                                onClick={() => jumpToMessage(reply.messageId)}
-                                className={cn('mt-1 text-[10px] font-medium hover:underline', isOwn ? 'text-white/85' : 'text-[#7b68ee]')}
-                              >
-                                Go to original
-                              </button>
-                            )}
                           </div>
                         )}
                         {msgText && <p className="text-sm whitespace-pre-wrap leading-relaxed">{renderMessageContent(msgText, isOwn, isAI)}</p>}
@@ -1256,122 +1301,35 @@ import {
                                 <div className={cn('flex items-center gap-2 px-3 py-2 rounded-lg text-xs', isOwn ? 'bg-card/15' : 'bg-muted')}>
                                   <FileIcon className="h-4 w-4" />
                                   <a
-                                      })}
-                                      {!allMessages.length && (
-                                        <div className="flex flex-col items-center justify-center h-full text-center py-16">
-                                          <div className="h-16 w-16 rounded-2xl bg-gradient-to-br from-[#7b68ee]/10 to-[#6c5ce7]/5 flex items-center justify-center mb-4">
-                                            <MessageSquare className="h-8 w-8 text-[#7b68ee]" />
-                                          </div>
-                                          <h3 className="text-sm font-semibold text-foreground mb-1">Start the conversation</h3>
-                                          <p className="text-xs text-muted-foreground max-w-xs">Share ideas and discuss with your team</p>
+                                    href={fullUrl}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="truncate max-w-[160px] hover:underline"
+                                  >
                                     {msg.fileName || 'File'}
-                                      )}
-                                      {/* AI Typing Indicator */}
-                                      {aiTyping && (
-                                        <div className="flex gap-3 max-w-[85%] animate-in fade-in slide-in-from-bottom-2 duration-300">
-                                          <div className="h-7 w-7 rounded-full flex items-center justify-center shrink-0 mt-1 bg-gradient-to-br from-[#7b68ee] to-[#a855f7] animate-pulse">
-                                            <Brain className="h-3.5 w-3.5 text-white" />
-                                          </div>
-                                          <div className="rounded-2xl px-4 py-3 bg-gradient-to-r from-[#7b68ee]/10 to-[#a855f7]/10 border border-[#7b68ee]/20">
-                                            <p className="text-[11px] font-semibold mb-2 text-[#7b68ee]">
-                                              <Brain className="h-3 w-3 inline mr-1 -mt-0.5" />
-                                              AI Assistant
-                                            </p>
-                                            <div className="flex items-center gap-2">
-                                              <div className="flex gap-1">
-                                                <span className="h-2 w-2 rounded-full bg-[#7b68ee] animate-bounce" style={{ animationDelay: '0ms' }} />
-                                                <span className="h-2 w-2 rounded-full bg-[#7b68ee] animate-bounce" style={{ animationDelay: '150ms' }} />
-                                                <span className="h-2 w-2 rounded-full bg-[#7b68ee] animate-bounce" style={{ animationDelay: '300ms' }} />
-                                              </div>
-                                              <span className="text-xs text-[#7b68ee]/70 font-medium">Sedang berpikir...</span>
-                                            </div>
-                                          </div>
+                                  </a>
+                                  <a
+                                    href={downloadUrl}
+                                    download={msg.fileName || 'file'}
+                                    className={cn('ml-auto h-6 w-6 rounded-md flex items-center justify-center shrink-0 transition-colors', isOwn ? 'hover:bg-card/20' : 'hover:bg-accent')}
+                                    title="Download"
+                                  >
+                                    <Download className="h-3 w-3" />
+                                  </a>
                                 </div>
-                                      )}
-                                      <div ref={messagesEndRef} />
-                                    </div>
+                              )}
+                            </div>
+                          );
+                        })()}
+                      </>
+                    )}
 
-                                    {!!focusedThreadRootId && (
-                                      <aside className="hidden lg:flex w-72 shrink-0 h-full max-h-full rounded-2xl border border-border bg-card flex-col overflow-hidden">
-                                        <div className="px-3 py-2 border-b border-border bg-muted/40 flex items-center justify-between">
-                                          <div>
-                                            <p className="text-[11px] font-semibold text-[#7b68ee]">Thread</p>
-                                            <p className="text-[10px] text-muted-foreground">Focused discussion</p>
+                    {/* Timestamp + edited badge */}
+                    {!isEditing && !isDeleted && (
+                      <div className="flex items-center gap-2 mt-2">
+                        <span className={cn('text-[10px]', isOwn ? 'text-white/60' : 'text-muted-foreground')}>
+                          {new Date(msg.createdAt).toLocaleTimeString()}
                         </span>
-                                          <button
-                                            onClick={() => setFocusedThreadRootId(null)}
-                                            className="h-6 w-6 rounded-md hover:bg-accent flex items-center justify-center text-muted-foreground"
-                                            title="Close thread"
-                                          >
-                                            <X className="h-3.5 w-3.5" />
-                                          </button>
-                        {replyCount > 0 && (
-
-                                        <div className="flex-1 overflow-y-auto p-3 space-y-3">
-                                          {focusedThreadRootMessage ? (
-                                            <div className="rounded-xl border border-[#7b68ee]/20 bg-[#7b68ee]/5 p-2.5">
-                                              <p className="text-[10px] font-semibold text-[#7b68ee] mb-1">Root message</p>
-                                              <p className="text-xs text-foreground leading-relaxed line-clamp-4">
-                                                {parseReply(focusedThreadRootMessage.content || '').text || 'Message'}
-                                              </p>
-                                              <div className="flex items-center gap-2 mt-2">
-                                                <button
-                                                  onClick={() => jumpToMessage(focusedThreadRootMessage.id)}
-                                                  className="text-[10px] font-medium text-[#7b68ee] hover:underline"
-                                                >
-                                                  Jump to message
-                                                </button>
-                                                <button
-                                                  onClick={() => {
-                                                    setReplyTarget({
-                                                      id: focusedThreadRootMessage.id,
-                                                      sender: focusedThreadRootMessage.user?.name || (focusedThreadRootMessage.role === 'ASSISTANT' ? 'ai' : 'member'),
-                                                      content: getReplyPreview(focusedThreadRootMessage.content || ''),
-                                                    });
-                                                    textareaRef.current?.focus();
-                                                  }}
-                                                  className="text-[10px] font-medium text-muted-foreground hover:text-foreground"
-                                                >
-                                                  Reply in composer
-                                                </button>
-                                              </div>
-                                            </div>
-                                          ) : (
-                                            <div className="rounded-xl border border-border bg-muted/30 p-2.5 text-[11px] text-muted-foreground">
-                                              Root message not found.
-                                            </div>
-                                          )}
-
-                                          <div>
-                                            <p className="text-[10px] uppercase tracking-wide text-muted-foreground font-semibold mb-2">
-                                              Replies ({focusedThreadReplies.length})
-                                            </p>
-                                            {focusedThreadReplies.length === 0 ? (
-                                              <div className="rounded-xl border border-border bg-muted/30 p-2.5 text-[11px] text-muted-foreground">
-                                                Belum ada reply pada thread ini.
-                                              </div>
-                                            ) : (
-                                              <div className="space-y-1.5">
-                                                {focusedThreadReplies.map((replyMsg: any) => {
-                                                  const sender = replyMsg.user?.name || (replyMsg.role === 'ASSISTANT' ? 'AI Assistant' : 'Member');
-                                                  const parsed = parseReply(replyMsg.content || '').text;
-                                                  return (
-                                                    <button
-                                                      key={replyMsg.id}
-                                                      onClick={() => jumpToMessage(replyMsg.id)}
-                                                      className="w-full text-left rounded-xl border border-border bg-muted/30 hover:bg-muted px-2.5 py-2 transition-colors"
-                                                    >
-                                                      <p className="text-[10px] text-muted-foreground">{sender}</p>
-                                                      <p className="text-xs text-foreground truncate">{parsed || 'Message'}</p>
-                                                    </button>
-                                                  );
-                                                })}
-                                              </div>
-                                            )}
-                          >
-                            {replyCount} repl{replyCount > 1 ? 'ies' : 'y'}
-                                      </aside>
-                                    )}
                         {msg.isEdited && (
                           <span className={cn('text-[10px] italic', isOwn ? 'text-white/50' : 'text-muted-foreground')}>
                             (edited)
@@ -1465,18 +1423,6 @@ import {
                 }}
               >
                 Reply
-              </button>
-              <button
-                className="w-full text-left px-3 py-2 text-xs hover:bg-accent"
-                onClick={() => {
-                  const msg = messageContextMenu.msg;
-                  const { reply } = parseReply(msg.content || '');
-                  const rootId = reply?.messageId || msg.id;
-                  setFocusedThreadRootId(rootId);
-                  setMessageContextMenu(null);
-                }}
-              >
-                View thread
               </button>
               <button
                 className="w-full text-left px-3 py-2 text-xs hover:bg-accent"

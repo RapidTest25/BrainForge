@@ -2,7 +2,7 @@
 
 import { Loader2, Trash2 } from 'lucide-react';
 import {
-  Dialog, DialogContent, DialogFooter,
+  Dialog, DialogContent, DialogDescription, DialogFooter, DialogTitle,
 } from '@/components/ui/dialog';
 
 interface DeleteConfirmDialogProps {
@@ -31,13 +31,17 @@ export function DeleteConfirmDialog({
           <div className="h-12 w-12 rounded-2xl bg-red-50 dark:bg-red-500/10 flex items-center justify-center mb-4">
             <Trash2 className="h-6 w-6 text-red-500" />
           </div>
-          <h3 className="text-lg font-semibold text-foreground mb-1">{title}</h3>
+          <DialogTitle className="text-lg font-semibold text-foreground mb-1">{title}</DialogTitle>
           {itemLabel && (
-            <p className="text-sm text-muted-foreground mb-1">
+            <DialogDescription className="text-sm text-muted-foreground mb-1">
               Are you sure you want to delete <span className="font-medium text-foreground">&ldquo;{itemLabel}&rdquo;</span>?
-            </p>
+            </DialogDescription>
           )}
-          <p className="text-xs text-muted-foreground/70">{description || 'This action cannot be undone.'}</p>
+          {!itemLabel && (
+            <DialogDescription className="text-xs text-muted-foreground/70">
+              {description || 'This action cannot be undone.'}
+            </DialogDescription>
+          )}
         </div>
         <DialogFooter className="flex gap-2 sm:gap-2">
           <button

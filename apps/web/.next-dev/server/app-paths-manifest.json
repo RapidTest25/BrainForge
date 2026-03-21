@@ -1,4 +1,5 @@
 {
+  "/icon.png/route": "app/icon.png/route.js",
   "/(auth)/login/page": "app/(auth)/login/page.js",
   "/page": "app/page.js",
   "/(app)/meetings/page": "app/(app)/meetings/page.js",

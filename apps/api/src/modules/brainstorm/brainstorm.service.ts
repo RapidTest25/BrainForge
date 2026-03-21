@@ -2,10 +2,110 @@ import { prisma } from '../../lib/prisma.js';
 import { NotFoundError } from '../../lib/errors.js';
 import { aiService } from '../../ai/ai.service.js';
 import type { ChatMsg } from '../../ai/providers/base.js';
+import { notificationService } from '../notification/notification.service.js';
 
 const USER_SELECT = { id: true, name: true, avatarUrl: true };
+const REPLY_PREFIX = '[[reply]]';
+const IGNORE_MENTION_HANDLES = new Set(['ai', 'ai_assistant']);
 
 class BrainstormService {
+  private normalizeMentionHandle(input?: string | null): string {
+    return String(input || '')
+      .toLowerCase()
+      .trim()
+      .replace(/\s+/g, '_')
+      .replace(/[^a-z0-9._-]/g, '');
+  }
+
+  private extractVisibleMessageBody(content: string): string {
+    if (!content.startsWith(REPLY_PREFIX)) return content;
+
+    const lineEnd = content.indexOf('\n');
+    if (lineEnd < 0) return '';
+    return content.slice(lineEnd + 1);
+  }
+
+  private extractMentionHandles(content: string): string[] {
+    const text = this.extractVisibleMessageBody(content || '');
+    const mentions = new Set<string>();
+    const regex = /@([a-zA-Z0-9._-]+)/g;
+
+    let match: RegExpExecArray | null;
+    while ((match = regex.exec(text)) !== null) {
+      const handle = this.normalizeMentionHandle(match[1]);
+      if (!handle || IGNORE_MENTION_HANDLES.has(handle)) continue;
+      mentions.add(handle);
+    }
+
+    return Array.from(mentions);
+  }
+
+  private async notifyMentionedMembers(params: {
+    teamId: string;
+    sessionId: string;
+    senderId: string;
+    senderName: string;
+    content: string;
+  }) {
+    const mentionHandles = this.extractMentionHandles(params.content);
+    if (mentionHandles.length === 0) return;
+
+    const memberships = await prisma.teamMember.findMany({
+      where: { teamId: params.teamId },
+      include: {
+        user: {
+          select: { id: true, name: true, email: true },
+        },
+      },
+    });
+
+    const handleToUserId = new Map<string, string>();
+    for (const member of memberships) {
+      const user = member.user;
+      const handles = new Set<string>();
+      const normalizedName = this.normalizeMentionHandle(user.name);
+      if (normalizedName) handles.add(normalizedName);
+
+      const emailLocal = this.normalizeMentionHandle((user.email || '').split('@')[0]);
+      if (emailLocal) handles.add(emailLocal);
+
+      handles.forEach((handle) => {
+        if (!handleToUserId.has(handle)) {
+          handleToUserId.set(handle, user.id);
+        }
+      });
+    }
+
+    const targetUserIds = Array.from(
+      new Set(
+        mentionHandles
+          .map((handle) => handleToUserId.get(handle))
+          .filter((id): id is string => Boolean(id) && id !== params.senderId),
+      ),
+    );
+
+    if (targetUserIds.length === 0) return;
+
+    const preview = this
+      .extractVisibleMessageBody(params.content)
+      .replace(/\s+/g, ' ')
+      .trim()
+      .slice(0, 160);
+
+    await Promise.all(
+      targetUserIds.map((targetUserId) =>
+        notificationService.create({
+          teamId: params.teamId,
+          userId: targetUserId,
+          title: `${params.senderName} mentioned you in Brainstorm`,
+          message: preview || 'Open session to view the message.',
+          type: 'info',
+          link: `/brainstorm/${params.sessionId}`,
+        }),
+      ),
+    );
+  }
+
   private async getWorkspaceContext(teamId: string, projectId?: string) {
     const projectFilter = projectId ? { projectId } : {};
 
@@ -141,6 +241,14 @@ class BrainstormService {
     const userMessage = await prisma.brainstormMessage.create({
       data: { sessionId, userId, role: 'USER', content },
       include: { user: { select: USER_SELECT } },
+    });
+
+    await this.notifyMentionedMembers({
+      teamId: session.teamId,
+      sessionId,
+      senderId: userId,
+      senderName: userMessage.user?.name || 'A teammate',
+      content,
     });
 
     // Update session timestamp

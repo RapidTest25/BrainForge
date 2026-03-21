@@ -251,6 +251,9 @@ export function Header({ onMobileMenuToggle }: HeaderProps) {
                       onClick={() => {
                         if (!n.read) markReadMutation.mutate(n.id);
                         setShowNotifications(false);
+                        if (n.link) {
+                          router.push(n.link);
+                        }
                       }}
                       className={`w-full text-left px-4 py-3 border-b border-border/50 hover:bg-muted/80 transition-colors ${!n.read ? 'bg-[#7b68ee]/3' : ''}`}
                     >

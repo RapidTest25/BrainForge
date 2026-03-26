@@ -73,3 +73,5 @@ Dokumentasi ini dipecah menjadi beberapa file agar lebih mudah dibaca dan diagra
 ---
 
 > **Dokumen ini dibuat untuk keperluan skripsi/penulisan ilmiah. Semua informasi diambil langsung dari source code proyek BrainForge.**
+
+hanya membantu saja
